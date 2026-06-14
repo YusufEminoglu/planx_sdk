@@ -42,7 +42,8 @@ planx_sdk/
   │           ├── __init__.py
   │           ├── seismic.py      # Monte Carlo sismik yapısal hasar ve enkaz yayılım simülasyonu
   │           ├── flood.py        # DEM tabanlı plüvyal (yüzey suyu) taşkın duyarlılık analizi
-  │           └── social.py       # Sosyal kırılganlık endeksi (SVI) tarama ve analizi
+  │           ├── social.py       # Sosyal kırılganlık endeksi (SVI) tarama ve analizi
+  │           └── heat.py         # Kentsel ısı konforu riski ve yeşil alan açığı tarama modeli
   └── tests/                      # Birim testler (Unit Tests)
 ```
 
@@ -128,6 +129,26 @@ weights = {
 scores, classes = social_vulnerability_index(indicators, weights)
 print("Sosyal Kırılganlık Skorları:", scores)
 print("Sınıflar:", classes) # ['Moderate', 'Moderate', 'Moderate']
+```
+
+### 5. Kentsel Isı Konforu Riski (`planx.resilience`)
+Betonlaşma/geçirimsiz yüzey oranı, bina yoğunluğu, yeşil alan açığı, serinleme alanlarına olan yürüme mesafesi ve hassas nüfus noktalarını birleştirerek 0-100 aralığında bir kentsel sıcaklık maruziyet/risk skoru üretir.
+
+```python
+import numpy as np
+from planx.resilience import urban_heat_comfort_risk
+
+# 2x2 grid hücreleri için veriler
+impervious = np.array([[0.8, 0.2], [0.5, 0.1]]) # Geçirimsiz yüzey oranı [0-1]
+buildings = np.array([[0.6, 0.1], [0.4, 0.05]]) # Bina yoğunluğu oranı [0-1]
+green = np.array([[0.1, 0.8], [0.3, 0.9]])      # Yeşil alan oranı [0-1]
+cooling_dists = np.array([[300.0, 50.0], [200.0, 20.0]]) # Serinleme alanına olan mesafe (m)
+vuln_assets = np.array([[2, 0], [1, 0]])        # Hassas tesis sayısı (okul, hastane vb.)
+
+scores, classes = urban_heat_comfort_risk(
+    impervious, buildings, green, cooling_dists, vuln_assets, cooling_distance=400.0
+)
+print("Isı Konfor Riski Skorları:\n", scores)
 ```
 
 ---
