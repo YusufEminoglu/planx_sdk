@@ -143,6 +143,21 @@ selected_lscp, final_coverage = greedy_lscp(
     candidates, demands, demand_pop=populations, max_distance=15.0, target_coverage=0.8
 )
 print("LSCP Selected Facility Indices:", selected_lscp)  # [2] (One facility covers 87.5%)
+
+# 4. Capacitated Location Allocation: Assign demands to closest facilities with capacity limits
+from planx.suitability import capacitated_location_allocation
+
+facilities = np.array([[0.0, 0.0], [10.0, 0.0]])
+capacities = np.array([150.0, 200.0])
+demands_coords = np.array([[1.0, 0.0], [9.0, 0.0], [2.0, 0.0]])
+demands_pop = np.array([100.0, 150.0, 80.0])
+
+allocations, unassigned, usage = capacitated_location_allocation(
+    facilities, capacities, demands_coords, demands_pop
+)
+print("Allocations per facility:", allocations)
+print("Unassigned demands:", unassigned)
+
 ```
 
 ### 3. Seismic Damage and Debris Propagation (`planx.resilience`)

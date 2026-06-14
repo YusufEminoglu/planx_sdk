@@ -314,3 +314,99 @@ def greedy_lscp(
         current_covered_pop = np.sum(pop[covered])
 
     return selected_indices, current_covered_pop / total_pop
+
+
+def capacitated_location_allocation(
+    facility_coords: np.ndarray,
+    facility_capacities: np.ndarray,
+    demand_coords: np.ndarray,
+    demand_pop: np.ndarray,
+    max_distance: Optional[float] = None,
+) -> tuple[dict[int, list[int]], np.ndarray, np.ndarray]:
+    """Assigns demand points to their nearest available facility respecting capacity limits.
+
+    Uses a greedy heuristic: demand points are sorted by their distance to the nearest
+    facility, and each demand point is assigned to its closest facility that has enough
+    remaining capacity.
+
+    Args:
+        facility_coords: NumPy array of shape (F, 2) containing facility coordinates.
+        facility_capacities: NumPy array of shape (F,) containing capacity limits.
+        demand_coords: NumPy array of shape (D, 2) containing demand point coordinates.
+        demand_pop: NumPy array of shape (D,) containing population/demand at each point.
+        max_distance: Optional maximum distance for assignment. Demands further than
+            this from a facility cannot be assigned to it.
+
+    Returns:
+        Tuple of:
+          - allocations: Dictionary mapping facility index (int) to list of assigned
+            demand point indices (list of ints).
+          - unassigned: 1D NumPy array containing indices of demand points that could
+            not be assigned.
+          - usage: 1D NumPy array of shape (F,) containing the total allocated population
+            at each facility.
+    """
+    fac = np.asarray(facility_coords, dtype=np.float64)
+    fac_caps = np.asarray(facility_capacities, dtype=np.float64).copy()
+    dem = np.asarray(demand_coords, dtype=np.float64)
+    pop = np.asarray(demand_pop, dtype=np.float64)
+
+    if fac.ndim != 2 or fac.shape[1] != 2:
+        raise ValueError("facility_coords must be of shape (F, 2)")
+    if fac_caps.ndim != 1 or fac_caps.shape[0] != fac.shape[0]:
+        raise ValueError("facility_capacities must be a 1D array of length F")
+    if dem.ndim != 2 or dem.shape[1] != 2:
+        raise ValueError("demand_coords must be of shape (D, 2)")
+    if pop.ndim != 1 or pop.shape[0] != dem.shape[0]:
+        raise ValueError("demand_pop must be a 1D array of length D")
+
+    f_count = fac.shape[0]
+    d_count = dem.shape[0]
+
+    if f_count == 0 or d_count == 0:
+        return {}, np.arange(d_count, dtype=np.int64), np.zeros(f_count)
+
+    # Compute Euclidean distance matrix: shape (F, D)
+    dists = np.sqrt(
+        (fac[:, None, 0] - dem[None, :, 0]) ** 2 + (fac[:, None, 1] - dem[None, :, 1]) ** 2
+    )
+
+    # Find the minimum distance to any facility for each demand point to sort them
+    min_dists = np.min(dists, axis=0)
+    # Sort demand indices by their minimum distance to any facility (closest first)
+    sorted_demand_indices = np.argsort(min_dists)
+
+    allocations: dict[int, list[int]] = {i: [] for i in range(f_count)}
+    unassigned: list[int] = []
+    usage = np.zeros(f_count, dtype=np.float64)
+
+    cutoff = max_distance if max_distance is not None else np.inf
+
+    for d_idx in sorted_demand_indices:
+        d_pop = pop[d_idx]
+        # Get distances from this demand to all facilities
+        d_dists = dists[:, d_idx]
+
+        # Sort facilities by distance to this demand point
+        sorted_fac_indices = np.argsort(d_dists)
+
+        assigned = False
+        for f_idx in sorted_fac_indices:
+            dist = d_dists[f_idx]
+            if dist > cutoff:
+                # Since facilities are sorted by distance, all subsequent ones are also too far
+                break
+
+            # Check if facility has enough capacity left
+            if fac_caps[f_idx] >= d_pop:
+                # Allocate
+                allocations[f_idx].append(int(d_idx))
+                fac_caps[f_idx] -= d_pop
+                usage[f_idx] += d_pop
+                assigned = True
+                break
+
+        if not assigned:
+            unassigned.append(int(d_idx))
+
+    return allocations, np.array(unassigned, dtype=np.int64), usage

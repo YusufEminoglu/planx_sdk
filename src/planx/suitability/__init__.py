@@ -6,7 +6,12 @@ Core Multi-Criteria Decision Analysis (MCDA) mathematical engines,
 including reclassification, normalization, and weighted linear combination.
 """
 
-from .facility import greedy_lscp, greedy_mclp, greedy_p_median
+from .facility import (
+    capacitated_location_allocation,
+    greedy_lscp,
+    greedy_mclp,
+    greedy_p_median,
+)
 from .mcda import normalize_array, weighted_linear_combination
 from .weights import (
     ahp_weights,
@@ -22,6 +27,7 @@ __all__ = [
     "greedy_mclp",
     "greedy_p_median",
     "greedy_lscp",
+    "capacitated_location_allocation",
     "ahp_weights",
     "decision_matrix_from_layers",
     "entropy_weights",
