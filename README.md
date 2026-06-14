@@ -37,7 +37,7 @@ planx_sdk/
   │       ├── suitability/        # Raster tabanlı MCDA (Multi-Criteria Decision Analysis) motoru
   │       │   ├── __init__.py
   │       │   ├── mcda.py         # Normalizasyon metotları (Sigmoid, Gaussian, Min-Max) ve WLC
-  │       │   ├── facility.py     # Greedy MCLP (Maximal Covering Location Problem) tesis yerleşimi
+  │       │   ├── facility.py     # Tesis konumu optimizasyonu (MCLP, p-Median, LSCP)
   │       │   └── weights.py      # Karar matrisi ağırlıklandırma metotları (AHP, Entropy, CRITIC, PCA)
   │       └── resilience/         # Kentsel dirençlilik, afet ve risk simülasyon motorları
   │           ├── __init__.py
@@ -77,19 +77,34 @@ print("Erişilebilirlik Skorları:", accessibility)
 ```
 
 ### 2. Tesis Konumu Optimizasyonu (`planx.suitability`)
-Belirli sayıda acil toplanma alanı veya sığınağı, maksimum kapsama mesafesini ve nüfusu gözeterek en optimum şekilde yerleştirmek için **MCLP** çözümünü uygular.
+Belirli sayıda acil toplanma alanı, sığınak veya kamu tesisi gibi tesisleri; kapsama alanı maks. mesafesini (**MCLP**, **LSCP**) veya tüm nüfusun ortalama erişim mesafesini (**p-Median**) optimize edecek şekilde yerleştirir.
 
 ```python
 import numpy as np
-from planx.suitability import greedy_mclp
+from planx.suitability import greedy_mclp, greedy_p_median, greedy_lscp
 
 candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]]) # Sığınak aday koordinatları
 demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])   # Bina koordinatları
 populations = np.array([100.0, 250.0, 500.0])                 # Bina nüfusları
 
-# K=2 sığınak seç, maksimum yürüme mesafesi 5.0 birim olsun
-selected, added_pop, cum_pop = greedy_mclp(candidates, demands, populations, max_distance=5.0, k=2)
-print("Seçilen Tesis İndisleri:", selected) # [1, 0]
+# 1. MCLP: K=2 sığınak seç, maksimum yürüme mesafesi 15.0 olsun (Kapsama alanı maksimizasyonu)
+selected_mclp, added_pop, cum_pop = greedy_mclp(
+    candidates, demands, populations, max_distance=15.0, k=2
+)
+print("MCLP Seçilen Tesis İndisleri:", selected_mclp) # [2, 1]
+
+# 2. p-Median: Toplam seyahat maliyetini/mesafesini minimize edecek P=2 tesis seç
+selected_pmed, costs = greedy_p_median(
+    candidate_coords=candidates, demand_coords=demands, demand_pop=populations, p=2
+)
+print("p-Median Seçilen Tesis İndisleri:", selected_pmed) # [2, 1]
+print("Adım Adım Toplam Maliyet:", costs)
+
+# 3. LSCP: Nüfusun en az %80'ini 15.0 birim mesafe içinde kapsamak için minimum tesis sayısını bul
+selected_lscp, final_coverage = greedy_lscp(
+    candidates, demands, demand_pop=populations, max_distance=15.0, target_coverage=0.8
+)
+print("LSCP Seçilen Tesis İndisleri:", selected_lscp) # [2] (Tek tesis %87.5 kapsamaya yeterli)
 ```
 
 ### 3. Sismik Hasar ve Enkaz Yayılımı (`planx.resilience`)
