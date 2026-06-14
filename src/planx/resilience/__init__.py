@@ -14,6 +14,7 @@ from .infrastructure import (
     prioritize_debris_clearance,
     simulate_network_disruption,
 )
+from .landslide import landslide_susceptibility
 from .seismic import simulate_seismic_debris
 from .social import social_vulnerability_index
 from .synthesis import equity_adjusted_priority, multi_hazard_composite
@@ -22,6 +23,7 @@ __all__ = [
     "simulate_seismic_debris",
     "pluvial_flood_susceptibility",
     "coastal_flood_inundation",
+    "landslide_susceptibility",
     "social_vulnerability_index",
     "urban_heat_comfort_risk",
     "multi_hazard_composite",

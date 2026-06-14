@@ -9,6 +9,7 @@ from planx.resilience import (
     equity_adjusted_priority,
     identify_critical_bottlenecks,
     infrastructure_service_loss,
+    landslide_susceptibility,
     multi_hazard_composite,
     pluvial_flood_susceptibility,
     prioritize_debris_clearance,
@@ -236,3 +237,20 @@ def test_coastal_flood_inundation():
     # Check depth: water_level - dem
     assert np.isclose(depth[0, 0], 1.0)
     assert np.isclose(depth[0, 1], 0.0)
+
+
+def test_landslide_susceptibility():
+    dem_flat = np.ones((3, 3), dtype=np.float64) * 10.0
+    scores, classes = landslide_susceptibility(dem_flat, cell_size=10.0)
+    assert np.allclose(scores, 0.0)
+    assert classes == [["Low", "Low", "Low"], ["Low", "Low", "Low"], ["Low", "Low", "Low"]]
+
+    dem_steep = np.array(
+        [[100.0, 100.0, 100.0], [50.0, 50.0, 50.0], [0.0, 0.0, 0.0]], dtype=np.float64
+    )
+    scores_steep, classes_steep = landslide_susceptibility(dem_steep, cell_size=10.0)
+    assert np.isclose(scores_steep[1, 1], 100.0)
+    assert classes_steep[1][1] == "Very High"
+
+    with pytest.raises(ValueError, match="must match dem shape"):
+        landslide_susceptibility(dem_flat, cell_size=10.0, soil_susceptibility=np.ones((2, 2)))

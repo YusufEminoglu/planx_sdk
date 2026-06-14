@@ -43,6 +43,7 @@ planx_sdk/
   │           ├── __init__.py
   │           ├── seismic.py      # Monte Carlo seismic structural damage and debris propagation simulation
   │           ├── flood.py        # DEM-based pluvial (surface water) and connected coastal flood models
+  │           ├── landslide.py    # Terrain slope (Horn's method), soil and LULC landslide screening
   │           ├── social.py       # Social Vulnerability Index (SVI) screening and analysis
   │           ├── heat.py         # Urban heat comfort risk and green space deficit screening model
   │           ├── synthesis.py    # Multi-hazard composite index and equity-oriented priority synthesis
@@ -335,6 +336,25 @@ sea_mask[0, 0] = True  # Sea seed start location
 flooded, water_depth = coastal_flood_inundation(dem_grid, water_level=8.0, sea_mask=sea_mask)
 print("Inundated Area Mask:\n", flooded)
 print("Water Depth Matrix:\n", water_depth)
+```
+
+### 10. Landslide Susceptibility Analysis (`planx.resilience`)
+Combines terrain slope (calculated using Horn's method), soil, and land use/land cover (LULC) factor weights to locate areas prone to slope stability failure.
+
+```python
+import numpy as np
+from planx.resilience import landslide_susceptibility
+
+# 3x3 DEM grid with elevation changes
+dem_grid = np.array([
+    [100.0, 100.0, 100.0],
+    [50.0, 50.0, 50.0],
+    [0.0, 0.0, 0.0]
+])
+
+# Cell size of 10.0 meters
+scores, classes = landslide_susceptibility(dem_grid, cell_size=10.0)
+print("Landslide Susceptibility Scores:\n", scores)
 ```
 
 ---
