@@ -4,7 +4,14 @@
 import numpy as np
 import pytest
 
-from planx.spatial import closeness_straightness, eigenvector, many_to_many, multi_source
+from planx.spatial import (
+    closeness_straightness,
+    cumulative_opportunities,
+    eigenvector,
+    gravity_accessibility,
+    many_to_many,
+    multi_source,
+)
 
 
 @pytest.fixture
@@ -68,3 +75,14 @@ def test_eigenvector_centrality(sample_graph):
     assert ev[2] > 0.0
     assert ev[1] > ev[0]
     assert ev[1] > ev[2]
+
+
+def test_accessibility():
+    dists = np.array([[1.0, 2.0, 5.0], [4.0, 1.0, 10.0]])
+    weights = np.array([10.0, 20.0, 50.0])
+
+    co = cumulative_opportunities(dists, weights, cutoff=3.0)
+    np.testing.assert_allclose(co, [30.0, 20.0])
+
+    ga_exp = gravity_accessibility(dists, weights, decay_method="exponential", beta=0.5)
+    np.testing.assert_allclose(ga_exp, [17.527144, 13.820863], rtol=1e-5)
