@@ -4,7 +4,11 @@
 import numpy as np
 import pytest
 
-from planx.resilience import pluvial_flood_susceptibility, simulate_seismic_debris
+from planx.resilience import (
+    pluvial_flood_susceptibility,
+    simulate_seismic_debris,
+    social_vulnerability_index,
+)
 
 
 def test_simulate_seismic_debris():
@@ -52,3 +56,16 @@ def test_pluvial_flood_susceptibility():
     assert len(classes[0]) == 3
     # Low elevations should have higher susceptibility scores
     assert scores[2, 0] > scores[0, 2]
+
+
+def test_social_vulnerability_index():
+    indicators = {
+        "elderly": np.array([10.0, 50.0, 100.0]),
+        "low_income": np.array([200.0, 100.0, 50.0]),
+    }
+    weights = {"elderly": 0.5, "low_income": 0.5}
+
+    scores, classes = social_vulnerability_index(indicators, weights)
+
+    np.testing.assert_allclose(scores, [50.0, 38.888889, 50.0], rtol=1e-5)
+    assert classes == ["Moderate", "Moderate", "Moderate"]
