@@ -5,6 +5,8 @@ import numpy as np
 import pytest
 
 from planx.resilience import (
+    equity_adjusted_priority,
+    multi_hazard_composite,
     pluvial_flood_susceptibility,
     simulate_seismic_debris,
     social_vulnerability_index,
@@ -85,3 +87,49 @@ def test_urban_heat_comfort_risk():
     assert len(classes) == 2
     assert len(classes[0]) == 2
     assert scores[0, 0] > scores[1, 1]
+
+
+def test_multi_hazard_composite():
+    heat = np.array([80.0, 20.0, 50.0])
+    flood = np.array([40.0, 10.0, np.nan])
+
+    hazards = {"heat": heat, "flood": flood}
+    weights = {"heat": 0.6, "flood": 0.4}
+
+    scores, classes, dominant, diversity, drivers = multi_hazard_composite(hazards, weights)
+
+    assert scores.shape == (3,)
+    assert diversity.shape == (3,)
+    assert len(classes) == 3
+    assert len(dominant) == 3
+    assert len(drivers) == 3
+
+    # Check score calculations
+    # Index 0: (80*0.6 + 40*0.4) / 1.0 = 48 + 16 = 64
+    assert np.isclose(scores[0], 64.0)
+    # Index 2: only heat is valid, so score = 50.0
+    assert np.isclose(scores[2], 50.0)
+    assert dominant[0] == "heat"
+    assert "heat" in drivers[0]
+    assert "flood" in drivers[0]
+    assert drivers[2] == ["heat"]
+
+
+def test_equity_adjusted_priority():
+    hazard = np.array([[40.0, 60.0], [20.0, 80.0]])
+    svi = np.array([[10.0, 90.0], [50.0, 30.0]])
+
+    scores, raw, factors, classes = equity_adjusted_priority(hazard, svi, equity_weight=0.5)
+
+    assert scores.shape == (2, 2)
+    assert raw.shape == (2, 2)
+    assert factors.shape == (2, 2)
+    assert len(classes) == 2
+    assert len(classes[0]) == 2
+
+    # Index (0, 0): factor = 1 + 0.5*0.1 = 1.05
+    # raw = 40.0 * 1.05 = 42.0
+    # score = 100 * 42 / 150 = 28.0
+    assert np.isclose(factors[0, 0], 1.05)
+    assert np.isclose(raw[0, 0], 42.0)
+    assert np.isclose(scores[0, 0], 28.0)

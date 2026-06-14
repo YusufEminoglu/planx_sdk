@@ -44,7 +44,8 @@ planx_sdk/
   │           ├── seismic.py      # Monte Carlo sismik yapısal hasar ve enkaz yayılım simülasyonu
   │           ├── flood.py        # DEM tabanlı plüvyal (yüzey suyu) taşkın duyarlılık analizi
   │           ├── social.py       # Sosyal kırılganlık endeksi (SVI) tarama ve analizi
-  │           └── heat.py         # Kentsel ısı konforu riski ve yeşil alan açığı tarama modeli
+  │           ├── heat.py         # Kentsel ısı konforu riski ve yeşil alan açığı tarama modeli
+  │           └── synthesis.py    # Çoklu tehlike kompozit endeksi ve eşitlik odaklı öncelik sentezi
   └── tests/                      # Birim testler (Unit Tests)
 ```
 
@@ -180,6 +181,31 @@ decision_matrix = np.array([
 ])
 ent_weights = entropy_weights(decision_matrix)
 print("Entropy Ağırlıkları:", ent_weights)
+```
+
+### 7. Çoklu Tehlike Sentezi ve Eşitlikçi Önceliklendirme (`planx.resilience`)
+Çoklu tehlike analizleri (Multi-Hazard Composite Index) ve Sosyal Kırılganlık Endeksi (SVI) ile risk önceliklerini birleştiren eşitlik odaklı sentez modelleri sunar.
+
+```python
+import numpy as np
+from planx.resilience import multi_hazard_composite, equity_adjusted_priority
+
+# 1. Çoklu Tehlike Kompozit Endeksi (Multi-Hazard Composite Index)
+hazards = {
+    "heat": np.array([80.0, 20.0, 50.0]),
+    "flood": np.array([40.0, 10.0, np.nan]) # Eksik verileri otomatik maskeler
+}
+weights = {"heat": 0.6, "flood": 0.4}
+
+scores, classes, dominant, diversity, drivers = multi_hazard_composite(hazards, weights)
+print("Sentezlenen Skorlar:", scores) # [64. 16. 50.]
+print("Bölgesel Baskın Tehlike:", dominant) # ['heat', 'heat', 'heat']
+print("Çeşitlilik (Multi-Stress) Skoru:", diversity)
+
+# 2. Sosyal Kırılganlık (SVI) ile Eşitlik Odaklı Risk Önceliklendirme
+svi = np.array([10.0, 90.0, 50.0]) # Sosyal Kırılganlık Endeksi
+eq_scores, raw, factors, eq_classes = equity_adjusted_priority(scores, svi, equity_weight=0.5)
+print("Sosyal Kırılganlık ile Düzeltilmiş Skorlar:", eq_scores)
 ```
 
 ---
