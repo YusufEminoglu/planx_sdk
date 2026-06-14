@@ -7,6 +7,7 @@ building collapse debris, and infrastructure recovery corridors.
 """
 
 from .flood import pluvial_flood_susceptibility
+from .heat import urban_heat_comfort_risk
 from .seismic import simulate_seismic_debris
 from .social import social_vulnerability_index
 
@@ -14,4 +15,5 @@ __all__ = [
     "simulate_seismic_debris",
     "pluvial_flood_susceptibility",
     "social_vulnerability_index",
+    "urban_heat_comfort_risk",
 ]

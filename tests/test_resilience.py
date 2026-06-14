@@ -8,6 +8,7 @@ from planx.resilience import (
     pluvial_flood_susceptibility,
     simulate_seismic_debris,
     social_vulnerability_index,
+    urban_heat_comfort_risk,
 )
 
 
@@ -69,3 +70,18 @@ def test_social_vulnerability_index():
 
     np.testing.assert_allclose(scores, [50.0, 38.888889, 50.0], rtol=1e-5)
     assert classes == ["Moderate", "Moderate", "Moderate"]
+
+
+def test_urban_heat_comfort_risk():
+    imp = np.array([[0.8, 0.2], [0.5, 0.1]])
+    bld = np.array([[0.6, 0.1], [0.4, 0.05]])
+    grn = np.array([[0.1, 0.8], [0.3, 0.9]])
+    dst = np.array([[300.0, 50.0], [200.0, 20.0]])
+    vuln = np.array([[2, 0], [1, 0]])
+
+    scores, classes = urban_heat_comfort_risk(imp, bld, grn, dst, vuln, cooling_distance=400.0)
+
+    assert scores.shape == (2, 2)
+    assert len(classes) == 2
+    assert len(classes[0]) == 2
+    assert scores[0, 0] > scores[1, 1]
