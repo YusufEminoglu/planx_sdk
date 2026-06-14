@@ -5,226 +5,226 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub Code Formatting](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-PlanX QGIS eklenti ekosisteminin çekirdek mekansal analiz, istatistik, ağ analizleri ve kentsel dirençlilik hesaplama motorlarını barındıran, QGIS arayüzünden bağımsız, saf Python, NumPy ve SciPy tabanlı resmi kütüphanesidir.
+PlanX SDK is the official core library of the PlanX QGIS plugin ecosystem, containing spatial analysis, spatial statistics, network routing, and urban resilience computation engines. It is designed to run headless, independent of the QGIS interface, and is powered entirely by pure Python, NumPy, and SciPy.
 
-Bu kütüphane sayesinde, QGIS eklentilerindeki karmaşık algoritmaları:
-1. **Headless & Bağımsız Çalıştırma:** QGIS'i başlatmadan (örneğin Jupyter Notebooks, bağımsız komut dosyaları, sunucular veya web uygulamalarında) çalıştırabilir,
-2. **Hızlı Test Edebilme:** `pytest` ile hızlı ve headless bir şekilde tüm analitik modülleri test edebilir,
-3. **Merkezi Yönetim:** Tek bir merkezden güncelleyerek (PyPI üzerinden `pip install planx-sdk`) tüm eklentilerinizde ve araç setlerinizde tutarlı bir şekilde kullanabilirsiniz.
+With this SDK, you can:
+1. **Run Headless & Independent:** Execute complex spatial algorithms without launching QGIS (e.g., in Jupyter Notebooks, standalone scripts, servers, or web applications).
+2. **Perform Fast Testing:** Easily run unit tests via `pytest` in a headless environment.
+3. **Ensure Centralized Management:** Keep all plugins and analytical tools consistent by updating a single core package (installable via `pip install planx-sdk`).
 
 ---
 
-## 📂 Proje Yapısı (Directory Structure)
+## 📂 Project Structure (Directory Structure)
 
 ```text
 planx_sdk/
-  ├── .github/workflows/          # GitHub Actions (PyPI otomatik yayınlama entegrasyonu)
-  ├── pyproject.toml              # Modern paket tanımı, bağımlılıklar ve metadata (PEP 517/621)
-  ├── README.md                   # Bu dökümantasyon dosyası
-  ├── LICENSE                     # Lisans dosyası
-  ├── .gitignore                  # Önbellek ve build dosyalarını yoksayan Git kuralları
-  ├── src/                        # Kaynak kodlar (Standard src-layout)
-  │   └── planx/                  # Ana paket dizini
-  │       ├── __init__.py         # Versiyon ve paket tanımı
-  │       ├── spatial/            # Çekirdek mekansal ağ analizi ve space syntax motoru
+  ├── .github/workflows/          # GitHub Actions (Automated PyPI publishing)
+  ├── pyproject.toml              # Modern package metadata, dependencies, and settings (PEP 517/621)
+  ├── README.md                   # Project documentation
+  ├── LICENSE                     # License file
+  ├── .gitignore                  # Git ignore rules for caches and builds
+  ├── src/                        # Source code (Standard src-layout)
+  │   └── planx/                  # Main package directory
+  │       ├── __init__.py         # Versioning and package level definitions
+  │       ├── spatial/            # Core spatial network analysis and space syntax engine
   │       │   ├── __init__.py
-  │       │   ├── paths.py        # En kısa yol algoritmaları (Dijkstra, SciPy entegrasyonu)
-  │       │   ├── centrality.py   # Yakınlık, Arasılık (Betweenness), Özdeğer (Eigenvector) ve Kritiklik
-  │       │   └── accessibility.py# Çekim (Hansen) ve Kümülatif Fırsatlar erişilebilirlik modelleri
-  │       ├── geostats/           # Mekansal istatistik ve otokorelasyon motorları
+  │       │   ├── paths.py        # Shortest path algorithms (Dijkstra, SciPy integration)
+  │       │   ├── centrality.py   # Closeness, Betweenness, Eigenvector, and Criticality centrality
+  │       │   └── accessibility.py# Hansen Gravity and Cumulative Opportunities accessibility models
+  │       ├── geostats/           # Spatial statistics and spatial autocorrelation engines
   │       │   ├── __init__.py
   │       │   └── stats_engines.py# Getis-Ord Gi*, Local/Global Moran's I, OLS, GWR, SDE, k-means
-  │       ├── suitability/        # Raster tabanlı MCDA (Multi-Criteria Decision Analysis) motoru
+  │       ├── suitability/        # Raster-based MCDA (Multi-Criteria Decision Analysis) engine
   │       │   ├── __init__.py
-  │       │   ├── mcda.py         # Normalizasyon metotları (Sigmoid, Gaussian, Min-Max) ve WLC
-  │       │   ├── facility.py     # Tesis konumu optimizasyonu (MCLP, p-Median, LSCP)
-  │       │   └── weights.py      # Karar matrisi ağırlıklandırma metotları (AHP, Entropy, CRITIC, PCA)
-  │       └── resilience/         # Kentsel dirençlilik, afet ve risk simülasyon motorları
+  │       │   ├── mcda.py         # Normalization methods (Sigmoid, Gaussian, Min-Max) and WLC
+  │       │   ├── facility.py     # Facility location optimization (MCLP, p-Median, LSCP)
+  │       │   └── weights.py      # Decision matrix weighting methods (AHP, Entropy, CRITIC, PCA)
+  │       └── resilience/         # Urban resilience, disaster risk, and hazard simulation engines
   │           ├── __init__.py
-  │           ├── seismic.py      # Monte Carlo sismik yapısal hasar ve enkaz yayılım simülasyonu
-  │           ├── flood.py        # DEM tabanlı plüvyal (yüzey suyu) ve bağlantılı kıyı taşkını modelleri
-  │           ├── social.py       # Sosyal kırılganlık endeksi (SVI) tarama ve analizi
-  │           ├── heat.py         # Kentsel ısı konforu riski ve yeşil alan açığı tarama modeli
-  │           ├── synthesis.py    # Çoklu tehlike kompozit endeksi ve eşitlik odaklı öncelik sentezi
-  │           └── infrastructure.py# Altyapı kesintisi, hizmet kaybı ve dar boğaz analizleri
-  └── tests/                      # Birim testler (Unit Tests)
+  │           ├── seismic.py      # Monte Carlo seismic structural damage and debris propagation simulation
+  │           ├── flood.py        # DEM-based pluvial (surface water) and connected coastal flood models
+  │           ├── social.py       # Social Vulnerability Index (SVI) screening and analysis
+  │           ├── heat.py         # Urban heat comfort risk and green space deficit screening model
+  │           ├── synthesis.py    # Multi-hazard composite index and equity-oriented priority synthesis
+  │           └── infrastructure.py# Infrastructure disruption, service loss, and bottleneck analysis
+  └── tests/                      # Unit tests
 ```
 
 ---
 
-## 💡 Temel Özellikler ve Kullanım Örnekleri
+## 💡 Core Features and Usage Examples
 
-### 1. Kentsel Erişilebilirlik Analizleri (`planx.spatial`)
-Köken noktalarından (örn: konutlar) varış noktalarına (örn: hastaneler) olan mesafeleri kullanarak çekim veya kümülatif fırsat modelleriyle erişilebilirliği hesaplar.
+### 1. Urban Accessibility Analysis (`planx.spatial`)
+Calculates accessibility from origin points (e.g., residential areas) to destination points (e.g., hospitals) using travel distance matrices, gravity (attraction) weights, or cumulative opportunities.
 
 ```python
 import numpy as np
 from planx.spatial import gravity_accessibility
 
-# Mesafe Matrisi (O x D): 2 köken noktasının 3 varış noktasına uzaklıkları (m)
+# Distance Matrix (O x D): Distance from 2 origins to 3 destinations (in meters)
 dists = np.array([
     [150.0, 300.0, 900.0],
     [500.0, 100.0, 1200.0]
 ])
-# Varış noktalarının kapasite/cazibe ağırlıkları (örn. hastane yatak sayısı)
+# Destination capacity/attraction weights (e.g., hospital bed capacity)
 weights = np.array([50.0, 100.0, 250.0])
 
-# Üstel (exponential) azalım fonksiyonu ile çekim tabanlı erişilebilirlik (Hansen Index)
+# Gravity accessibility using exponential decay function (Hansen Index)
 accessibility = gravity_accessibility(
     dists, weights, decay_method="exponential", beta=0.002, cutoff=1000.0
 )
-print("Erişilebilirlik Skorları:", accessibility)
+print("Accessibility Scores:", accessibility)
 
-# 2. E2SFCA (Enhanced Two-Step Floating Catchment Area) ve Gini Eşitsizlik Endeksi
+# 2. E2SFCA (Enhanced Two-Step Floating Catchment Area) and Gini Inequality Index
 from planx.spatial import enhanced_2sfca, spatial_equity_gini
 
 d_matrix = np.array([[10.0, 50.0], [30.0, 10.0]])
-hospitals_supply = np.array([10.0, 20.0]) # Yatak kapasiteleri
-neighborhoods_demand = np.array([100.0, 200.0]) # Nüfuslar
+hospitals_supply = np.array([10.0, 20.0])  # Bed capacities
+neighborhoods_demand = np.array([100.0, 200.0])  # Population
 
-# 40.0 km/dk cutoff ve doğrusal (linear) azalım ile E2SFCA skorları
+# E2SFCA scores with 40.0 min/km cutoff and linear decay method
 access_scores = enhanced_2sfca(
     d_matrix, hospitals_supply, neighborhoods_demand, cutoff=40.0, decay_method="linear"
 )
-print("E2SFCA Erişilebilirlik Skorları:", access_scores) # [0.06, 0.12]
+print("E2SFCA Accessibility Scores:", access_scores)  # [0.06, 0.12]
 
-# Nüfus ağırlıklı Gini katsayısı ile erişilebilirlik adaleti analizi
+# Spatial accessibility equity analysis using population-weighted Gini coefficient
 gini_coeff = spatial_equity_gini(access_scores, neighborhoods_demand)
-print("Erişilebilirlik Gini Katsayısı:", gini_coeff)
+print("Accessibility Gini Coefficient:", gini_coeff)
 
-# 3. Hizmet Etki Alanı ve Nüfus Kapsama Analizi (Isochrone / Service Area)
+# 3. Service Area and Population Coverage Analysis (Isochrone / Service Area)
 from planx.spatial import service_area_coverage
 
-# 3 düğümlü yol ağı CSR matrisi ve ulaşım dakikaları
+# Simple road network representation (CSR format, 3 nodes)
 ind_ptr = np.array([0, 1, 3, 4], dtype=np.int64)
 adj_nodes = np.array([1, 0, 2, 1], dtype=np.int64)
-edge_w = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64)
+edge_w = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64)  # Travel time in minutes
 
-node_pop = np.array([100.0, 200.0, 300.0]) # Düğümlerdeki nüfuslar
-facilities = np.array([0])                  # Tesis düğüm indisi
-thresholds = [1.0, 2.0, 5.0]                # Analiz zaman eşikleri (dk)
+node_pop = np.array([100.0, 200.0, 300.0])  # Node population
+facilities = np.array([0])                  # Index of facility node
+thresholds = [1.0, 2.0, 5.0]                # Service time thresholds (minutes)
 
 service_areas = service_area_coverage(
     ind_ptr, adj_nodes, edge_w, n=3, facilities=facilities,
     thresholds=thresholds, node_population=node_pop
 )
-print("2.0 Dakikada Erişilebilen Düğümler:", service_areas[2.0]["reachable_nodes"]) # [0, 1]
-print("2.0 Dakikada Kapsanan Toplam Nüfus:", service_areas[2.0]["population_covered"]) # 300.0
+print("Reachable Nodes at 2.0 Minutes:", service_areas[2.0]["reachable_nodes"])  # [0, 1]
+print("Total Covered Population at 2.0 Minutes:", service_areas[2.0]["population_covered"])  # 300.0
 ```
 
-### 2. Tesis Konumu Optimizasyonu (`planx.suitability`)
-Belirli sayıda acil toplanma alanı, sığınak veya kamu tesisi gibi tesisleri; kapsama alanı maks. mesafesini (**MCLP**, **LSCP**) veya tüm nüfusun ortalama erişim mesafesini (**p-Median**) optimize edecek şekilde yerleştirir.
+### 2. Facility Location Optimization (`planx.suitability`)
+Optimizes the placement of facilities (e.g., emergency assembly areas, shelters) to maximize coverage (**MCLP**, **LSCP**) or minimize average travel distance (**p-Median**).
 
 ```python
 import numpy as np
 from planx.suitability import greedy_mclp, greedy_p_median, greedy_lscp
 
-candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]]) # Sığınak aday koordinatları
-demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])   # Bina koordinatları
-populations = np.array([100.0, 250.0, 500.0])                 # Bina nüfusları
+candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])  # Candidate shelter coordinates
+demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])     # Building demand coordinates
+populations = np.array([100.0, 250.0, 500.0])                    # Demand population
 
-# 1. MCLP: K=2 sığınak seç, maksimum yürüme mesafesi 15.0 olsun (Kapsama alanı maksimizasyonu)
+# 1. MCLP: Select K=2 shelters to maximize coverage within 15.0 units walking distance
 selected_mclp, added_pop, cum_pop = greedy_mclp(
     candidates, demands, populations, max_distance=15.0, k=2
 )
-print("MCLP Seçilen Tesis İndisleri:", selected_mclp) # [2, 1]
+print("MCLP Selected Facility Indices:", selected_mclp)  # [2, 1]
 
-# 2. p-Median: Toplam seyahat maliyetini/mesafesini minimize edecek P=2 tesis seç
+# 2. p-Median: Select P=2 facilities to minimize total weighted distance cost
 selected_pmed, costs = greedy_p_median(
     candidate_coords=candidates, demand_coords=demands, demand_pop=populations, p=2
 )
-print("p-Median Seçilen Tesis İndisleri:", selected_pmed) # [2, 1]
-print("Adım Adım Toplam Maliyet:", costs)
+print("p-Median Selected Facility Indices:", selected_pmed)  # [2, 1]
+print("Cumulative Step Costs:", costs)
 
-# 3. LSCP: Nüfusun en az %80'ini 15.0 birim mesafe içinde kapsamak için minimum tesis sayısını bul
+# 3. LSCP: Find min facilities to cover at least 80% of population within 15.0 units distance
 selected_lscp, final_coverage = greedy_lscp(
     candidates, demands, demand_pop=populations, max_distance=15.0, target_coverage=0.8
 )
-print("LSCP Seçilen Tesis İndisleri:", selected_lscp) # [2] (Tek tesis %87.5 kapsamaya yeterli)
+print("LSCP Selected Facility Indices:", selected_lscp)  # [2] (One facility covers 87.5%)
 ```
 
-### 3. Sismik Hasar ve Enkaz Yayılımı (`planx.resilience`)
-Monte Carlo simülasyonu yardımıyla, bir bölgedeki binaların inşa yılı, kat sayısı ve deprem büyüklüğüne göre yıkılma olasılıklarını stokastik olarak simüle eder. Oluşacak enkazın yatay yayılma yarıçapını ve hafriyat hacmini hesaplar.
+### 3. Seismic Damage and Debris Propagation (`planx.resilience`)
+Runs a stochastic Monte Carlo simulation to evaluate building collapse probabilities based on building attributes (construction year, number of floors) and earthquake magnitude. Computes debris volume and outward collapse radius.
 
 ```python
 import numpy as np
 from planx.resilience import simulate_seismic_debris
 
-areas = np.array([120.0, 200.0, 80.0])  # Bina taban alanları (m2)
-floors = np.array([4.0, 8.0, 2.0])     # Kat sayıları
-years = np.array([1990, 2005, 2021])    # İnşa yılları
+areas = np.array([120.0, 200.0, 80.0])  # Building footprint areas (m2)
+floors = np.array([4.0, 8.0, 2.0])      # Number of floors
+years = np.array([1990, 2005, 2021])     # Construction years
 
-# 7.2 Mw deprem senaryosu
+# Earthquake scenario (7.2 Mw)
 probs, collapsed, radii, volumes = simulate_seismic_debris(
     areas, floors, years, magnitude=7.2, seed=42
 )
-print("Bina Yıkım Durumları (0: Ayakta, 1: Yıkık):", collapsed)
-print("Enkaz Yarıçapları (m):", radii)
+print("Building Collapse State (0: Intact, 1: Collapsed):", collapsed)
+print("Debris Radii (m):", radii)
 ```
 
-### 4. Sosyal Kırılganlık Endeksi (SVI) (`planx.resilience`)
-Nüfus yoğunluğu, yaşlılık oranı, çocuk nüfus oranı, düşük gelir seviyesi ve engellilik durumu gibi çeşitli demografik göstergeleri normalize ederek mekansal birimler için sosyal kırılganlık skorunu oluşturur.
+### 4. Social Vulnerability Index (SVI) (`planx.resilience`)
+Normalizes and aggregates demographic indicators (e.g., elderly share, low-income population, disability rate) using Min-Max scaling and Weighted Linear Combination to produce vulnerability ranks.
 
 ```python
 import numpy as np
 from planx.resilience import social_vulnerability_index
 
-# Gösterge verileri (örneğin 3 farklı mahalle için)
+# Demographic data for 3 neighborhoods
 indicators = {
     "elderly": np.array([10.0, 50.0, 100.0]),
     "low_income": np.array([200.0, 100.0, 50.0])
 }
-# Gösterge ağırlıkları
+# Indicator weights
 weights = {
     "elderly": 0.5,
     "low_income": 0.5
 }
 
 scores, classes = social_vulnerability_index(indicators, weights)
-print("Sosyal Kırılganlık Skorları:", scores)
-print("Sınıflar:", classes) # ['Moderate', 'Moderate', 'Moderate']
+print("Social Vulnerability Scores:", scores)
+print("Vulnerability Classes:", classes)  # ['Moderate', 'Moderate', 'Moderate']
 ```
 
-### 5. Kentsel Isı Konforu Riski (`planx.resilience`)
-Betonlaşma/geçirimsiz yüzey oranı, bina yoğunluğu, yeşil alan açığı, serinleme alanlarına olan yürüme mesafesi ve hassas nüfus noktalarını birleştirerek 0-100 aralığında bir kentsel sıcaklık maruziyet/risk skoru üretir.
+### 5. Urban Heat Comfort Risk (`planx.resilience`)
+Calculates urban heat exposure/risk scores (0-100) by combining impervious surface share, building density, green space deficit, walking distance to cooling areas, and vulnerable population hotspots.
 
 ```python
 import numpy as np
 from planx.resilience import urban_heat_comfort_risk
 
-# 2x2 grid hücreleri için veriler
-impervious = np.array([[0.8, 0.2], [0.5, 0.1]]) # Geçirimsiz yüzey oranı [0-1]
-buildings = np.array([[0.6, 0.1], [0.4, 0.05]]) # Bina yoğunluğu oranı [0-1]
-green = np.array([[0.1, 0.8], [0.3, 0.9]])      # Yeşil alan oranı [0-1]
-cooling_dists = np.array([[300.0, 50.0], [200.0, 20.0]]) # Serinleme alanına olan mesafe (m)
-vuln_assets = np.array([[2, 0], [1, 0]])        # Hassas tesis sayısı (okul, hastane vb.)
+# Data for a 2x2 grid
+impervious = np.array([[0.8, 0.2], [0.5, 0.1]])          # Impervious share [0-1]
+buildings = np.array([[0.6, 0.1], [0.4, 0.05]])          # Building footprint share [0-1]
+green = np.array([[0.1, 0.8], [0.3, 0.9]])               # Green cover share [0-1]
+cooling_dists = np.array([[300.0, 50.0], [200.0, 20.0]])  # Distance to cooling area (meters)
+vuln_assets = np.array([[2, 0], [1, 0]])                  # Vulnerable assets count (e.g., schools)
 
 scores, classes = urban_heat_comfort_risk(
     impervious, buildings, green, cooling_dists, vuln_assets, cooling_distance=400.0
 )
-print("Isı Konfor Riski Skorları:\n", scores)
+print("Heat Comfort Risk Scores:\n", scores)
 ```
 
-### 6. Karar Verme ve Ağırlıklandırma Metotları (`planx.suitability`)
-Çok Kriterli Karar Verme (MCDA) süreçleri için AHP, Entropy, CRITIC ve PCA ağırlık hesaplama yöntemlerini barındırır. Ayrıca coğrafi katmanları (gridleri) karar matrisine dönüştüren yardımcı araçlar sunar.
+### 6. Decision Making and Weighting Methods (`planx.suitability`)
+Provides analytic tools for Multi-Criteria Decision Analysis (MCDA) weighting, including AHP (Analytic Hierarchy Process), Entropy, CRITIC, and PCA. Includes helper functions to extract pairwise parameters.
 
 ```python
 import numpy as np
 from planx.suitability import ahp_weights, entropy_weights
 
-# 1. AHP (Analitik Hiyerarşi Süreci) ile tutarlılık kontrolü ve ağırlık hesaplama
-# 3x3 karşılaştırma matrisi
+# 1. AHP (Analytic Hierarchy Process) with consistency ratio checking
+# 3x3 pairwise comparison matrix
 matrix = np.array([
     [1.0, 2.0, 3.0],
     [0.5, 1.0, 2.0],
     [0.33, 0.5, 1.0]
 ])
 weights, cr = ahp_weights(matrix)
-print("AHP Ağırlıkları:", weights)
-print("Tutarlılık Oranı (CR):", cr)
+print("AHP Weights:", weights)
+print("Consistency Ratio (CR):", cr)
 
-# 2. Entropy Ağırlıklandırma Metodu
-# 4 alternatif (örn. mahalle/hücre), 3 kriter içeren karar matrisi
+# 2. Entropy Weighting Method
+# Decision matrix with 4 alternatives (rows) and 3 criteria (columns)
 decision_matrix = np.array([
     [10.0, 100.0, 0.1],
     [20.0, 50.0, 0.2],
@@ -232,36 +232,36 @@ decision_matrix = np.array([
     [30.0, 20.0, 0.3]
 ])
 ent_weights = entropy_weights(decision_matrix)
-print("Entropy Ağırlıkları:", ent_weights)
+print("Entropy Weights:", ent_weights)
 ```
 
-### 7. Çoklu Tehlike Sentezi ve Eşitlikçi Önceliklendirme (`planx.resilience`)
-Çoklu tehlike analizleri (Multi-Hazard Composite Index) ve Sosyal Kırılganlık Endeksi (SVI) ile risk önceliklerini birleştiren eşitlik odaklı sentez modelleri sunar.
+### 7. Multi-Hazard Synthesis and Equitable Prioritization (`planx.resilience`)
+Synthesizes multiple hazard exposure layers into a single Composite Hazard Index. Integrates the Social Vulnerability Index (SVI) as a priority amplifier to identify high-hazard, high-vulnerability areas for targeted climate adaptation.
 
 ```python
 import numpy as np
 from planx.resilience import multi_hazard_composite, equity_adjusted_priority
 
-# 1. Çoklu Tehlike Kompozit Endeksi (Multi-Hazard Composite Index)
+# 1. Multi-Hazard Composite Index
 hazards = {
     "heat": np.array([80.0, 20.0, 50.0]),
-    "flood": np.array([40.0, 10.0, np.nan]) # Eksik verileri otomatik maskeler
+    "flood": np.array([40.0, 10.0, np.nan])  # Automatically masks missing values
 }
 weights = {"heat": 0.6, "flood": 0.4}
 
 scores, classes, dominant, diversity, drivers = multi_hazard_composite(hazards, weights)
-print("Sentezlenen Skorlar:", scores) # [64. 16. 50.]
-print("Bölgesel Baskın Tehlike:", dominant) # ['heat', 'heat', 'heat']
-print("Çeşitlilik (Multi-Stress) Skoru:", diversity)
+print("Synthesized Composite Scores:", scores)  # [64. 16. 50.]
+print("Dominant Hazards:", dominant)  # ['heat', 'heat', 'heat']
+print("Multi-Stress Diversity Scores:", diversity)
 
-# 2. Sosyal Kırılganlık (SVI) ile Eşitlik Odaklı Risk Önceliklendirme
-svi = np.array([10.0, 90.0, 50.0]) # Sosyal Kırılganlık Endeksi
+# 2. Social Vulnerability (SVI) Equity-Adjusted Priority Scoring
+svi = np.array([10.0, 90.0, 50.0])  # Social Vulnerability Index
 eq_scores, raw, factors, eq_classes = equity_adjusted_priority(scores, svi, equity_weight=0.5)
-print("Sosyal Kırılganlık ile Düzeltilmiş Skorlar:", eq_scores)
+print("Equity-Adjusted Priority Scores:", eq_scores)
 ```
 
-### 8. Altyapı ve Ağ Resilience Analizleri (`planx.resilience`)
-Afet anında yol tıkanmaları veya köprü hasarları gibi durumları simüle ederek kentsel ulaşım ağındaki kesintilerin etkisini ve alternatif yollardaki dar boğazları analiz eder.
+### 8. Infrastructure and Network Resilience Analysis (`planx.resilience`)
+Simulates street network blocking (e.g., due to seismic debris or flooding) and computes network isolation rates, delay metrics, network bottlenecks, and debris clearance scheduling.
 
 ```python
 import numpy as np
@@ -272,84 +272,83 @@ from planx.resilience import (
     prioritize_debris_clearance
 )
 
-# 3 düğümlü (0-1-2) basit bir yol ağı CSR matrisi
+# 3-node network represented in CSR format
 indptr = np.array([0, 1, 3, 4], dtype=np.int64)
 adj = np.array([1, 0, 2, 1], dtype=np.int64)
-weights = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64) # Ulaşım maliyetleri (dakika)
+weights = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64)  # Travel costs (minutes)
 
-# 1. 1 numaralı kavşağın (düğümünün) çöktüğünü/kapandığını simüle edelim
+# 1. Simulate closure of intersection node 1
 disrupted_weights = simulate_network_disruption(indptr, adj, weights, n=3, blocked_nodes=[1])
-print("Afet Sonrası Yeni Kenar Ağırlıkları:", disrupted_weights) # Tüm kenarlar inf olacaktır
+print("Post-disruption Edge Weights:", disrupted_weights)  # All edges will be inf
 
-# 2. Öncesi ve sonrası erişilebilirlik matrisleri üzerinden hizmet kaybı analizi
+# 2. Analyze service loss statistics using pre- and post-disruption distance matrices
 dists_pre = np.array([[10.0, 20.0], [15.0, 30.0]])
-dists_post = np.array([[15.0, 20.0], [np.inf, np.inf]]) # 2. mahalle tamamen izole oldu
+dists_post = np.array([[15.0, 20.0], [np.inf, np.inf]])  # Neighborhood 2 completely isolated
 
-# 150 kişilik nüfus ağırlığı (1. mahalle: 100 kişi, 2. mahalle: 50 kişi)
-demands = np.array([100.0, 50.0])
+demands = np.array([100.0, 50.0])  # Population demand (Neighborhood 1: 100, Neighborhood 2: 50)
 loss_stats = infrastructure_service_loss(dists_pre, dists_post, demands=demands)
-print("İzolasyon Oranı:", loss_stats["isolation_rate"]) # 0.333
-print("Ortalama Gecikme (Dakika):", loss_stats["mean_delay"]) # 5.0
-print("Altyapı Hizmet Kırılganlık Endeksi:", loss_stats["service_vulnerability_index"])
+print("Isolation Rate:", loss_stats["isolation_rate"])  # 0.333
+print("Mean Delay (Minutes):", loss_stats["mean_delay"])  # 5.0
+print("Service Vulnerability Index:", loss_stats["service_vulnerability_index"])
 
-# 3. Yollar üzerindeki dar boğazların tespiti
+# 3. Identify critical network bottlenecks
 pre_usage = np.array([10.0, 5.0, 20.0])
 post_usage = np.array([12.0, 5.0, 35.0])
 bottlenecks, increases = identify_critical_bottlenecks(pre_usage, post_usage, top_k=2)
-print("En Kritik Dar Boğaz Yol İndisleri:", bottlenecks) # [2, 0]
-print("Trafik Yükü Artış Miktarları:", increases) # [15. 2.]
+print("Critical Bottleneck Edge Indices:", bottlenecks)  # [2, 0]
+print("Traffic Load Increase Amounts:", increases)  # [15. 2.]
 
-# 4. Yol enkaz kaldırma çalışmalarının önceliklendirilmesi (Yarar/Maliyet analizi)
-blocked_roads = np.array([0, 2]) # Kapanan 0 ve 2 nolu yollar
-debris_volumes = np.array([15.0, 150.0]) # Yollardaki enkaz hacimleri (m3)
-edge_criticality = np.array([100.0, 20.0, 300.0, 50.0]) # Yolların ağ üzerindeki önem skorları
+# 4. Prioritize debris clearance operations (Benefit/Cost ratio method)
+blocked_roads = np.array([0, 2])                  # Blocked road indices
+debris_volumes = np.array([15.0, 150.0])          # Debris volume on roads (m3)
+edge_criticality = np.array([100.0, 20.0, 300.0, 50.0])  # Road network importance score
 
 clearance_order, priority_scores = prioritize_debris_clearance(
     blocked_roads, debris_volumes, edge_criticality, cost_factor=1.0
 )
-print("Enkaz Kaldırma Öncelik Sıralaması (Yol İndisleri):", clearance_order) # [2, 0]
-print("Öncelik Skorları:", priority_scores)
+print("Debris Clearance Priority Order:", clearance_order)  # [2, 0]
+print("Clearance Priority Scores:", priority_scores)
 ```
 
-### 9. Taşkın ve Su Baskını Risk Analizleri (`planx.resilience`)
-Yüzey akışı (plüvyal) ve kıyı taşkını (coastal) senaryolarını simüle ederek su baskınlarına karşı hassas bölgeleri ve inundasyon derinliklerini hesaplar.
+### 9. Flood and Inundation Risk Analysis (`planx.resilience`)
+Simulates pluvial (surface water runoff) susceptibility and coastal inundation scenarios to locate flood-prone regions and determine inundation depths.
 
 ```python
 import numpy as np
 from planx.resilience import pluvial_flood_susceptibility, coastal_flood_inundation
 
-# 1. Plüvyal (Yüzey Suyu) Taşkın Duyarlılık Analizi (DEM Grid ve Eğri Analizi)
+# 1. Pluvial (Surface Water) Flood Susceptibility (using DEM grid and curvature proxy)
 dem_grid = np.array([
     [10.0, 12.0, 15.0],
     [8.0, 9.0, 11.0],
     [5.0, 7.0, 8.0]
 ])
-# Hücre boyutu 10m, yerel relief yarıçapı 15m
+# Cell size 10m, local neighborhood relief radius 15m
 scores, classes = pluvial_flood_susceptibility(dem_grid, cell_size=10.0, neighborhood_radius=15.0)
-print("Plüvyal Taşkın Duyarlılık Skorları:\n", scores)
+print("Pluvial Flood Susceptibility Scores:\n", scores)
 
-# 2. Kıyı Taşkını ve Deniz Seviyesi Yükselmesi (Hidrolojik Bağlantılı Bathtub Modeli)
-# 8.0m su seviyesi senaryosunda, sol-üst (0,0) kıyı hücresinden başlayan yayılım
+# 2. Coastal Inundation & Sea Level Rise (Hydrologically Connected Bathtub Model)
+# Sea rise of 8.0m, flooding spreads from top-left (0,0) seed cell (8-connectivity)
 sea_mask = np.zeros((3, 3), dtype=bool)
-sea_mask[0, 0] = True # Flooding başlangıç noktası (deniz)
+sea_mask[0, 0] = True  # Sea seed start location
 
 flooded, water_depth = coastal_flood_inundation(dem_grid, water_level=8.0, sea_mask=sea_mask)
-print("Su Baskını Alanları (Mask):\n", flooded)
-print("Su Derinliği Matrisi:\n", water_depth)
+print("Inundated Area Mask:\n", flooded)
+print("Water Depth Matrix:\n", water_depth)
 ```
 
 ---
 
-## 🛠️ Kurulum ve Geliştirme (Installation & Development)
+## 🛠️ Installation & Development
 
-### 1. Standart Kurulum
-Kütüphaneyi doğrudan PyPI üzerinden kurabilirsiniz:
+### 1. Standard Installation
+You can install the SDK directly from PyPI:
 ```bash
 pip install planx-sdk
 ```
 
-### 2. Geliştirici Modunda Kurulum (Editable Install)
-SDK kodlarında yaptığınız değişikliklerin anında çalışma ortamınıza yansıması için:
+### 2. Developer Mode (Editable Install)
+To clone the repository and run in editable mode for local development:
 ```bash
 git clone https://github.com/YusufEminoglu/planx_sdk.git
 cd planx_sdk
@@ -358,14 +357,14 @@ pip install -e .[dev]
 
 ---
 
-## 🧪 Testler ve Kod Standartları
+## 🧪 Tests and Code Standards
 
-Kütüphanedeki tüm modüllerin matematiksel doğruluğu `pytest` birim testleri ile güvence altına alınmıştır. Testleri koşturmak için:
+All modules are verified using unit tests in `pytest`. To execute the test suite:
 ```bash
 pytest
 ```
 
-Kod kalitesi ve standartları `ruff` ve `black` araçları ile denetlenmektedir. Commit öncesi kodunuzu formatlamak ve denetlemek için:
+We follow standard code styling guidelines verified using `ruff` and `black`. To check and format code:
 ```bash
 black .
 ruff check .
@@ -373,6 +372,6 @@ ruff check .
 
 ---
 
-## 📝 Lisans (License)
+## 📝 License
 
-Bu proje **MIT Lisansı** ile lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına göz atabilirsiniz.
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.

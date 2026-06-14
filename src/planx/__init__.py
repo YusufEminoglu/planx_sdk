@@ -5,5 +5,5 @@ PlanX SDK
 Core spatial analytics, statistics, and urban resilience engines.
 """
 
-__version__ = "0.1.14"
+__version__ = "0.1.15"
 __author__ = "Yusuf Eminoğlu"
