@@ -9,6 +9,7 @@ from .accessibility import (
     cumulative_opportunities,
     enhanced_2sfca,
     gravity_accessibility,
+    service_area_coverage,
     spatial_equity_gini,
 )
 from .centrality import (
@@ -30,4 +31,5 @@ __all__ = [
     "cumulative_opportunities",
     "enhanced_2sfca",
     "spatial_equity_gini",
+    "service_area_coverage",
 ]

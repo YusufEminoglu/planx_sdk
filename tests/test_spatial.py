@@ -13,6 +13,7 @@ from planx.spatial import (
     many_to_many,
     multi_source,
     network_criticality,
+    service_area_coverage,
     spatial_equity_gini,
 )
 
@@ -156,3 +157,34 @@ def test_spatial_equity_gini():
     pop2 = np.array([50.0, 50.0])
     # Gini = 0.5
     assert np.isclose(spatial_equity_gini(acc2, pop2), 0.5)
+
+
+def test_service_area_coverage(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    pop = np.array([100.0, 200.0, 300.0])
+    thresholds = [1.0, 2.0, 5.0]
+
+    res = service_area_coverage(
+        indptr,
+        adj,
+        weights,
+        n,
+        facilities=[0],
+        thresholds=thresholds,
+        node_population=pop,
+    )
+
+    # Threshold 1.0: only node 0 reachable
+    assert np.array_equal(res[1.0]["reachable_nodes"], [0])
+    assert np.isclose(res[1.0]["population_covered"], 100.0)
+    assert np.isclose(res[1.0]["coverage_fraction"], 100.0 / 600.0)
+
+    # Threshold 2.0: nodes 0 and 1 reachable
+    assert np.array_equal(res[2.0]["reachable_nodes"], [0, 1])
+    assert np.isclose(res[2.0]["population_covered"], 300.0)
+    assert np.isclose(res[2.0]["coverage_fraction"], 300.0 / 600.0)
+
+    # Threshold 5.0: all nodes reachable
+    assert np.array_equal(res[5.0]["reachable_nodes"], [0, 1, 2])
+    assert np.isclose(res[5.0]["population_covered"], 600.0)
+    assert np.isclose(res[5.0]["coverage_fraction"], 1.0)

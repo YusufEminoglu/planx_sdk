@@ -91,6 +91,25 @@ print("E2SFCA Erişilebilirlik Skorları:", access_scores) # [0.06, 0.12]
 # Nüfus ağırlıklı Gini katsayısı ile erişilebilirlik adaleti analizi
 gini_coeff = spatial_equity_gini(access_scores, neighborhoods_demand)
 print("Erişilebilirlik Gini Katsayısı:", gini_coeff)
+
+# 3. Hizmet Etki Alanı ve Nüfus Kapsama Analizi (Isochrone / Service Area)
+from planx.spatial import service_area_coverage
+
+# 3 düğümlü yol ağı CSR matrisi ve ulaşım dakikaları
+ind_ptr = np.array([0, 1, 3, 4], dtype=np.int64)
+adj_nodes = np.array([1, 0, 2, 1], dtype=np.int64)
+edge_w = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64)
+
+node_pop = np.array([100.0, 200.0, 300.0]) # Düğümlerdeki nüfuslar
+facilities = np.array([0])                  # Tesis düğüm indisi
+thresholds = [1.0, 2.0, 5.0]                # Analiz zaman eşikleri (dk)
+
+service_areas = service_area_coverage(
+    ind_ptr, adj_nodes, edge_w, n=3, facilities=facilities,
+    thresholds=thresholds, node_population=node_pop
+)
+print("2.0 Dakikada Erişilebilen Düğümler:", service_areas[2.0]["reachable_nodes"]) # [0, 1]
+print("2.0 Dakikada Kapsanan Toplam Nüfus:", service_areas[2.0]["population_covered"]) # 300.0
 ```
 
 ### 2. Tesis Konumu Optimizasyonu (`planx.suitability`)

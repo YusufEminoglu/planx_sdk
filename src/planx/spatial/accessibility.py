@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 
@@ -219,3 +219,71 @@ def spatial_equity_gini(accessibility: np.ndarray, population: np.ndarray) -> fl
         return 0.0
 
     return float(numerator / denominator)
+
+
+def service_area_coverage(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    facilities: np.ndarray,
+    thresholds: List[float],
+    node_population: Optional[np.ndarray] = None,
+) -> Dict[float, Dict[str, Union[np.ndarray, float]]]:
+    """Calculates network-based service areas (isochrones) and population coverage.
+
+    Finds the reachable nodes and total covered population from facility locations
+    within multiple travel cost/distance thresholds.
+
+    Args:
+        indptr: CSR indptr array of shape (n + 1,)
+        adj: CSR adj array of shape (E,)
+        weights: CSR edge weights array of shape (E,)
+        n: Number of nodes in the graph.
+        facilities: 1D array of facility node indices.
+        thresholds: List of cost/distance thresholds sorted in ascending order.
+        node_population: Optional 1D array of shape (n,) containing population at each node.
+
+    Returns:
+        A dictionary mapping each threshold value to a dictionary containing:
+          - "reachable_nodes": 1D NumPy array of node indices reachable within the threshold.
+          - "population_covered": Float representing the total population covered.
+          - "coverage_fraction": Float representing the fraction of total population covered.
+    """
+    fac = np.asarray(facilities, dtype=np.int64)
+    if len(fac) == 0:
+        raise ValueError("facilities list/array cannot be empty")
+
+    if node_population is None:
+        pop = np.ones(n, dtype=np.float64)
+    else:
+        pop = np.asarray(node_population, dtype=np.float64)
+        if pop.shape != (n,):
+            raise ValueError(f"node_population shape {pop.shape} must match number of nodes {n}")
+
+    total_pop = np.sum(pop)
+    if total_pop <= 0:
+        total_pop = 1.0
+
+    sorted_thresholds = sorted(thresholds)
+    max_threshold = sorted_thresholds[-1] if sorted_thresholds else 0.0
+
+    # Run multi_source Dijkstra from facilities up to max_threshold
+    from .paths import multi_source
+
+    dists, _ = multi_source(indptr, adj, weights, n, fac, cutoff=max_threshold)
+
+    results = {}
+    for t in thresholds:
+        t_val = float(t)
+        reachable = (dists <= t_val) & np.isfinite(dists)
+        reachable_nodes = np.where(reachable)[0]
+        pop_covered = np.sum(pop[reachable])
+
+        results[t_val] = {
+            "reachable_nodes": reachable_nodes,
+            "population_covered": float(pop_covered),
+            "coverage_fraction": float(pop_covered / total_pop),
+        }
+
+    return results
