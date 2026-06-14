@@ -37,7 +37,8 @@ planx_sdk/
   │       ├── suitability/        # Raster tabanlı MCDA (Multi-Criteria Decision Analysis) motoru
   │       │   ├── __init__.py
   │       │   ├── mcda.py         # Normalizasyon metotları (Sigmoid, Gaussian, Min-Max) ve WLC
-  │       │   └── facility.py     # Greedy MCLP (Maximal Covering Location Problem) tesis yerleşimi
+  │       │   ├── facility.py     # Greedy MCLP (Maximal Covering Location Problem) tesis yerleşimi
+  │       │   └── weights.py      # Karar matrisi ağırlıklandırma metotları (AHP, Entropy, CRITIC, PCA)
   │       └── resilience/         # Kentsel dirençlilik, afet ve risk simülasyon motorları
   │           ├── __init__.py
   │           ├── seismic.py      # Monte Carlo sismik yapısal hasar ve enkaz yayılım simülasyonu
@@ -149,6 +150,36 @@ scores, classes = urban_heat_comfort_risk(
     impervious, buildings, green, cooling_dists, vuln_assets, cooling_distance=400.0
 )
 print("Isı Konfor Riski Skorları:\n", scores)
+```
+
+### 6. Karar Verme ve Ağırlıklandırma Metotları (`planx.suitability`)
+Çok Kriterli Karar Verme (MCDA) süreçleri için AHP, Entropy, CRITIC ve PCA ağırlık hesaplama yöntemlerini barındırır. Ayrıca coğrafi katmanları (gridleri) karar matrisine dönüştüren yardımcı araçlar sunar.
+
+```python
+import numpy as np
+from planx.suitability import ahp_weights, entropy_weights
+
+# 1. AHP (Analitik Hiyerarşi Süreci) ile tutarlılık kontrolü ve ağırlık hesaplama
+# 3x3 karşılaştırma matrisi
+matrix = np.array([
+    [1.0, 2.0, 3.0],
+    [0.5, 1.0, 2.0],
+    [0.33, 0.5, 1.0]
+])
+weights, cr = ahp_weights(matrix)
+print("AHP Ağırlıkları:", weights)
+print("Tutarlılık Oranı (CR):", cr)
+
+# 2. Entropy Ağırlıklandırma Metodu
+# 4 alternatif (örn. mahalle/hücre), 3 kriter içeren karar matrisi
+decision_matrix = np.array([
+    [10.0, 100.0, 0.1],
+    [20.0, 50.0, 0.2],
+    [15.0, 80.0, 0.15],
+    [30.0, 20.0, 0.3]
+])
+ent_weights = entropy_weights(decision_matrix)
+print("Entropy Ağırlıkları:", ent_weights)
 ```
 
 ---
