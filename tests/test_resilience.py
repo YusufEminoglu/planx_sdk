@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from planx.resilience import (
+    coastal_flood_inundation,
     equity_adjusted_priority,
     identify_critical_bottlenecks,
     infrastructure_service_loss,
@@ -204,3 +205,34 @@ def test_prioritize_debris_clearance():
 
     with pytest.raises(ValueError, match="same length"):
         prioritize_debris_clearance(blocked, debris[:-1], criticality)
+
+
+def test_coastal_flood_inundation():
+    dem = np.array([[1.0, 5.0, 10.0], [1.0, 5.0, 1.0], [1.0, 1.0, 1.0]], dtype=np.float64)
+
+    # 1. No seeds when no boundary cell <= 0.0
+    flooded, depth = coastal_flood_inundation(dem, water_level=2.0)
+    assert np.all(~flooded)
+
+    # 2. With custom sea_mask starting at (0, 0)
+    sea_mask = np.zeros((3, 3), dtype=bool)
+    sea_mask[0, 0] = True
+
+    flooded, depth = coastal_flood_inundation(dem, water_level=2.0, sea_mask=sea_mask)
+
+    # Connected cells <= 2.0 should be flooded:
+    # (0,0), (1,0), (2,0), (2,1), (2,2), (1,2)
+    assert flooded[0, 0]
+    assert flooded[1, 0]
+    assert flooded[2, 0]
+    assert flooded[2, 1]
+    assert flooded[2, 2]
+    assert flooded[1, 2]
+
+    assert not flooded[0, 1]
+    assert not flooded[1, 1]
+    assert not flooded[0, 2]
+
+    # Check depth: water_level - dem
+    assert np.isclose(depth[0, 0], 1.0)
+    assert np.isclose(depth[0, 1], 0.0)

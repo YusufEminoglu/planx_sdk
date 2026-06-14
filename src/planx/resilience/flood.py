@@ -120,3 +120,80 @@ def pluvial_flood_susceptibility(
         risk_classes.append(row_classes)
 
     return scores, risk_classes
+
+
+def coastal_flood_inundation(
+    dem: np.ndarray,
+    water_level: float,
+    sea_mask: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculates coastal flood inundation using a hydrologically connected bathtub model.
+
+    Identifies cells that are flooded by a given water level rise. A cell is flooded if
+    its elevation is less than or equal to the water level AND it is connected to a
+    sea/water source cell via other flooded cells (8-connectivity).
+
+    Args:
+        dem: 2D NumPy array containing elevation values. NaNs represent no-data.
+        water_level: Target water level/elevation for flooding (e.g. 2.0 meters).
+        sea_mask: Optional 2D boolean array of the same shape as dem marking sea/water
+            source cells. If omitted, all boundary cells with elevation <= 0 are used.
+
+    Returns:
+        Tuple of:
+          - flooded: 2D boolean NumPy array where True indicates flooded cells.
+          - water_depth: 2D NumPy array containing water depth (water_level - dem)
+            for flooded cells, and 0.0 elsewhere (NaNs preserved).
+    """
+    dem_arr = np.asarray(dem, dtype=np.float64)
+    shape = dem_arr.shape
+
+    if dem_arr.ndim != 2:
+        raise ValueError("DEM must be a 2D array")
+
+    valid = np.isfinite(dem_arr)
+
+    # 1. Identify potentially flooded cells (below or equal to water level)
+    potential = (dem_arr <= water_level) & valid
+
+    # 2. Determine sea mask/water source seeds
+    if sea_mask is not None:
+        seeds = np.asarray(sea_mask, dtype=bool)
+        if seeds.shape != shape:
+            raise ValueError("sea_mask shape must match dem shape")
+    else:
+        # Create default sea mask: boundary cells with elevation <= 0
+        seeds = np.zeros(shape, dtype=bool)
+        # Check boundary rows and columns
+        if shape[0] > 0 and shape[1] > 0:
+            seeds[0, :] = dem_arr[0, :] <= 0.0
+            seeds[-1, :] = dem_arr[-1, :] <= 0.0
+            seeds[:, 0] = dem_arr[:, 0] <= 0.0
+            seeds[:, -1] = dem_arr[:, -1] <= 0.0
+        seeds &= valid
+
+    # Only keep seeds that are actually below the water level
+    seeds = seeds & potential
+
+    if not np.any(seeds):
+        # No water source is flooded/active
+        return np.zeros(shape, dtype=bool), np.zeros(shape, dtype=np.float64)
+
+    # 3. Connectivity analysis using 8-connectivity
+    structure = np.ones((3, 3), dtype=bool)
+    labeled_array, num_features = scipy.ndimage.label(potential, structure=structure)
+
+    # Extract labels at seed locations
+    seed_labels = labeled_array[seeds]
+    unique_seed_labels = np.unique(seed_labels)
+    unique_seed_labels = unique_seed_labels[unique_seed_labels > 0]
+
+    # Mask flooded cells
+    flooded = np.isin(labeled_array, unique_seed_labels)
+
+    # 4. Calculate water depth: water_level - dem
+    water_depth = np.zeros(shape, dtype=np.float64)
+    water_depth[flooded] = water_level - dem_arr[flooded]
+    water_depth[~valid] = np.nan
+
+    return flooded, water_depth

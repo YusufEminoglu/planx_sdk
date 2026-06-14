@@ -42,7 +42,7 @@ planx_sdk/
   │       └── resilience/         # Kentsel dirençlilik, afet ve risk simülasyon motorları
   │           ├── __init__.py
   │           ├── seismic.py      # Monte Carlo sismik yapısal hasar ve enkaz yayılım simülasyonu
-  │           ├── flood.py        # DEM tabanlı plüvyal (yüzey suyu) taşkın duyarlılık analizi
+  │           ├── flood.py        # DEM tabanlı plüvyal (yüzey suyu) ve bağlantılı kıyı taşkını modelleri
   │           ├── social.py       # Sosyal kırılganlık endeksi (SVI) tarama ve analizi
   │           ├── heat.py         # Kentsel ısı konforu riski ve yeşil alan açığı tarama modeli
   │           ├── synthesis.py    # Çoklu tehlike kompozit endeksi ve eşitlik odaklı öncelik sentezi
@@ -309,6 +309,33 @@ clearance_order, priority_scores = prioritize_debris_clearance(
 )
 print("Enkaz Kaldırma Öncelik Sıralaması (Yol İndisleri):", clearance_order) # [2, 0]
 print("Öncelik Skorları:", priority_scores)
+```
+
+### 9. Taşkın ve Su Baskını Risk Analizleri (`planx.resilience`)
+Yüzey akışı (plüvyal) ve kıyı taşkını (coastal) senaryolarını simüle ederek su baskınlarına karşı hassas bölgeleri ve inundasyon derinliklerini hesaplar.
+
+```python
+import numpy as np
+from planx.resilience import pluvial_flood_susceptibility, coastal_flood_inundation
+
+# 1. Plüvyal (Yüzey Suyu) Taşkın Duyarlılık Analizi (DEM Grid ve Eğri Analizi)
+dem_grid = np.array([
+    [10.0, 12.0, 15.0],
+    [8.0, 9.0, 11.0],
+    [5.0, 7.0, 8.0]
+])
+# Hücre boyutu 10m, yerel relief yarıçapı 15m
+scores, classes = pluvial_flood_susceptibility(dem_grid, cell_size=10.0, neighborhood_radius=15.0)
+print("Plüvyal Taşkın Duyarlılık Skorları:\n", scores)
+
+# 2. Kıyı Taşkını ve Deniz Seviyesi Yükselmesi (Hidrolojik Bağlantılı Bathtub Modeli)
+# 8.0m su seviyesi senaryosunda, sol-üst (0,0) kıyı hücresinden başlayan yayılım
+sea_mask = np.zeros((3, 3), dtype=bool)
+sea_mask[0, 0] = True # Flooding başlangıç noktası (deniz)
+
+flooded, water_depth = coastal_flood_inundation(dem_grid, water_level=8.0, sea_mask=sea_mask)
+print("Su Baskını Alanları (Mask):\n", flooded)
+print("Su Derinliği Matrisi:\n", water_depth)
 ```
 
 ---
