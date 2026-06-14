@@ -10,6 +10,7 @@ from planx.resilience import (
     infrastructure_service_loss,
     multi_hazard_composite,
     pluvial_flood_susceptibility,
+    prioritize_debris_clearance,
     simulate_network_disruption,
     simulate_seismic_debris,
     social_vulnerability_index,
@@ -190,3 +191,16 @@ def test_identify_critical_bottlenecks():
     indices, load = identify_critical_bottlenecks(pre, post, top_k=2)
     np.testing.assert_array_equal(indices, [2, 0])
     np.testing.assert_allclose(load, [15.0, 2.0])
+
+
+def test_prioritize_debris_clearance():
+    blocked = np.array([1, 4])
+    debris = np.array([10.0, 100.0])
+    criticality = np.array([10.0, 50.0, 20.0, 10.0, 200.0])
+
+    order, scores = prioritize_debris_clearance(blocked, debris, criticality)
+    np.testing.assert_array_equal(order, [1, 4])
+    assert scores[0] > scores[1]
+
+    with pytest.raises(ValueError, match="same length"):
+        prioritize_debris_clearance(blocked, debris[:-1], criticality)
