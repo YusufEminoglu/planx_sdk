@@ -41,7 +41,8 @@ planx_sdk/
   │       └── resilience/         # Kentsel dirençlilik, afet ve risk simülasyon motorları
   │           ├── __init__.py
   │           ├── seismic.py      # Monte Carlo sismik yapısal hasar ve enkaz yayılım simülasyonu
-  │           └── flood.py        # DEM tabanlı plüvyal (yüzey suyu) taşkın duyarlılık analizi
+  │           ├── flood.py        # DEM tabanlı plüvyal (yüzey suyu) taşkın duyarlılık analizi
+  │           └── social.py       # Sosyal kırılganlık endeksi (SVI) tarama ve analizi
   └── tests/                      # Birim testler (Unit Tests)
 ```
 
@@ -104,6 +105,29 @@ probs, collapsed, radii, volumes = simulate_seismic_debris(
 )
 print("Bina Yıkım Durumları (0: Ayakta, 1: Yıkık):", collapsed)
 print("Enkaz Yarıçapları (m):", radii)
+```
+
+### 4. Sosyal Kırılganlık Endeksi (SVI) (`planx.resilience`)
+Nüfus yoğunluğu, yaşlılık oranı, çocuk nüfus oranı, düşük gelir seviyesi ve engellilik durumu gibi çeşitli demografik göstergeleri normalize ederek mekansal birimler için sosyal kırılganlık skorunu oluşturur.
+
+```python
+import numpy as np
+from planx.resilience import social_vulnerability_index
+
+# Gösterge verileri (örneğin 3 farklı mahalle için)
+indicators = {
+    "elderly": np.array([10.0, 50.0, 100.0]),
+    "low_income": np.array([200.0, 100.0, 50.0])
+}
+# Gösterge ağırlıkları
+weights = {
+    "elderly": 0.5,
+    "low_income": 0.5
+}
+
+scores, classes = social_vulnerability_index(indicators, weights)
+print("Sosyal Kırılganlık Skorları:", scores)
+print("Sınıflar:", classes) # ['Moderate', 'Moderate', 'Moderate']
 ```
 
 ---
