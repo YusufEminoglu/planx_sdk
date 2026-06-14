@@ -34,7 +34,8 @@ planx_sdk/
   │       ├── geostats/           # Spatial statistics and spatial autocorrelation engines
   │       │   ├── __init__.py
   │       │   ├── stats_engines.py# Getis-Ord Gi*, Local/Global Moran's I, OLS, GWR, SDE, k-means
-  │       │   └── interpolation.py# Spatial interpolation algorithms (e.g. IDW, nearest neighbor)
+  │       │   ├── interpolation.py# Spatial interpolation algorithms (e.g. IDW, nearest neighbor)
+  │       │   └── weights.py      # Spatial weights matrix generation (e.g. k-NN, distance band)
   │       ├── suitability/        # Raster-based MCDA (Multi-Criteria Decision Analysis) engine
   │       │   ├── __init__.py
   │       │   ├── mcda.py         # Normalization methods (Sigmoid, Gaussian, Min-Max) and WLC
@@ -413,6 +414,27 @@ veg_density = np.ones((3, 3))
 
 scores, classes = wildfire_risk_index(dem_grid, cell_size=10.0, vegetation_density=veg_density)
 print("Wildfire Risk Scores:\n", scores)
+```
+
+### 13. Spatial Weights Matrix Generation (`planx.geostats`)
+Generates spatial neighbor relationships and weights matrices (k-NN or distance band) required for spatial autocorrelation (e.g. Moran's I, Getis-Ord Gi*) using fast KDTree.
+
+```python
+import numpy as np
+from planx.geostats import create_knn_weights, create_distance_band_weights
+
+# 3 points along a line
+coords = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]])
+ids = [100, 101, 102]
+
+# 1. Create k-Nearest Neighbors weights (k=2)
+neighbors_knn, weights_knn = create_knn_weights(coords, ids, k=2)
+print("KNN Neighbors:", neighbors_knn)
+print("KNN Weights:", weights_knn)
+
+# 2. Create Distance Band weights (threshold distance = 1.5)
+neighbors_db, weights_db = create_distance_band_weights(coords, ids, threshold=1.5)
+print("Distance Band Neighbors:", neighbors_db)
 ```
 
 ---

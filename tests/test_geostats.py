@@ -7,6 +7,8 @@ import pytest
 from planx.geostats import (
     calculate_getis_ord,
     calculate_mean_center,
+    create_distance_band_weights,
+    create_knn_weights,
     idw_to_grid,
     idw_to_points,
 )
@@ -81,3 +83,34 @@ def test_idw_interpolation():
     # Argument validation
     with pytest.raises(ValueError, match="must be of shape"):
         idw_to_points(np.ones((3, 3)), src_values, target_coords)
+
+
+def test_spatial_weights():
+    coords = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]])
+    ids = [100, 101, 102]
+
+    # 1. Test KNN Weights (k=2)
+    neigh_knn, w_knn = create_knn_weights(coords, ids, k=2, row_standardized=True)
+    assert set(neigh_knn[101]) == {100, 102}
+    assert np.allclose(w_knn[101], [0.5, 0.5])
+
+    # 2. Test Distance Band Weights (threshold = 1.5)
+    neigh_db, w_db = create_distance_band_weights(
+        coords, ids, threshold=1.5, row_standardized=True, binary=True
+    )
+    assert neigh_db[100] == [101]
+    assert w_db[100] == [1.0]
+    assert set(neigh_db[101]) == {100, 102}
+    assert np.allclose(w_db[101], [0.5, 0.5])
+
+    # Distance Band with Inverse Distance (binary = False)
+    neigh_db_inv, w_db_inv = create_distance_band_weights(
+        coords, ids, threshold=2.5, row_standardized=False, binary=False, power=1.0
+    )
+    pos_101 = neigh_db_inv[100].index(101)
+    pos_102 = neigh_db_inv[100].index(102)
+    assert np.isclose(w_db_inv[100][pos_101], 1.0)
+    assert np.isclose(w_db_inv[100][pos_102], 0.5)
+
+    with pytest.raises(ValueError, match="coords"):
+        create_knn_weights(np.ones((3, 3)), ids, k=2)
