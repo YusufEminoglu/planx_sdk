@@ -1,11 +1,16 @@
 # PlanX SDK (Software Development Kit)
 
-PlanX QGIS eklenti ekosisteminin çekirdek mekansal analiz, istatistik ve yerleşilebilirlik (MCDA) hesaplama motorlarını barındıran, QGIS arayüzünden bağımsız, saf Python ve NumPy tabanlı resmi kütüphanesidir.
+[![PyPI version](https://img.shields.io/pypi/v/planx-sdk.svg)](https://pypi.org/project/planx-sdk/)
+[![Python version support](https://img.shields.io/pypi/pyversions/planx-sdk.svg)](https://pypi.org/project/planx-sdk/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub Code Formatting](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Bu kütüphane sayesinde, QGIS eklentilerinizdeki karmaşık algoritmaları:
-1. QGIS'i başlatmadan (örneğin Jupyter Notebooks, bağımsız komut dosyaları veya sunucularda) çalıştırabilir,
-2. `pytest` ile hızlı ve headless bir şekilde test edebilir,
-3. Tek bir merkezden güncelleyerek tüm eklentilerinizde tutarlı bir şekilde kullanabilirsiniz.
+PlanX QGIS eklenti ekosisteminin çekirdek mekansal analiz, istatistik, ağ analizleri ve kentsel dirençlilik hesaplama motorlarını barındıran, QGIS arayüzünden bağımsız, saf Python, NumPy ve SciPy tabanlı resmi kütüphanesidir.
+
+Bu kütüphane sayesinde, QGIS eklentilerindeki karmaşık algoritmaları:
+1. **Headless & Bağımsız Çalıştırma:** QGIS'i başlatmadan (örneğin Jupyter Notebooks, bağımsız komut dosyaları, sunucular veya web uygulamalarında) çalıştırabilir,
+2. **Hızlı Test Edebilme:** `pytest` ile hızlı ve headless bir şekilde tüm analitik modülleri test edebilir,
+3. **Merkezi Yönetim:** Tek bir merkezden güncelleyerek (PyPI üzerinden `pip install planx-sdk`) tüm eklentilerinizde ve araç setlerinizde tutarlı bir şekilde kullanabilirsiniz.
 
 ---
 
@@ -13,94 +18,125 @@ Bu kütüphane sayesinde, QGIS eklentilerinizdeki karmaşık algoritmaları:
 
 ```text
 planx_sdk/
+  ├── .github/workflows/          # GitHub Actions (PyPI otomatik yayınlama entegrasyonu)
   ├── pyproject.toml              # Modern paket tanımı, bağımlılıklar ve metadata (PEP 517/621)
   ├── README.md                   # Bu dökümantasyon dosyası
   ├── LICENSE                     # Lisans dosyası
-  ├── .gitignore                  # Python önbellek ve build klasörlerini yoksayan git kuralları
+  ├── .gitignore                  # Önbellek ve build dosyalarını yoksayan Git kuralları
   ├── src/                        # Kaynak kodlar (Standard src-layout)
   │   └── planx/                  # Ana paket dizini
   │       ├── __init__.py         # Versiyon ve paket tanımı
   │       ├── spatial/            # Çekirdek mekansal ağ analizi ve space syntax motoru
   │       │   ├── __init__.py
   │       │   ├── paths.py        # En kısa yol algoritmaları (Dijkstra, SciPy entegrasyonu)
-  │       │   └── centrality.py   # Yakınlık, Brandes Arasılık (Betweenness) ve Özdeğer (Eigenvector)
+  │       │   ├── centrality.py   # Yakınlık, Arasılık (Betweenness), Özdeğer (Eigenvector) ve Kritiklik
+  │       │   └── accessibility.py# Çekim (Hansen) ve Kümülatif Fırsatlar erişilebilirlik modelleri
   │       ├── geostats/           # Mekansal istatistik ve otokorelasyon motorları
   │       │   ├── __init__.py
   │       │   └── stats_engines.py# Getis-Ord Gi*, Local/Global Moran's I, OLS, GWR, SDE, k-means
-  │       └── suitability/        # Raster tabanlı MCDA (Multi-Criteria Decision Analysis) motoru
+  │       ├── suitability/        # Raster tabanlı MCDA (Multi-Criteria Decision Analysis) motoru
+  │       │   ├── __init__.py
+  │       │   ├── mcda.py         # Normalizasyon metotları (Sigmoid, Gaussian, Min-Max) ve WLC
+  │       │   └── facility.py     # Greedy MCLP (Maximal Covering Location Problem) tesis yerleşimi
+  │       └── resilience/         # Kentsel dirençlilik, afet ve risk simülasyon motorları
   │           ├── __init__.py
-  │           └── mcda.py         # Normalizasyon metotları (Sigmoid, Gaussian, Min-Max) ve WLC
+  │           ├── seismic.py      # Monte Carlo sismik yapısal hasar ve enkaz yayılım simülasyonu
+  │           └── flood.py        # DEM tabanlı plüvyal (yüzey suyu) taşkın duyarlılık analizi
   └── tests/                      # Birim testler (Unit Tests)
-      ├── __init__.py
-      ├── test_spatial.py         # Network algoritmaları testleri
-      ├── test_geostats.py        # İstatistik testleri
-      └── test_suitability.py     # MCDA testleri
 ```
 
 ---
 
-## 🛠️ Kurulum (Installation)
+## 💡 Temel Özellikler ve Kullanım Örnekleri
 
-### 1. Geliştirici Modunda Kurulum (Editable Install - Geliştirme İçin)
-SDK kodlarında yaptığınız değişikliklerin anında QGIS veya test ortamınızda yansıması için kütüphaneyi **geliştirici (editable) modda** kurmalısınız.
+### 1. Kentsel Erişilebilirlik Analizleri (`planx.spatial`)
+Köken noktalarından (örn: konutlar) varış noktalarına (örn: hastaneler) olan mesafeleri kullanarak çekim veya kümülatif fırsat modelleriyle erişilebilirliği hesaplar.
 
-QGIS'in veya geliştirme yaptığınız IDE'nin (PyCharm/VS Code) aktif Python ortamında terminali açarak şu komutu çalıştırın:
-```bash
-pip install -e C:\Users\YE\PyCharmMiscProject\planx_sdk
+```python
+import numpy as np
+from planx.spatial import gravity_accessibility
+
+# Mesafe Matrisi (O x D): 2 köken noktasının 3 varış noktasına uzaklıkları (m)
+dists = np.array([
+    [150.0, 300.0, 900.0],
+    [500.0, 100.0, 1200.0]
+])
+# Varış noktalarının kapasite/cazibe ağırlıkları (örn. hastane yatak sayısı)
+weights = np.array([50.0, 100.0, 250.0])
+
+# Üstel (exponential) azalım fonksiyonu ile çekim tabanlı erişilebilirlik (Hansen Index)
+accessibility = gravity_accessibility(
+    dists, weights, decay_method="exponential", beta=0.002, cutoff=1000.0
+)
+print("Erişilebilirlik Skorları:", accessibility)
 ```
-*(Ya da `planx_sdk` klasörünün içindeyken: `pip install -e .`)*
 
-### 2. Geliştirici Bağımlılıklarının Kurulumu
-Birim testlerini koşmak, kod formatlamak veya lint araçlarını kullanmak için geliştirici paketlerini kurabilirsiniz:
+### 2. Tesis Konumu Optimizasyonu (`planx.suitability`)
+Belirli sayıda acil toplanma alanı veya sığınağı, maksimum kapsama mesafesini ve nüfusu gözeterek en optimum şekilde yerleştirmek için **MCLP** çözümünü uygular.
+
+```python
+import numpy as np
+from planx.suitability import greedy_mclp
+
+candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]]) # Sığınak aday koordinatları
+demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])   # Bina koordinatları
+populations = np.array([100.0, 250.0, 500.0])                 # Bina nüfusları
+
+# K=2 sığınak seç, maksimum yürüme mesafesi 5.0 birim olsun
+selected, added_pop, cum_pop = greedy_mclp(candidates, demands, populations, max_distance=5.0, k=2)
+print("Seçilen Tesis İndisleri:", selected) # [1, 0]
+```
+
+### 3. Sismik Hasar ve Enkaz Yayılımı (`planx.resilience`)
+Monte Carlo simülasyonu yardımıyla, bir bölgedeki binaların inşa yılı, kat sayısı ve deprem büyüklüğüne göre yıkılma olasılıklarını stokastik olarak simüle eder. Oluşacak enkazın yatay yayılma yarıçapını ve hafriyat hacmini hesaplar.
+
+```python
+import numpy as np
+from planx.resilience import simulate_seismic_debris
+
+areas = np.array([120.0, 200.0, 80.0])  # Bina taban alanları (m2)
+floors = np.array([4.0, 8.0, 2.0])     # Kat sayıları
+years = np.array([1990, 2005, 2021])    # İnşa yılları
+
+# 7.2 Mw deprem senaryosu
+probs, collapsed, radii, volumes = simulate_seismic_debris(
+    areas, floors, years, magnitude=7.2, seed=42
+)
+print("Bina Yıkım Durumları (0: Ayakta, 1: Yıkık):", collapsed)
+print("Enkaz Yarıçapları (m):", radii)
+```
+
+---
+
+## 🛠️ Kurulum ve Geliştirme (Installation & Development)
+
+### 1. Standart Kurulum
+Kütüphaneyi doğrudan PyPI üzerinden kurabilirsiniz:
 ```bash
+pip install planx-sdk
+```
+
+### 2. Geliştirici Modunda Kurulum (Editable Install)
+SDK kodlarında yaptığınız değişikliklerin anında çalışma ortamınıza yansıması için:
+```bash
+git clone https://github.com/YusufEminoglu/planx_sdk.git
+cd planx_sdk
 pip install -e .[dev]
 ```
 
 ---
 
-## 💡 QGIS Eklentilerinde Kullanım Stratejileri
+## 🧪 Testler ve Kod Standartları
 
-QGIS eklentilerinizin bu paket ile haberleşmesi için iki temel yöntem mevcuttur:
-
-### Yöntem A: Yerel Geliştirici Ortamı (Development)
-Geliştirme makinenizde, QGIS'in kullandığı Python interpreter'ına (`OSGeo4W` veya `conda` ortamı) SDK'yı yukarıdaki gibi `pip install -e` ile kurun. 
-Eklenti kodunuzda doğrudan standart importları yapabilirsiniz:
-```python
-from planx.spatial import brandes_betweenness
-from planx.geostats import calculate_getis_ord
-```
-
-### Yöntem B: Dağıtım / Yayınlama Süreci (Vendoring / Bundling)
-QGIS Hub'da yayınlarken, eklenti zip paketinin kendi kendine yetmesi gerekir (kullanıcıdan harici `pip install` yapması beklenemez).
-Bu sorunu çözmek için, `Build-PluginZip.ps1` veya release betiğinizin içine SDK'yı eklentinin kendi `libs` klasörüne yükleyen bir adım ekleyebilirsiniz:
-
-```powershell
-# Eklentinin zip paketleme aşamasında target klasör olarak eklenti altındaki 'libs' belirlenir:
-pip install C:\Users\YE\PyCharmMiscProject\planx_sdk -t C:\Users\YE\PyCharmMiscProject\qgis_plugins\<eklenti_klasoru>\libs --upgrade
-```
-
-Eklentinizin giriş noktasında (`__init__.py` veya ana modülün en üstünde) bu `libs` klasörünü Python arama yoluna (`sys.path`) eklemeniz yeterlidir:
-```python
-import os
-import sys
-
-# Eklenti altındaki 'libs' klasörünü sys.path'e en yüksek öncelikle ekle
-libs_path = os.path.join(os.path.dirname(__file__), 'libs')
-if libs_path not in sys.path:
-    sys.path.insert(0, libs_path)
-
-# Artık SDK sorunsuzca import edilebilir
-from planx.spatial import many_to_many
-```
-
----
-
-## 🧪 Testleri Koşturma (Running Tests)
-
-SDK'nın doğruluğunu test etmek için `pytest` kullanabilirsiniz. Proje kök dizininde (`C:\Users\YE\PyCharmMiscProject\planx_sdk`) şu komutu çalıştırmanız yeterlidir:
-
+Kütüphanedeki tüm modüllerin matematiksel doğruluğu `pytest` birim testleri ile güvence altına alınmıştır. Testleri koşturmak için:
 ```bash
 pytest
+```
+
+Kod kalitesi ve standartları `ruff` ve `black` araçları ile denetlenmektedir. Commit öncesi kodunuzu formatlamak ve denetlemek için:
+```bash
+black .
+ruff check .
 ```
 
 ---
