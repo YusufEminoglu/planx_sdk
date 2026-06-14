@@ -5,7 +5,12 @@ PlanX Spatial Analytics Submodule
 Network centrality and shortest path calculations on sparse graphs.
 """
 
-from .accessibility import cumulative_opportunities, gravity_accessibility
+from .accessibility import (
+    cumulative_opportunities,
+    enhanced_2sfca,
+    gravity_accessibility,
+    spatial_equity_gini,
+)
 from .centrality import (
     brandes_betweenness,
     closeness_straightness,
@@ -23,4 +28,6 @@ __all__ = [
     "network_criticality",
     "gravity_accessibility",
     "cumulative_opportunities",
+    "enhanced_2sfca",
+    "spatial_equity_gini",
 ]
