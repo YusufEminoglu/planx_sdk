@@ -5,6 +5,7 @@ import numpy as np
 
 from planx.suitability import (
     ahp_weights,
+    capacitated_location_allocation,
     critic_weights,
     decision_matrix_from_layers,
     entropy_weights,
@@ -190,3 +191,48 @@ def test_greedy_lscp():
     )
     assert selected == [2]
     assert cov_frac == 700.0 / 800.0
+
+
+def test_capacitated_location_allocation():
+    facilities = np.array([[0.0, 0.0], [10.0, 0.0]])
+    capacities = np.array([150.0, 200.0])
+    demands = np.array([[1.0, 0.0], [9.0, 0.0], [2.0, 0.0]])
+    pop = np.array([100.0, 150.0, 80.0])
+
+    # Minimum distances to facilities:
+    # d((1,0)) to F0 is 1.0, to F1 is 9.0.
+    # d((9,0)) to F0 is 9.0, to F1 is 1.0.
+    # d((2,0)) to F0 is 2.0, to F1 is 8.0.
+    # Sorted order of demands by min distance:
+    # 1. d_idx=0 (dist 1.0)
+    # 2. d_idx=1 (dist 1.0)
+    # 3. d_idx=2 (dist 2.0)
+
+    # Allocating d_idx=0 (pop 100) -> closest F0 (cap 150). Remaining F0 cap = 50.
+    # Allocating d_idx=1 (pop 150) -> closest F1 (cap 200). Remaining F1 cap = 50.
+    # Allocating d_idx=2 (pop 80) -> closest F0 (need 80, but remaining is 50 -> too small).
+    # Next closest is F1 (need 80, but remaining is 50 -> too small).
+    # So d_idx=2 is unassigned.
+
+    allocations, unassigned, usage = capacitated_location_allocation(
+        facilities, capacities, demands, pop
+    )
+
+    assert allocations[0] == [0]
+    assert allocations[1] == [1]
+    assert list(unassigned) == [2]
+    assert np.allclose(usage, [100.0, 150.0])
+
+    # Test max distance: F0 cannot serve d_idx=0 if max_distance < 1.0
+    allocations_dist, unassigned_dist, usage_dist = capacitated_location_allocation(
+        facilities, capacities, demands, pop, max_distance=0.5
+    )
+    assert len(allocations_dist[0]) == 0
+    assert len(allocations_dist[1]) == 0
+    assert len(unassigned_dist) == 3
+
+    # Error handling
+    import pytest
+
+    with pytest.raises(ValueError, match="shape"):
+        capacitated_location_allocation(np.ones((2, 3)), capacities, demands, pop)
