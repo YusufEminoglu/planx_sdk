@@ -8,6 +8,11 @@ building collapse debris, and infrastructure recovery corridors.
 
 from .flood import pluvial_flood_susceptibility
 from .heat import urban_heat_comfort_risk
+from .infrastructure import (
+    identify_critical_bottlenecks,
+    infrastructure_service_loss,
+    simulate_network_disruption,
+)
 from .seismic import simulate_seismic_debris
 from .social import social_vulnerability_index
 from .synthesis import equity_adjusted_priority, multi_hazard_composite
@@ -19,4 +24,7 @@ __all__ = [
     "urban_heat_comfort_risk",
     "multi_hazard_composite",
     "equity_adjusted_priority",
+    "simulate_network_disruption",
+    "infrastructure_service_loss",
+    "identify_critical_bottlenecks",
 ]
