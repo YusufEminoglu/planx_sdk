@@ -45,7 +45,8 @@ planx_sdk/
   │           ├── flood.py        # DEM tabanlı plüvyal (yüzey suyu) taşkın duyarlılık analizi
   │           ├── social.py       # Sosyal kırılganlık endeksi (SVI) tarama ve analizi
   │           ├── heat.py         # Kentsel ısı konforu riski ve yeşil alan açığı tarama modeli
-  │           └── synthesis.py    # Çoklu tehlike kompozit endeksi ve eşitlik odaklı öncelik sentezi
+  │           ├── synthesis.py    # Çoklu tehlike kompozit endeksi ve eşitlik odaklı öncelik sentezi
+  │           └── infrastructure.py# Altyapı kesintisi, hizmet kaybı ve dar boğaz analizleri
   └── tests/                      # Birim testler (Unit Tests)
 ```
 
@@ -206,6 +207,45 @@ print("Çeşitlilik (Multi-Stress) Skoru:", diversity)
 svi = np.array([10.0, 90.0, 50.0]) # Sosyal Kırılganlık Endeksi
 eq_scores, raw, factors, eq_classes = equity_adjusted_priority(scores, svi, equity_weight=0.5)
 print("Sosyal Kırılganlık ile Düzeltilmiş Skorlar:", eq_scores)
+```
+
+### 8. Altyapı ve Ağ Resilience Analizleri (`planx.resilience`)
+Afet anında yol tıkanmaları veya köprü hasarları gibi durumları simüle ederek kentsel ulaşım ağındaki kesintilerin etkisini ve alternatif yollardaki dar boğazları analiz eder.
+
+```python
+import numpy as np
+from planx.resilience import (
+    simulate_network_disruption,
+    infrastructure_service_loss,
+    identify_critical_bottlenecks
+)
+
+# 3 düğümlü (0-1-2) basit bir yol ağı CSR matrisi
+indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+adj = np.array([1, 0, 2, 1], dtype=np.int64)
+weights = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64) # Ulaşım maliyetleri (dakika)
+
+# 1. 1 numaralı kavşağın (düğümünün) çöktüğünü/kapandığını simüle edelim
+disrupted_weights = simulate_network_disruption(indptr, adj, weights, n=3, blocked_nodes=[1])
+print("Afet Sonrası Yeni Kenar Ağırlıkları:", disrupted_weights) # Tüm kenarlar inf olacaktır
+
+# 2. Öncesi ve sonrası erişilebilirlik matrisleri üzerinden hizmet kaybı analizi
+dists_pre = np.array([[10.0, 20.0], [15.0, 30.0]])
+dists_post = np.array([[15.0, 20.0], [np.inf, np.inf]]) # 2. mahalle tamamen izole oldu
+
+# 150 kişilik nüfus ağırlığı (1. mahalle: 100 kişi, 2. mahalle: 50 kişi)
+demands = np.array([100.0, 50.0])
+loss_stats = infrastructure_service_loss(dists_pre, dists_post, demands=demands)
+print("İzolasyon Oranı:", loss_stats["isolation_rate"]) # 0.333
+print("Ortalama Gecikme (Dakika):", loss_stats["mean_delay"]) # 5.0
+print("Altyapı Hizmet Kırılganlık Endeksi:", loss_stats["service_vulnerability_index"])
+
+# 3. Yollar üzerindeki dar boğazların tespiti
+pre_usage = np.array([10.0, 5.0, 20.0])
+post_usage = np.array([12.0, 5.0, 35.0])
+bottlenecks, increases = identify_critical_bottlenecks(pre_usage, post_usage, top_k=2)
+print("En Kritik Dar Boğaz Yol İndisleri:", bottlenecks) # [2, 0]
+print("Trafik Yükü Artış Miktarları:", increases) # [15. 2.]
 ```
 
 ---

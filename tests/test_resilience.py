@@ -6,8 +6,11 @@ import pytest
 
 from planx.resilience import (
     equity_adjusted_priority,
+    identify_critical_bottlenecks,
+    infrastructure_service_loss,
     multi_hazard_composite,
     pluvial_flood_susceptibility,
+    simulate_network_disruption,
     simulate_seismic_debris,
     social_vulnerability_index,
     urban_heat_comfort_risk,
@@ -133,3 +136,57 @@ def test_equity_adjusted_priority():
     assert np.isclose(factors[0, 0], 1.05)
     assert np.isclose(raw[0, 0], 42.0)
     assert np.isclose(scores[0, 0], 28.0)
+
+
+def test_simulate_network_disruption():
+    # 0 - 1 - 2
+    indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1], dtype=np.int64)
+    weights = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64)
+
+    # 1. Block an edge
+    w_disrupt = simulate_network_disruption(indptr, adj, weights, n=3, blocked_edges=[0])
+    assert w_disrupt[0] == np.inf
+    assert w_disrupt[1] == 1.5
+
+    # 2. Block a node (node 1)
+    w_disrupt2 = simulate_network_disruption(indptr, adj, weights, n=3, blocked_nodes=[1])
+    # Node 1 outgoing: edges 1 (1->0) and 2 (1->2) should be inf
+    # Node 1 incoming: edges 0 (0->1) and 3 (2->1) should be inf
+    np.testing.assert_allclose(w_disrupt2, [np.inf, np.inf, np.inf, np.inf])
+
+    # 3. Invalid inputs
+    with pytest.raises(ValueError, match="Blocked edge indices"):
+        simulate_network_disruption(indptr, adj, weights, n=3, blocked_edges=[10])
+    with pytest.raises(ValueError, match="Blocked node indices"):
+        simulate_network_disruption(indptr, adj, weights, n=3, blocked_nodes=[5])
+
+
+def test_infrastructure_service_loss():
+    # 2 origins, 2 destinations
+    dists_pre = np.array([[10.0, 20.0], [15.0, 30.0]])
+    dists_post = np.array([[10.0, np.inf], [np.inf, np.inf]])  # Origin 1 is isolated
+
+    results = infrastructure_service_loss(dists_pre, dists_post, demands=np.array([100.0, 50.0]))
+    assert np.isclose(results["isolation_rate"], 50.0 / 150.0)
+    assert np.isclose(results["pop_isolated"], 50.0)
+    assert np.isclose(results["mean_delay"], 0.0)
+
+    # With delay
+    dists_post_delay = np.array([[15.0, 20.0], [np.inf, np.inf]])
+    results2 = infrastructure_service_loss(
+        dists_pre, dists_post_delay, demands=np.array([100.0, 50.0])
+    )
+    assert np.isclose(results2["mean_delay"], 5.0)
+    assert np.isclose(
+        results2["service_vulnerability_index"], 100.0 * (0.7 * (1.0 / 3.0) + 0.3 * 0.5)
+    )
+
+
+def test_identify_critical_bottlenecks():
+    pre = np.array([10.0, 5.0, 20.0])
+    post = np.array([12.0, 5.0, 35.0])
+
+    indices, load = identify_critical_bottlenecks(pre, post, top_k=2)
+    np.testing.assert_array_equal(indices, [2, 0])
+    np.testing.assert_allclose(load, [15.0, 2.0])
