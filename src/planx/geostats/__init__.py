@@ -32,6 +32,7 @@ from .stats_engines import (
     calculate_standard_distance,
     run_sensitivity_simulation,
 )
+from .weights import create_distance_band_weights, create_knn_weights
 
 __all__ = [
     "calculate_getis_ord",
@@ -59,4 +60,6 @@ __all__ = [
     "calculate_glr",
     "idw_to_points",
     "idw_to_grid",
+    "create_knn_weights",
+    "create_distance_band_weights",
 ]
