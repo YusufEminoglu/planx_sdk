@@ -45,6 +45,7 @@ planx_sdk/
   │           ├── seismic.py      # Monte Carlo seismic structural damage and debris propagation simulation
   │           ├── flood.py        # DEM-based pluvial (surface water) and connected coastal flood models
   │           ├── landslide.py    # Terrain slope (Horn's method), soil and LULC landslide screening
+  │           ├── wildfire.py     # Terrain slope/aspect and fuel-based wildfire risk index
   │           ├── social.py       # Social Vulnerability Index (SVI) screening and analysis
   │           ├── heat.py         # Urban heat comfort risk and green space deficit screening model
   │           ├── synthesis.py    # Multi-hazard composite index and equity-oriented priority synthesis
@@ -392,6 +393,26 @@ print("Interpolated values at points:", interpolated_points)  # Expected: [25.0]
 # 2. Interpolate onto a 2x2 grid (grid bounding box xmin, ymin, xmax, ymax)
 grid, x, y = idw_to_grid(src_coords, src_values, (0.0, 0.0, 10.0, 10.0), cell_size=5.0)
 print("Interpolated grid:\n", grid)
+```
+
+### 12. Wildfire Risk Index (`planx.resilience`)
+Calculates wildfire exposure/risk based on terrain slope (steeper slopes increase spread rate), aspect (sun exposure alignment drying fuel), and vegetation/fuel density.
+
+```python
+import numpy as np
+from planx.resilience import wildfire_risk_index
+
+# 3x3 DEM grid
+dem_grid = np.array([
+    [10.0, 10.0, 10.0],
+    [10.0, 10.0, 10.0],
+    [10.0, 10.0, 10.0]
+])
+# 100% vegetation cover
+veg_density = np.ones((3, 3))
+
+scores, classes = wildfire_risk_index(dem_grid, cell_size=10.0, vegetation_density=veg_density)
+print("Wildfire Risk Scores:\n", scores)
 ```
 
 ---
