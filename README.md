@@ -33,7 +33,8 @@ planx_sdk/
   │       │   └── accessibility.py# Hansen Gravity and Cumulative Opportunities accessibility models
   │       ├── geostats/           # Spatial statistics and spatial autocorrelation engines
   │       │   ├── __init__.py
-  │       │   └── stats_engines.py# Getis-Ord Gi*, Local/Global Moran's I, OLS, GWR, SDE, k-means
+  │       │   ├── stats_engines.py# Getis-Ord Gi*, Local/Global Moran's I, OLS, GWR, SDE, k-means
+  │       │   └── interpolation.py# Spatial interpolation algorithms (e.g. IDW, nearest neighbor)
   │       ├── suitability/        # Raster-based MCDA (Multi-Criteria Decision Analysis) engine
   │       │   ├── __init__.py
   │       │   ├── mcda.py         # Normalization methods (Sigmoid, Gaussian, Min-Max) and WLC
@@ -355,6 +356,27 @@ dem_grid = np.array([
 # Cell size of 10.0 meters
 scores, classes = landslide_susceptibility(dem_grid, cell_size=10.0)
 print("Landslide Susceptibility Scores:\n", scores)
+```
+
+### 11. Spatial Interpolation (`planx.geostats`)
+Interpolates continuous values (e.g., temperature, rainfall, or pollution) from scattered point observations onto a grid or target point locations using Inverse Distance Weighting (IDW) powered by SciPy KDTree.
+
+```python
+import numpy as np
+from planx.geostats import idw_to_points, idw_to_grid
+
+# 4 corner observations
+src_coords = np.array([[0.0, 0.0], [10.0, 0.0], [0.0, 10.0], [10.0, 10.0]])
+src_values = np.array([10.0, 20.0, 30.0, 40.0])
+
+# 1. Interpolate at target points (e.g., center point (5, 5))
+target_coords = np.array([[5.0, 5.0]])
+interpolated_points = idw_to_points(src_coords, src_values, target_coords, power=2.0)
+print("Interpolated values at points:", interpolated_points)  # Expected: [25.0]
+
+# 2. Interpolate onto a 2x2 grid (grid bounding box xmin, ymin, xmax, ymax)
+grid, x, y = idw_to_grid(src_coords, src_values, (0.0, 0.0, 10.0, 10.0), cell_size=5.0)
+print("Interpolated grid:\n", grid)
 ```
 
 ---

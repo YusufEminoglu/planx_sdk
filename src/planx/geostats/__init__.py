@@ -6,6 +6,7 @@ Core spatial statistical engines including local/global spatial autocorrelation,
 regression modeling, point pattern analysis, and clustering.
 """
 
+from .interpolation import idw_to_grid, idw_to_points
 from .stats_engines import (
     calculate_average_nearest_neighbor,
     calculate_bivariate_lee_l,
@@ -56,4 +57,6 @@ __all__ = [
     "calculate_ripleys_k",
     "calculate_exploratory_regression",
     "calculate_glr",
+    "idw_to_points",
+    "idw_to_grid",
 ]
