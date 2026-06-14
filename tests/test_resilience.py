@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from planx.resilience import simulate_seismic_debris
+from planx.resilience import pluvial_flood_susceptibility, simulate_seismic_debris
 
 
 def test_simulate_seismic_debris():
@@ -41,3 +41,14 @@ def test_simulate_seismic_debris():
     # 2. Check dimension mismatch error
     with pytest.raises(ValueError, match="must have identical length"):
         simulate_seismic_debris(areas[:-1], floors, years, magnitude=7.0)
+
+
+def test_pluvial_flood_susceptibility():
+    dem = np.array([[10.0, 12.0, 15.0], [8.0, 9.0, 11.0], [5.0, 7.0, 8.0]])
+    scores, classes = pluvial_flood_susceptibility(dem, cell_size=10.0, neighborhood_radius=15.0)
+
+    assert scores.shape == (3, 3)
+    assert len(classes) == 3
+    assert len(classes[0]) == 3
+    # Low elevations should have higher susceptibility scores
+    assert scores[2, 0] > scores[0, 2]
