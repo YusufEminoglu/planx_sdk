@@ -17,6 +17,7 @@ from planx.resilience import (
     simulate_seismic_debris,
     social_vulnerability_index,
     urban_heat_comfort_risk,
+    wildfire_risk_index,
 )
 
 
@@ -254,3 +255,22 @@ def test_landslide_susceptibility():
 
     with pytest.raises(ValueError, match="must match dem shape"):
         landslide_susceptibility(dem_flat, cell_size=10.0, soil_susceptibility=np.ones((2, 2)))
+
+
+def test_wildfire_risk_index():
+    dem_flat = np.ones((3, 3), dtype=np.float64) * 10.0
+    veg = np.zeros((3, 3), dtype=np.float64)
+
+    scores, classes = wildfire_risk_index(dem_flat, cell_size=10.0, vegetation_density=veg)
+    assert np.allclose(scores, 0.0)
+    assert classes == [["Low", "Low", "Low"], ["Low", "Low", "Low"], ["Low", "Low", "Low"]]
+
+    veg_high = np.ones((3, 3), dtype=np.float64)
+    scores_veg, classes_veg = wildfire_risk_index(
+        dem_flat, cell_size=10.0, vegetation_density=veg_high
+    )
+    assert np.allclose(scores_veg, 45.0)
+    assert classes_veg[1][1] == "Moderate"
+
+    with pytest.raises(ValueError, match="must match dem shape"):
+        wildfire_risk_index(dem_flat, cell_size=10.0, vegetation_density=np.zeros((2, 2)))
