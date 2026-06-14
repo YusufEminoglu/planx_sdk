@@ -74,6 +74,23 @@ accessibility = gravity_accessibility(
     dists, weights, decay_method="exponential", beta=0.002, cutoff=1000.0
 )
 print("Erişilebilirlik Skorları:", accessibility)
+
+# 2. E2SFCA (Enhanced Two-Step Floating Catchment Area) ve Gini Eşitsizlik Endeksi
+from planx.spatial import enhanced_2sfca, spatial_equity_gini
+
+d_matrix = np.array([[10.0, 50.0], [30.0, 10.0]])
+hospitals_supply = np.array([10.0, 20.0]) # Yatak kapasiteleri
+neighborhoods_demand = np.array([100.0, 200.0]) # Nüfuslar
+
+# 40.0 km/dk cutoff ve doğrusal (linear) azalım ile E2SFCA skorları
+access_scores = enhanced_2sfca(
+    d_matrix, hospitals_supply, neighborhoods_demand, cutoff=40.0, decay_method="linear"
+)
+print("E2SFCA Erişilebilirlik Skorları:", access_scores) # [0.06, 0.12]
+
+# Nüfus ağırlıklı Gini katsayısı ile erişilebilirlik adaleti analizi
+gini_coeff = spatial_equity_gini(access_scores, neighborhoods_demand)
+print("Erişilebilirlik Gini Katsayısı:", gini_coeff)
 ```
 
 ### 2. Tesis Konumu Optimizasyonu (`planx.suitability`)
