@@ -8,7 +8,9 @@ from planx.suitability import (
     critic_weights,
     decision_matrix_from_layers,
     entropy_weights,
+    greedy_lscp,
     greedy_mclp,
+    greedy_p_median,
     normalize_array,
     pca_weights,
     weighted_linear_combination,
@@ -149,3 +151,42 @@ def test_pca_weights():
 
     assert weights.shape == (3,)
     assert np.isclose(np.sum(weights), 1.0)
+
+
+def test_greedy_p_median():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+    pop = np.array([100.0, 200.0, 500.0])
+
+    # 1. p=2 using coordinates
+    selected, costs = greedy_p_median(
+        candidate_coords=candidates, demand_coords=demands, demand_pop=pop, p=2
+    )
+    # The first greedy choice will pick candidates[2] (20,20) because it is closest
+    # to the largest pop 500.
+    # The second choice will pick candidates[1] (10,10) to cover the rest.
+    assert selected == [2, 1]
+    assert len(costs) == 2
+
+    # 2. p=2 using precomputed distance matrix
+    dists = np.array([[1.414, 15.556, 35.355], [12.728, 1.414, 21.213], [26.870, 12.728, 7.071]])
+    selected_dist, costs_dist = greedy_p_median(dists=dists, demand_pop=pop, p=2)
+    assert selected_dist == [2, 1]
+
+
+def test_greedy_lscp():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+    pop = np.array([100.0, 200.0, 500.0])
+
+    # With max_distance = 15.0 and target_coverage = 0.8
+    # Total pop = 800. 80% = 640.
+    # Candidates[1] covers (1,1) (dist 14.14) and (11,11) (dist 1.414) -> 300 pop
+    # Candidates[2] covers (11,11) (dist 12.72) and (25,25) (dist 7.07) -> 700 pop
+    # Picking candidates[2] first covers 700 pop (which is >= 640).
+    # So it should stop after picking 1 facility!
+    selected, cov_frac = greedy_lscp(
+        candidates, demands, demand_pop=pop, max_distance=15.0, target_coverage=0.8
+    )
+    assert selected == [2]
+    assert cov_frac == 700.0 / 800.0
