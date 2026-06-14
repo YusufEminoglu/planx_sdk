@@ -208,3 +208,86 @@ def brandes_betweenness(
             edge_bc *= scale
     depth = {"node_count": depth_nc, "total_depth": depth_td} if collect_depth else None
     return node_bc, edge_bc, depth
+
+
+def network_criticality(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    origins: list[int] | np.ndarray,
+    destinations: list[int] | np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculates network criticality (edge usage/betweenness proxy via OD routing).
+
+    For each origin, finds the shortest path to the nearest destination on the
+    network, and counts how many times each edge (represented by its index in the
+    CSR adjacency list) is used.
+
+    Args:
+        indptr: CSR indptr array of shape (n + 1,)
+        adj: CSR adj array of shape (E,)
+        weights: CSR edge weights array of shape (E,)
+        n: Number of nodes
+        origins: List/array of origin node indices
+        destinations: List/array of destination node indices
+
+    Returns:
+        Tuple of:
+          - edge_usage: NumPy array of shape (E,) containing the count of times each edge was used.
+          - edge_criticality: NumPy array of shape (E,) containing normalized score [0, 100].
+    """
+    import heapq
+
+    edge_usage = np.zeros(len(adj), dtype=np.int64)
+    destinations_set = set(int(d) for d in destinations)
+
+    if not destinations_set:
+        return edge_usage, np.zeros_like(edge_usage, dtype=np.float64)
+
+    for s in origins:
+        s = int(s)
+        dist = np.full(n, INF)
+        dist[s] = 0.0
+        pred = {}
+        heap = [(0.0, s)]
+        visited = np.zeros(n, dtype=bool)
+
+        nearest_dest = None
+
+        while heap:
+            d, u = heapq.heappop(heap)
+            if visited[u]:
+                continue
+            visited[u] = True
+
+            if u in destinations_set:
+                nearest_dest = u
+                break
+
+            for k in range(indptr[u], indptr[u + 1]):
+                v = adj[k]
+                if visited[v]:
+                    continue
+                nd = d + weights[k]
+                if nd < dist[v]:
+                    dist[v] = nd
+                    pred[v] = (u, k)
+                    heapq.heappush(heap, (nd, v))
+
+        if nearest_dest is None:
+            continue
+
+        curr = nearest_dest
+        while curr != s and curr in pred:
+            prev, edge_idx = pred[curr]
+            edge_usage[edge_idx] += 1
+            curr = prev
+
+    max_usage = int(np.max(edge_usage)) if len(edge_usage) > 0 else 0
+    if max_usage > 0:
+        edge_criticality = (100.0 * edge_usage) / max_usage
+    else:
+        edge_criticality = np.zeros_like(edge_usage, dtype=np.float64)
+
+    return edge_usage, edge_criticality

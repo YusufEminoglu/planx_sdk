@@ -6,9 +6,11 @@ Core Multi-Criteria Decision Analysis (MCDA) mathematical engines,
 including reclassification, normalization, and weighted linear combination.
 """
 
+from .facility import greedy_mclp
 from .mcda import normalize_array, weighted_linear_combination
 
 __all__ = [
     "normalize_array",
     "weighted_linear_combination",
+    "greedy_mclp",
 ]

@@ -11,6 +11,7 @@ from planx.spatial import (
     gravity_accessibility,
     many_to_many,
     multi_source,
+    network_criticality,
 )
 
 
@@ -86,3 +87,19 @@ def test_accessibility():
 
     ga_exp = gravity_accessibility(dists, weights, decay_method="exponential", beta=0.5)
     np.testing.assert_allclose(ga_exp, [17.527144, 13.820863], rtol=1e-5)
+
+
+def test_network_criticality(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+
+    # 0 - 1 - 2
+    # Node 1 is between 0 and 2.
+    # If origins = [0, 2], destinations = [1]
+    # Path from 0 -> 1: uses edge 0 (0 -> 1)
+    # Path from 2 -> 1: uses edge 3 (2 -> 1)
+    # So edge 0 (0->1) and edge 3 (2->1) should each have usage count 1.
+    usage, criticality = network_criticality(
+        indptr, adj, weights, n, origins=[0, 2], destinations=[1]
+    )
+    np.testing.assert_array_equal(usage, [1, 0, 0, 1])
+    np.testing.assert_allclose(criticality, [100.0, 0.0, 0.0, 100.0])

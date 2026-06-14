@@ -6,7 +6,12 @@ Network centrality and shortest path calculations on sparse graphs.
 """
 
 from .accessibility import cumulative_opportunities, gravity_accessibility
-from .centrality import brandes_betweenness, closeness_straightness, eigenvector
+from .centrality import (
+    brandes_betweenness,
+    closeness_straightness,
+    eigenvector,
+    network_criticality,
+)
 from .paths import many_to_many, multi_source
 
 __all__ = [
@@ -15,6 +20,7 @@ __all__ = [
     "closeness_straightness",
     "eigenvector",
     "brandes_betweenness",
+    "network_criticality",
     "gravity_accessibility",
     "cumulative_opportunities",
 ]
