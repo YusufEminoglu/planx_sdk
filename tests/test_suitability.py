@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from planx.suitability import normalize_array, weighted_linear_combination
+from planx.suitability import greedy_mclp, normalize_array, weighted_linear_combination
 
 
 def test_normalize_array_benefit_minmax():
@@ -50,3 +50,22 @@ def test_wlc_with_constraint():
 
     expected = np.array([[50.0, 0.0], [50.0, 50.0]], dtype=np.float32)
     np.testing.assert_allclose(result, expected)
+
+
+def test_greedy_mclp():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+    pop = np.array([100.0, 200.0, 500.0])
+
+    indices, added, cum = greedy_mclp(candidates, demands, pop, max_distance=5.0, k=2)
+    assert indices == [1, 0]
+    np.testing.assert_allclose(added, [200.0, 100.0])
+    np.testing.assert_allclose(cum, [200.0, 300.0])
+
+    existing = np.array([[0.0, 0.0]])
+    indices, added, cum = greedy_mclp(
+        candidates, demands, pop, max_distance=5.0, k=2, existing_coords=existing
+    )
+    assert indices == [1]
+    np.testing.assert_allclose(added, [200.0])
+    np.testing.assert_allclose(cum, [300.0])
