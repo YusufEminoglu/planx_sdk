@@ -11,6 +11,7 @@ from .heat import urban_heat_comfort_risk
 from .infrastructure import (
     identify_critical_bottlenecks,
     infrastructure_service_loss,
+    prioritize_debris_clearance,
     simulate_network_disruption,
 )
 from .seismic import simulate_seismic_debris
@@ -27,4 +28,5 @@ __all__ = [
     "simulate_network_disruption",
     "infrastructure_service_loss",
     "identify_critical_bottlenecks",
+    "prioritize_debris_clearance",
 ]

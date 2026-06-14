@@ -249,7 +249,8 @@ import numpy as np
 from planx.resilience import (
     simulate_network_disruption,
     infrastructure_service_loss,
-    identify_critical_bottlenecks
+    identify_critical_bottlenecks,
+    prioritize_debris_clearance
 )
 
 # 3 düğümlü (0-1-2) basit bir yol ağı CSR matrisi
@@ -278,6 +279,17 @@ post_usage = np.array([12.0, 5.0, 35.0])
 bottlenecks, increases = identify_critical_bottlenecks(pre_usage, post_usage, top_k=2)
 print("En Kritik Dar Boğaz Yol İndisleri:", bottlenecks) # [2, 0]
 print("Trafik Yükü Artış Miktarları:", increases) # [15. 2.]
+
+# 4. Yol enkaz kaldırma çalışmalarının önceliklendirilmesi (Yarar/Maliyet analizi)
+blocked_roads = np.array([0, 2]) # Kapanan 0 ve 2 nolu yollar
+debris_volumes = np.array([15.0, 150.0]) # Yollardaki enkaz hacimleri (m3)
+edge_criticality = np.array([100.0, 20.0, 300.0, 50.0]) # Yolların ağ üzerindeki önem skorları
+
+clearance_order, priority_scores = prioritize_debris_clearance(
+    blocked_roads, debris_volumes, edge_criticality, cost_factor=1.0
+)
+print("Enkaz Kaldırma Öncelik Sıralaması (Yol İndisleri):", clearance_order) # [2, 0]
+print("Öncelik Skorları:", priority_scores)
 ```
 
 ---

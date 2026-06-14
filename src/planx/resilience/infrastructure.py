@@ -198,3 +198,56 @@ def identify_critical_bottlenecks(
     load_increases = diff[bottleneck_indices]
 
     return bottleneck_indices, load_increases
+
+
+def prioritize_debris_clearance(
+    blocked_edges: np.ndarray,
+    debris_volumes: np.ndarray,
+    edge_criticality: np.ndarray,
+    cost_factor: float = 1.0,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Prioritizes blocked edges for debris clearance based on utility-to-cost ratio.
+
+    Utility is represented by edge criticality (e.g. usage count/centrality), and cost
+    is represented by the debris volume to be cleared.
+
+    Args:
+        blocked_edges: 1D NumPy array of edge indices that are blocked.
+        debris_volumes: 1D NumPy array containing the debris volume (m3) at each blocked
+            edge. Must match blocked_edges in length.
+        edge_criticality: 1D NumPy array of shape (E,) containing the network
+            usage/importance score of each edge in the graph.
+        cost_factor: Weight coefficient for the cost (debris volume). Higher values penalize
+            high-debris roads more severely.
+
+    Returns:
+        Tuple of:
+          - clearance_order: NumPy array of blocked edge indices sorted by priority (descending).
+          - priority_scores: NumPy array of the computed priority scores for the sorted edges.
+    """
+    b_edges = np.asarray(blocked_edges, dtype=np.int64)
+    vol = np.asarray(debris_volumes, dtype=np.float64)
+    crit = np.asarray(edge_criticality, dtype=np.float64)
+
+    if len(b_edges) != len(vol):
+        raise ValueError("blocked_edges and debris_volumes must have the same length")
+
+    if np.any(vol < 0):
+        raise ValueError("debris_volumes must contain non-negative values")
+
+    # Get criticality of blocked edges
+    # Avoid index out of bounds
+    if len(b_edges) > 0 and (np.any(b_edges < 0) or np.any(b_edges >= len(crit))):
+        raise ValueError("blocked_edges indices must be within valid range of edge_criticality")
+
+    b_crit = crit[b_edges]
+
+    # Priority = Criticality / (Debris Volume ** cost_factor + epsilon)
+    # Epsilon prevents division by zero
+    eps = 1e-6
+    scores = b_crit / (np.power(vol, cost_factor) + eps)
+
+    # Sort descending
+    sorted_idx = np.argsort(scores)[::-1]
+
+    return b_edges[sorted_idx], scores[sorted_idx]
