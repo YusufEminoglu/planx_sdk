@@ -263,7 +263,7 @@ def greedy_lscp(
         if pop.ndim != 1 or pop.shape[0] != d_count:
             raise ValueError(f"demand_pop must be a 1D array of length D ({d_count})")
 
-    total_pop = np.sum(pop)
+    total_pop = float(np.sum(pop))
     if total_pop <= 0:
         total_pop = 1.0
 

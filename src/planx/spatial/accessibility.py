@@ -261,7 +261,7 @@ def service_area_coverage(
         if pop.shape != (n,):
             raise ValueError(f"node_population shape {pop.shape} must match number of nodes {n}")
 
-    total_pop = np.sum(pop)
+    total_pop = float(np.sum(pop))
     if total_pop <= 0:
         total_pop = 1.0
 
@@ -273,7 +273,7 @@ def service_area_coverage(
 
     dists, _ = multi_source(indptr, adj, weights, n, fac, cutoff=max_threshold)
 
-    results = {}
+    results: Dict[float, Dict[str, Union[np.ndarray, float]]] = {}
     for t in thresholds:
         t_val = float(t)
         reachable = (dists <= t_val) & np.isfinite(dists)

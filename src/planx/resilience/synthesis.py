@@ -76,7 +76,7 @@ def multi_hazard_composite(
     diversity_flat = np.full(n_elements, 0.0, dtype=np.float64)
     classes_flat = []
     dominant_flat = []
-    drivers_flat = []
+    drivers_flat: List[List[str]] = []
 
     for i in range(n_elements):
         # Gather non-nan hazards
@@ -191,6 +191,7 @@ def equity_adjusted_priority(
     flat_scores = adjusted_score.flatten()
     classes_flat = [_composite_risk_class(val) for val in flat_scores]
 
+    classes: Union[List[str], List[List[str]]]
     if len(shape) == 1:
         classes = classes_flat
     elif len(shape) == 2:
