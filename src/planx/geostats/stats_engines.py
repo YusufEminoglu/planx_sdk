@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import math
-from typing import Optional
+from typing import Optional, cast
 
 import numpy as np
 
@@ -1621,7 +1621,7 @@ def calculate_exploratory_regression(
             )
 
     # Sort by AICc ascending (best first)
-    models.sort(key=lambda m: m["aicc"])
+    models.sort(key=lambda m: cast(float, m["aicc"]))
     return models
 
 

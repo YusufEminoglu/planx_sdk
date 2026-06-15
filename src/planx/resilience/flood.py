@@ -53,7 +53,7 @@ def pluvial_flood_susceptibility(
     # 1. Relative low elevation
     min_elev = np.min(dem_arr[valid])
     max_elev = np.max(dem_arr[valid])
-    elev_range = max_elev - min_elev
+    elev_range = float(max_elev - min_elev)
     if elev_range <= 0:
         elev_range = 1.0
 
