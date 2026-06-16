@@ -7,6 +7,8 @@ import pytest
 from planx.geostats import (
     calculate_getis_ord,
     calculate_global_geary,
+    calculate_global_moran,
+    calculate_local_moran,
     calculate_mean_center,
     create_distance_band_weights,
     create_knn_weights,
@@ -180,3 +182,48 @@ def test_kriging_interpolation():
         kriging_to_points(src_coords, src_values, target_coords, range_=-1)
     with pytest.raises(ValueError):
         kriging_to_points(src_coords, src_values, target_coords, nugget=2.0, sill=1.0)
+
+
+def test_calculate_global_moran():
+    y = np.array([1.0, 2.0, 3.0, 4.0])
+    neighbors = {0: [1], 1: [0, 2], 2: [1, 3], 3: [2]}
+    weights = {0: [1.0], 1: [1.0, 1.0], 2: [1.0, 1.0], 3: [1.0]}
+    id_order = [0, 1, 2, 3]
+
+    moran_i, expected_i, variance, z_score, p_value = calculate_global_moran(
+        y, neighbors, weights, id_order
+    )
+
+    # In this case of positive spatial autocorrelation:
+    # Moran's I should be greater than the expected value (-1/3)
+    assert moran_i > expected_i
+    assert np.isclose(expected_i, -1.0 / 3.0)
+    assert variance > 0
+    assert z_score > 0
+    assert 0 <= p_value <= 1.0
+
+    # Error handling
+    with pytest.raises(ValueError, match="at least 4 observations"):
+        calculate_global_moran(y[:3], neighbors, weights, id_order[:3])
+
+
+def test_calculate_local_moran():
+    y = np.array([1.0, 2.0, 3.0, 4.0])
+    neighbors = {0: [1], 1: [0, 2], 2: [1, 3], 3: [2]}
+    weights = {0: [1.0], 1: [1.0, 1.0], 2: [1.0, 1.0], 3: [1.0]}
+    id_order = [0, 1, 2, 3]
+
+    I_vals, z_scores, p_vals, quadrants = calculate_local_moran(y, neighbors, weights, id_order)
+
+    assert len(I_vals) == 4
+    assert len(z_scores) == 4
+    assert len(p_vals) == 4
+    assert len(quadrants) == 4
+
+    # The elements should have quadrant classifications
+    assert any(q in ["HH", "LL", "HL", "LH", "Not Significant"] for q in quadrants)
+
+    # Edge cases
+    # Too few elements
+    I_short, _, _, _ = calculate_local_moran(y[:2], neighbors, weights, id_order[:2])
+    assert len(I_short) == 2
