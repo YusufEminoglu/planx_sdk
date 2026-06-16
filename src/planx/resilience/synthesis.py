@@ -64,7 +64,7 @@ def multi_hazard_composite(
             )
 
     if weights is None:
-        w_dict = {k: 1.0 for k in keys}
+        w_dict = dict.fromkeys(keys, 1.0)
     else:
         w_dict = {k: max(0.0, float(weights.get(k, 1.0))) for k in keys}
 

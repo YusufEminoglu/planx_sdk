@@ -386,7 +386,7 @@ def calculate_ols(
         beta = xtx_inv @ X.T @ y
     except Exception as e:
         logger.error("Linear algebra inversion failed in OLS regression: %s", e)
-        raise ValueError(f"Regression inversion failed: {e}")
+        raise ValueError(f"Regression inversion failed: {e}") from e
 
     # Residuals
     y_pred = X @ beta
@@ -536,7 +536,7 @@ def calculate_global_moran(
 
     # Second pass: compute S1
     S1 = 0.0
-    for i, fid in enumerate(id_order):
+    for fid in id_order:
         neighs = neighbors.get(fid, [])
         w_list = weights.get(fid, [])
         for j_fid, w_ij in zip(neighs, w_list):
@@ -1678,7 +1678,8 @@ def calculate_glr(
             raise ValueError("Logistic GLR requires a binary dependent variable coded as 0 and 1.")
         beta = np.zeros(p + 1)
         converged = False
-        for iteration in range(1, max_iter + 1):
+        # `iteration` is intentionally reported after the loop (see "iterations" below).
+        for iteration in range(1, max_iter + 1):  # noqa: B007
             eta = X @ beta
             mu = 1.0 / (1.0 + np.exp(-np.clip(eta, -35.0, 35.0)))
             w = np.maximum(mu * (1.0 - mu), 1e-9)
@@ -1723,7 +1724,8 @@ def calculate_glr(
             raise ValueError("Poisson GLR requires non-negative integer count values.")
         beta = np.zeros(p + 1)
         converged = False
-        for iteration in range(1, max_iter + 1):
+        # `iteration` is intentionally reported after the loop (see "iterations" below).
+        for iteration in range(1, max_iter + 1):  # noqa: B007
             eta = np.clip(X @ beta, -30.0, 30.0)
             mu = np.maximum(np.exp(eta), 1e-9)
             z = eta + (y - mu) / mu
