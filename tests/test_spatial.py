@@ -10,6 +10,8 @@ from planx.spatial import (
     eigenvector,
     enhanced_2sfca,
     gravity_accessibility,
+    huff_gravity_model,
+    kernel_density_2sfca,
     many_to_many,
     multi_source,
     network_criticality,
@@ -188,3 +190,66 @@ def test_service_area_coverage(sample_graph):
     assert np.array_equal(res[5.0]["reachable_nodes"], [0, 1, 2])
     assert np.isclose(res[5.0]["population_covered"], 600.0)
     assert np.isclose(res[5.0]["coverage_fraction"], 1.0)
+
+
+def test_huff_gravity_model():
+    # 2 origins, 3 destinations
+    dists = np.array([[1.0, 2.0, 10.0], [3.0, 1.0, 10.0]])
+    weights = np.array([10.0, 20.0, 100.0])
+
+    # Power decay with exponent=2
+    # Origin 0:
+    # f(d_00) = 1/1 = 1, utility = 10 * 1 = 10
+    # f(d_01) = 1/4 = 0.25, utility = 20 * 0.25 = 5
+    # f(d_02) = 1/100 = 0.01, utility = 100 * 0.01 = 1
+    # Sum = 10 + 5 + 1 = 16
+    # Probs = [10/16, 5/16, 1/16] = [0.625, 0.3125, 0.0625]
+    probs = huff_gravity_model(dists, weights, decay_method="power", exponent=2.0)
+    np.testing.assert_allclose(probs[0], [0.625, 0.3125, 0.0625])
+
+    # Row sum must be 1.0
+    np.testing.assert_allclose(np.sum(probs, axis=1), [1.0, 1.0])
+
+    # Exponential decay with beta=0.1
+    probs_exp = huff_gravity_model(dists, weights, decay_method="exponential", beta=0.1)
+    np.testing.assert_allclose(np.sum(probs_exp, axis=1), [1.0, 1.0])
+
+    # Error handling
+    with pytest.raises(ValueError):
+        huff_gravity_model(dists[0], weights)  # non-2D dists
+    with pytest.raises(ValueError):
+        huff_gravity_model(dists, weights[:-1])  # size mismatch
+
+
+def test_kernel_density_2sfca():
+    # 2 demand points, 2 supply points
+    dists = np.array([[10.0, 50.0], [30.0, 10.0]])
+    supply = np.array([10.0, 20.0])
+    demand = np.array([100.0, 200.0])
+
+    # Quartic kernel, cutoff=40.0
+    # ratio:
+    # r_00 = 10/40 = 0.25, W_00 = (15/16) * (1 - 0.25^2)^2 = (15/16) * (15/16)^2 = 0.8239746
+    # r_01 = 50/40 > 1.0 -> 0.0
+    # r_10 = 30/40 = 0.75, W_10 = (15/16) * (1 - 0.75^2)^2 = (15/16) * (7/16)^2 = 0.179443
+    # r_11 = 10/40 = 0.25, W_11 = (15/16) * (1 - 0.25^2)^2 = 0.8239746
+    #
+    # Step 1: Weighted demand
+    # D_0 = P_0*W_00 + P_1*W_10 = 100*0.8239746 + 200*0.179443 = 82.39746 + 35.8886 = 118.286
+    # R_0 = S_0 / D_0 = 10 / 118.286 = 0.08454
+    # D_1 = P_0*W_01 + P_1*W_11 = 0 + 200*0.8239746 = 164.795
+    # R_1 = S_1 / D_1 = 20 / 164.795 = 0.12136
+    #
+    # Step 2: Sum R_j * W_ij
+    # A_0 = R_0 * W_00 + R_1 * W_01 = 0.08454 * 0.8239746 + 0 = 0.069658
+    # A_1 = R_0 * W_10 + R_1 * W_11 = 0.08454 * 0.179443 + 0.12136 * 0.8239746 = 0.01517 + 0.099998 = 0.115168
+    a = kernel_density_2sfca(dists, supply, demand, cutoff=40.0, kernel="quartic")
+    np.testing.assert_allclose(a, [0.069658, 0.115168], rtol=1e-4)
+
+    # Epanechnikov kernel, cutoff=40.0
+    a_epa = kernel_density_2sfca(dists, supply, demand, cutoff=40.0, kernel="epanechnikov")
+    assert len(a_epa) == 2
+
+    # Gaussian kernel, cutoff=40.0
+    a_gau = kernel_density_2sfca(dists, supply, demand, cutoff=40.0, kernel="gaussian")
+    assert len(a_gau) == 2

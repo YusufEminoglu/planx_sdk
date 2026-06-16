@@ -9,6 +9,8 @@ from .accessibility import (
     cumulative_opportunities,
     enhanced_2sfca,
     gravity_accessibility,
+    huff_gravity_model,
+    kernel_density_2sfca,
     service_area_coverage,
     spatial_equity_gini,
 )
@@ -30,6 +32,8 @@ __all__ = [
     "gravity_accessibility",
     "cumulative_opportunities",
     "enhanced_2sfca",
+    "huff_gravity_model",
+    "kernel_density_2sfca",
     "spatial_equity_gini",
     "service_area_coverage",
 ]

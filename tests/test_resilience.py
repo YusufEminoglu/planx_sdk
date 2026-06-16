@@ -6,17 +6,21 @@ import pytest
 
 from planx.resilience import (
     coastal_flood_inundation,
+    debris_clearance_routing,
     equity_adjusted_priority,
     identify_critical_bottlenecks,
     infrastructure_service_loss,
     landslide_susceptibility,
     multi_hazard_composite,
+    network_criticality_index,
     pluvial_flood_susceptibility,
     prioritize_debris_clearance,
     simulate_network_disruption,
     simulate_seismic_debris,
     social_vulnerability_index,
+    socio_economic_flood_risk,
     urban_heat_comfort_risk,
+    urban_heat_island_intensity,
     wildfire_risk_index,
 )
 
@@ -274,3 +278,112 @@ def test_wildfire_risk_index():
 
     with pytest.raises(ValueError, match="must match dem shape"):
         wildfire_risk_index(dem_flat, cell_size=10.0, vegetation_density=np.zeros((2, 2)))
+
+
+def test_network_criticality_index():
+    # Simple line graph: 0 - 1 - 2
+    indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1], dtype=np.int64)
+    weights = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64)
+    n = 3
+
+    # If we evaluate target edge 0 (connecting 0 -> 1)
+    res = network_criticality_index(indptr, adj, weights, n, target_edges=[0], target_nodes=[1])
+
+    assert "edges_nci" in res
+    assert "nodes_nci" in res
+    # Blocking edge 0 should cause drop in efficiency, NCI should be positive
+    assert res["edges_nci"][0] > 0.0
+    # Blocking node 1 (the center hub connecting 0 and 2) should completely segment the network,
+    # so efficiency drops significantly
+    assert res["nodes_nci"][0] > 0.0
+
+
+def test_urban_heat_island_intensity():
+    # 2x2 grid
+    albedo = np.array([[0.1, 0.2], [0.15, 0.8]])
+    ndvi = np.array([[0.0, 0.5], [-0.2, 0.9]])
+    bh = np.array([[10.0, 5.0], [20.0, 0.0]])
+    bf = np.array([[0.5, 0.3], [0.8, 0.0]])
+
+    intensity = urban_heat_island_intensity(albedo, ndvi, bh, bf)
+
+    assert intensity.shape == (2, 2)
+    # The cell with low albedo, low vegetation, and high building density (0, 0 or 1, 0)
+    # should have higher UHI intensity than the green park cell (1, 1)
+    assert intensity[1, 0] > intensity[1, 1]
+    assert np.all(intensity >= 0.0)
+
+    # Argument validation
+    with pytest.raises(ValueError):
+        urban_heat_island_intensity(albedo, ndvi[:-1], bh, bf)
+
+
+def test_socio_economic_flood_risk():
+    # 2x2 grid
+    hazard = np.array([[1.0, 0.0], [0.5, 0.2]])
+    exposure = np.array([[10.0, 20.0], [5.0, 1.0]])
+    svi = np.array([[0.8, 0.2], [0.6, 0.4]])
+
+    # 1. Multiplicative method
+    scores, classes = socio_economic_flood_risk(hazard, exposure, svi, method="multiplicative")
+    assert scores.shape == (2, 2)
+    assert len(classes) == 2
+    # Since inputs are normalized internally via min-max:
+    # Max hazard is 1.0 -> 100, min is 0.0 -> 0
+    # Max exposure is 20.0 -> 100, min is 1.0 -> 0
+    # Max SVI is 0.8 -> 100, min is 0.2 -> 0
+    # At (0,0): h_norm=100, e_norm=9/19*100=47.37, v_norm=100 -> score = 100*47.37*100/10000 = 47.37
+    # At (0,1): h_norm=0, e_norm=100, v_norm=0 -> score = 0
+    assert np.isclose(scores[0, 1], 0.0)
+    assert classes[0][1] == "Low"
+
+    # 2. Additive method
+    scores_add, classes_add = socio_economic_flood_risk(hazard, exposure, svi, method="additive")
+    assert scores_add.shape == (2, 2)
+    assert scores_add[0, 0] > 0.0
+
+    # Error handling
+    with pytest.raises(ValueError):
+        socio_economic_flood_risk(hazard, exposure[:-1], svi)
+
+
+def test_debris_clearance_routing():
+    # Simple line graph: 0 - 1 - 2
+    # CSR representations:
+    # 0 -> 1 (edge 0, weight 1.5)
+    # 1 -> 0 (edge 1, weight 1.5)
+    # 1 -> 2 (edge 2, weight 2.5)
+    # 2 -> 1 (edge 3, weight 2.5)
+    indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1], dtype=np.int64)
+    weights = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64)
+    n = 3
+
+    # Let's say edges 0 and 2 are blocked by debris
+    blocked_edges = np.array([0, 2])
+    debris_volumes = np.array([10.0, 50.0])  # Edge 0 has less debris (easier to clear)
+    edge_criticality = np.ones(4)
+
+    # Run routing starting from depot_node = 0
+    clearance_order, total_dist = debris_clearance_routing(
+        indptr, adj, weights, n, blocked_edges, debris_volumes, edge_criticality, depot_node=0
+    )
+
+    # The vehicle should clear edge 0 first because it's closer to the depot and has less debris,
+    # then move to 1, then clear edge 2.
+    assert np.array_equal(clearance_order, [0, 2])
+    assert total_dist > 0.0
+
+    # Error checking
+    with pytest.raises(ValueError):
+        debris_clearance_routing(
+            indptr,
+            adj,
+            weights,
+            n,
+            blocked_edges,
+            debris_volumes[:-1],
+            edge_criticality,
+            depot_node=0,
+        )

@@ -589,6 +589,108 @@ def calculate_global_moran(
     return float(moran_i), float(expected_i), float(variance), float(z_score), float(p_value)
 
 
+def calculate_global_geary(
+    y: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
+) -> tuple[float, float, float, float, float]:
+    """Calculates Global Geary's C spatial autocorrelation.
+
+    Args:
+        y: Attribute values.
+        neighbors: Adjacency list mapping node ID to list of neighbor IDs.
+        weights: Weights list mapping node ID to list of weights.
+        id_order: List of node IDs in the order they correspond to y.
+
+    Returns:
+        A tuple of (geary_c, expected_c, variance_rand, z_score_rand, p_value_rand)
+    """
+    n = len(y)
+    if n <= 3:
+        raise ValueError("Global Geary's C requires at least 4 observations.")
+
+    id_to_idx = {fid: idx for idx, fid in enumerate(id_order)}
+
+    y_mean = np.mean(y)
+    z = y - y_mean
+    sum_z2 = np.sum(z**2)
+    sum_z4 = np.sum(z**4)
+
+    if sum_z2 == 0:
+        return 1.0, 1.0, 0.0, 0.0, 1.0
+
+    S0 = 0.0
+    w_row_sums = np.zeros(n)
+    w_col_sums = np.zeros(n)
+
+    # First pass: compute S0, row sums, and column sums
+    for i, fid in enumerate(id_order):
+        neighs = neighbors.get(fid, [])
+        w_list = weights.get(fid, [])
+        for j_fid, w in zip(neighs, w_list):
+            if j_fid in id_to_idx:
+                j = id_to_idx[j_fid]
+                S0 += w
+                w_row_sums[i] += w
+                w_col_sums[j] += w
+
+    if S0 == 0:
+        return 1.0, 1.0, 0.0, 0.0, 1.0
+
+    # Second pass: compute S1
+    S1 = 0.0
+    for fid in id_order:
+        neighs = neighbors.get(fid, [])
+        w_list = weights.get(fid, [])
+        for j_fid, w_ij in zip(neighs, w_list):
+            if j_fid in id_to_idx:
+                j = id_to_idx[j_fid]
+                w_ji = 0.0
+                j_neighs = neighbors.get(j_fid, [])
+                j_w_list = weights.get(j_fid, [])
+                if fid in j_neighs:
+                    w_ji = j_w_list[j_neighs.index(fid)]
+                S1 += (w_ij + w_ji) ** 2
+    S1 = 0.5 * S1
+
+    # Compute S2
+    S2 = np.sum((w_row_sums + w_col_sums) ** 2)
+
+    # Calculate Geary's C observed value
+    numerator = 0.0
+    for i, fid in enumerate(id_order):
+        neighs = neighbors.get(fid, [])
+        w_list = weights.get(fid, [])
+        for j_fid, w in zip(neighs, w_list):
+            if j_fid in id_to_idx:
+                j = id_to_idx[j_fid]
+                numerator += w * (y[i] - y[j]) ** 2
+
+    geary_c = ((n - 1) * numerator) / (2.0 * S0 * sum_z2)
+    expected_c = 1.0
+
+    k = (sum_z4 / n) / ((sum_z2 / n) ** 2)
+    n2 = n * n
+    s02 = S0 * S0
+
+    A = (n - 1) * S1 * (n2 - 3 * n + 3 - (n - 1) * k)
+    B = 0.25 * ((n - 1) * S2 * (n2 + 3 * n - 6 - (n2 - n + 2) * k))
+    C_term = s02 * (n2 - 3 - (n - 1) ** 2 * k)
+
+    variance = (A - B + C_term) / (n * (n - 2) * (n - 3) * s02)
+
+    if variance > 0:
+        z_score = (geary_c - expected_c) / math.sqrt(variance)
+        p_value = 2.0 * (1.0 - 0.5 * (1.0 + math.erf(abs(z_score) / math.sqrt(2.0))))
+    else:
+        variance = 0.0
+        z_score = 0.0
+        p_value = 1.0
+
+    return float(geary_c), float(expected_c), float(variance), float(z_score), float(p_value)
+
+
 def calculate_spatial_gini(
     values: np.ndarray,
     neighbors: dict[int, list[int]],

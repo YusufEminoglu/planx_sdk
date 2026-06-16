@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-06-16
+### Added
+- **Huff Gravity Market Model** in `planx.spatial` to compute Choice probabilities for retail and service attraction.
+- **Kernel Density 2SFCA (KD2SFCA)** in `planx.spatial` supporting continuous kernels (Quartic, Gaussian, Epanechnikov).
+- **Global Geary's C** in `planx.geostats` for measuring spatial autocorrelation and local differences.
+- **Ordinary Kriging Interpolation** in `planx.geostats` supporting Spherical, Exponential, Gaussian, and Linear semivariograms.
+- **TOPSIS Method** in `planx.suitability` for ideal-worst distance-based MCDA ranking.
+- **VIKOR Method** in `planx.suitability` for conflicting criteria compromise MCDA ranking.
+- **Network Criticality Index (NCI)** in `planx.resilience` to evaluate node and link vulnerability under disruption.
+- **Urban Heat Island (UHI) Intensity proxy** in `planx.resilience` based on albedo, NDVI, building footprint/height, and wind.
+- **Socio-Economic Flood Risk Index** in `planx.resilience` combining hazard depth, building exposure, and SVI.
+- **Debris Clearance Routing (Greedy TSP)** in `planx.resilience` to optimize road clearing sequences from a depot.
+
+---
+
 ## [0.2.0] - 2026-06-16
 ### Changed
 - Add a manual release-prep workflow

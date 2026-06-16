@@ -197,3 +197,101 @@ def coastal_flood_inundation(
     water_depth[~valid] = np.nan
 
     return flooded, water_depth
+
+
+def socio_economic_flood_risk(
+    hazard_depth: np.ndarray,
+    building_exposure: np.ndarray,
+    social_vulnerability: np.ndarray,
+    method: str = "multiplicative",
+    w_hazard: float = 0.4,
+    w_exposure: float = 0.3,
+    w_vulnerability: float = 0.3,
+) -> tuple[np.ndarray, list[list[str]]]:
+    """Calculates the composite Socio-Economic Flood Risk Index across a grid.
+
+    Combines flood hazard depth (or susceptibility), building exposure, and
+    social vulnerability into a unified risk score [0, 100] and risk classes.
+
+    Args:
+        hazard_depth: 2D NumPy array of shape (R, C) containing flood depth (meters)
+            or susceptibility scores.
+        building_exposure: 2D NumPy array of shape (R, C) containing building footprints
+            or asset value density.
+        social_vulnerability: 2D NumPy array of shape (R, C) containing Social
+            Vulnerability Index (SVI) values.
+        method: Risk calculation method: 'multiplicative' (H * E * V) or
+            'additive' (weighted linear combination).
+        w_hazard: Weight for hazard in additive method.
+        w_exposure: Weight for exposure in additive method.
+        w_vulnerability: Weight for vulnerability in additive method.
+
+    Returns:
+        Tuple of:
+          - risk_scores: 2D NumPy array of shape (R, C) containing risk scores [0, 100].
+          - risk_classes: List of lists of risk class category strings
+            ('Low', 'Moderate', 'High', 'Very High').
+    """
+    h = np.asarray(hazard_depth, dtype=np.float64)
+    e = np.asarray(building_exposure, dtype=np.float64)
+    v = np.asarray(social_vulnerability, dtype=np.float64)
+
+    shape = h.shape
+    if e.shape != shape or v.shape != shape:
+        raise ValueError("All input arrays must have the same shape")
+
+    valid = np.isfinite(h) & np.isfinite(e) & np.isfinite(v)
+
+    if not np.any(valid):
+        return np.zeros_like(h), [["Low" for _ in range(shape[1])] for _ in range(shape[0])]
+
+    # Helper function to normalize arrays to [0.0, 100.0]
+    def min_max_normalize(arr: np.ndarray) -> np.ndarray:
+        val_subset = arr[valid]
+        mn = np.min(val_subset)
+        mx = np.max(val_subset)
+        rng = mx - mn
+        if rng <= 0.0:
+            rng = 1.0
+        return np.clip((arr - mn) / rng * 100.0, 0.0, 100.0)
+
+    # Normalize inputs
+    h_norm = min_max_normalize(h)
+    e_norm = min_max_normalize(e)
+    v_norm = min_max_normalize(v)
+
+    method_lower = method.lower()
+    if method_lower == "multiplicative":
+        # H * E * V / 10000 -> scales to [0, 100] since each is [0, 100]
+        scores = (h_norm * e_norm * v_norm) / 10000.0
+    elif method_lower == "additive":
+        w_sum = w_hazard + w_exposure + w_vulnerability
+        if w_sum <= 0.0:
+            w_sum = 1.0
+        scores = (h_norm * w_hazard + e_norm * w_exposure + v_norm * w_vulnerability) / w_sum
+    else:
+        raise ValueError(f"Unknown risk calculation method: {method}")
+
+    scores = np.clip(scores, 0.0, 100.0)
+    scores[~valid] = np.nan
+
+    # Risk classification
+    risk_classes = []
+    for r in range(shape[0]):
+        row_classes = []
+        for c in range(shape[1]):
+            val = scores[r, c]
+            if not np.isfinite(val):
+                row_classes.append("Low")
+            elif val >= 75.0:
+                row_classes.append("Very High")
+            elif val >= 50.0:
+                row_classes.append("High")
+            elif val >= 25.0:
+                row_classes.append("Moderate")
+            else:
+                row_classes.append("Low")
+        row_classes = list(row_classes)
+        risk_classes.append(row_classes)
+
+    return scores, risk_classes

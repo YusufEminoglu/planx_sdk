@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 import numpy as np
 
 
@@ -99,3 +101,71 @@ def urban_heat_comfort_risk(
         risk_classes.append(row_classes)
 
     return scores, risk_classes
+
+
+def urban_heat_island_intensity(
+    albedo: np.ndarray,
+    ndvi: np.ndarray,
+    building_height: np.ndarray,
+    building_footprint: np.ndarray,
+    wind_speed: Optional[np.ndarray] = None,
+    base_intensity: float = 2.0,
+) -> np.ndarray:
+    """Estimates Urban Heat Island (UHI) intensity (in degrees Celsius) across a grid.
+
+    Calculates UHI intensity using a proxy model based on surface albedo,
+    Normalized Difference Vegetation Index (NDVI) proxy, building heights,
+    building footprints, and wind speed.
+
+    Args:
+        albedo: 2D NumPy array of shape (R, C) containing surface albedo values [0.0, 1.0].
+        ndvi: 2D NumPy array of shape (R, C) containing NDVI values [-1.0, 1.0].
+        building_height: 2D NumPy array of shape (R, C) containing average building height (meters).
+        building_footprint: 2D NumPy array of shape (R, C) containing building
+            footprint share [0.0, 1.0].
+        wind_speed: Optional 2D NumPy array of shape (R, C) containing wind speed (m/s).
+            If omitted, a constant wind speed of 1.5 m/s is assumed.
+        base_intensity: Baseline temperature offset in degrees Celsius.
+
+    Returns:
+        2D NumPy array of shape (R, C) containing estimated UHI intensity
+        offset (in degrees Celsius).
+    """
+    alb = np.asarray(albedo, dtype=np.float64)
+    veg = np.asarray(ndvi, dtype=np.float64)
+    bh = np.asarray(building_height, dtype=np.float64)
+    bf = np.asarray(building_footprint, dtype=np.float64)
+
+    shape = alb.shape
+    if veg.shape != shape or bh.shape != shape or bf.shape != shape:
+        raise ValueError("All input arrays must have the same shape")
+
+    if wind_speed is None:
+        wind = np.full(shape, 1.5, dtype=np.float64)
+    else:
+        wind = np.asarray(wind_speed, dtype=np.float64)
+        if wind.shape != shape:
+            raise ValueError("wind_speed array must have the same shape as other inputs")
+
+    # 1. Albedo factor
+    alb_contrib = 3.0 * (1.0 - alb)
+
+    # 2. Vegetation cooling factor
+    veg_index = np.clip((veg + 1.0) / 2.0, 0.0, 1.0)
+    veg_contrib = 4.0 * (1.0 - veg_index) - 2.0 * veg_index
+
+    # 3. Urban canyon / building volume factor
+    vol_index = bh * bf
+    vol_contrib = 4.0 * np.clip(vol_index / 30.0, 0.0, 1.0)
+
+    # 4. Wind mitigation factor
+    wind_cooling = 1.0 * np.log1p(np.clip(wind, 0.0, None))
+    wind_cooling = np.clip(wind_cooling, 0.0, 2.0)
+
+    # Calculate final UHI intensity offset (in C)
+    uhi_intensity = base_intensity + alb_contrib + veg_contrib + vol_contrib - wind_cooling
+
+    # UHI cannot be negative
+    uhi_intensity = np.maximum(uhi_intensity, 0.0)
+
+    return uhi_intensity

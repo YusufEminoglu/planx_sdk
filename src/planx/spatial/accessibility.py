@@ -287,3 +287,147 @@ def service_area_coverage(
         }
 
     return results
+
+
+def huff_gravity_model(
+    dists: np.ndarray,
+    destinations_weight: np.ndarray,
+    decay_method: str = "power",
+    exponent: float = 2.0,
+    beta: float = 0.05,
+) -> np.ndarray:
+    """Calculates choice probabilities for origins choosing destinations using
+    the Huff Gravity Model.
+
+    Formula: P_ij = (W_j * f(d_ij)) / Sum_k (W_k * f(d_ik))
+
+    Args:
+        dists: NumPy array of shape (M, N) containing distances/costs from M
+            origins to N destinations.
+        destinations_weight: NumPy array of shape (N,) containing attractiveness/
+            capacity weights of N destinations.
+        decay_method: One of 'power' or 'exponential'.
+        exponent: Friction exponent parameter for 'power' decay (e.g. 2.0).
+            f(d) = d ** (-exponent)
+        beta: Decay parameter for 'exponential' decay.
+            f(d) = exp(-beta * d)
+
+    Returns:
+        NumPy array of shape (M, N) containing the probability of each origin M
+        choosing destination N. Each row sums to 1.0 (or 0.0 if all destinations
+        are inaccessible).
+    """
+    d = np.asarray(dists, dtype=np.float64)
+    w = np.asarray(destinations_weight, dtype=np.float64)
+
+    if d.ndim != 2:
+        raise ValueError("dists must be a 2D array of shape (M, N)")
+    if w.ndim != 1 or w.shape[0] != d.shape[1]:
+        raise ValueError(
+            f"destinations_weight length must match the number of destinations ({d.shape[1]})."
+        )
+
+    # Calculate decay factor
+    decay = np.zeros_like(d)
+    method_lower = decay_method.lower().replace(" ", "_").replace("-", "_")
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        if method_lower == "power":
+            # Avoid division by zero by setting small distance to epsilon
+            safe_d = np.where(d > 0, d, 1e-9)
+            decay = safe_d ** (-exponent)
+        elif method_lower == "exponential":
+            decay = np.exp(-beta * d)
+        else:
+            raise ValueError(f"Unknown decay method: {decay_method}")
+
+    # Set decay to 0 for infinite distances
+    decay[~np.isfinite(d)] = 0.0
+
+    # Calculate utility: W_j * f(d_ij)
+    utility = decay * w[None, :]
+
+    # Sum of utilities for each origin (row sum)
+    row_sum = np.sum(utility, axis=1, keepdims=True)
+
+    # Calculate probabilities
+    with np.errstate(divide="ignore", invalid="ignore"):
+        probs = utility / row_sum
+        probs = np.where(row_sum > 0, probs, 0.0)
+
+    return probs
+
+
+def kernel_density_2sfca(
+    dists: np.ndarray,
+    supply: np.ndarray,
+    demand: np.ndarray,
+    cutoff: float,
+    kernel: str = "quartic",
+) -> np.ndarray:
+    """Calculates spatial accessibility using the Kernel Density 2-Step
+    Floating Catchment Area (KD2SFCA) method.
+
+    KD2SFCA uses continuous kernel functions (e.g. quartic or Gaussian) to weight
+    demand and supply within a catchment cutoff distance d0.
+
+    Args:
+        dists: NumPy array of shape (M, N) containing distances/costs from M
+            origins (demand points) to N destinations (facilities/supply points).
+        supply: NumPy array of shape (N,) containing capacity/supply values of N destinations.
+        demand: NumPy array of shape (M,) containing population/demand at M origins.
+        cutoff: Catchment threshold distance (d0).
+        kernel: Kernel type: 'quartic', 'gaussian', or 'epanechnikov'.
+
+    Returns:
+        NumPy array of shape (M,) containing the accessibility score for each origin.
+    """
+    d = np.asarray(dists, dtype=np.float64)
+    s = np.asarray(supply, dtype=np.float64)
+    p = np.asarray(demand, dtype=np.float64)
+
+    m, n = d.shape
+    if s.shape != (n,):
+        raise ValueError(f"supply length ({s.shape[0]}) must match number of destinations ({n})")
+    if p.shape != (m,):
+        raise ValueError(f"demand length ({p.shape[0]}) must match number of origins ({m})")
+
+    if cutoff <= 0:
+        raise ValueError("cutoff must be greater than 0")
+
+    # Ratio within cutoff
+    ratio = d / cutoff
+    mask = (d <= cutoff) & np.isfinite(d)
+
+    kernel_lower = kernel.lower().replace(" ", "_").replace("-", "_")
+    W = np.zeros_like(d)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        if kernel_lower == "quartic":
+            W = (15.0 / 16.0) * (1.0 - ratio**2) ** 2
+        elif kernel_lower == "gaussian":
+            num = np.exp(-0.5 * ratio**2) - np.exp(-0.5)
+            den = 1.0 - np.exp(-0.5)
+            W = num / den
+        elif kernel_lower == "epanechnikov":
+            W = 0.75 * (1.0 - ratio**2)
+        else:
+            raise ValueError(f"Unknown kernel type: {kernel}")
+
+    # Enforce cutoff
+    W[~mask] = 0.0
+    W[~np.isfinite(d)] = 0.0
+    W = np.clip(W, 0.0, None)
+
+    # Step 1: Compute weighted demand at each supply location
+    weighted_demand = np.sum(W * p[:, None], axis=0)
+
+    # Calculate R_j (supply-to-demand ratio)
+    R = np.zeros(n, dtype=np.float64)
+    valid_demand = weighted_demand > 0.0
+    R[valid_demand] = s[valid_demand] / weighted_demand[valid_demand]
+
+    # Step 2: Sum supply-to-demand ratios at each origin
+    A = np.sum(W * R[None, :], axis=1)
+
+    return A
