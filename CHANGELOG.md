@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2026-06-16
+### Changed
+- Add a manual release-prep workflow
+- Stop tracking .coverage and ignore coverage artifacts
+- Add coverage reporting, stricter lint, pre-commit, and CI badge
+- Ship inline types (py.typed) and add Dependabot for Actions
+- Add CI workflow and make the codebase type-clean
+- Harden PyPI publish workflow and migrate actions to Node 24
+
+---
+
 ## [0.2.0a0] - 2026-06-15
 ### Added
 - Pre-release of the 0.2.0 alpha version for integration testing.

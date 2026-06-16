@@ -26,7 +26,8 @@ def _git(*args: str) -> str:
     ).stdout.strip()
 
 
-def bump_pyproject(version: str) -> None:
+def bump_version_files(version: str) -> None:
+    # 1. pyproject.toml
     path = ROOT / "pyproject.toml"
     text = path.read_text(encoding="utf-8")
     new_text, count = re.subn(
@@ -35,6 +36,18 @@ def bump_pyproject(version: str) -> None:
     if count != 1:
         raise SystemExit("error: could not find a version line in pyproject.toml")
     path.write_text(new_text, encoding="utf-8")
+
+    # 2. src/planx/__init__.py
+    init_path = ROOT / "src" / "planx" / "__init__.py"
+    if init_path.exists():
+        init_text = init_path.read_text(encoding="utf-8")
+        new_init_text, count = re.subn(
+            r'(?m)^__version__\s*=\s*"[^"]*"', f'__version__ = "{version}"', init_text, count=1
+        )
+        if count != 1:
+            raise SystemExit("error: could not find __version__ in src/planx/__init__.py")
+        init_path.write_text(new_init_text, encoding="utf-8")
+
 
 
 def changelog_bullets() -> list[str]:
@@ -65,7 +78,7 @@ def main() -> int:
         print("usage: prepare_release.py <version>", file=sys.stderr)
         return 2
     version = sys.argv[1].lstrip("v")
-    bump_pyproject(version)
+    bump_version_files(version)
     bullets = changelog_bullets()
     update_changelog(version, bullets)
     print(f"Prepared release {version} with {len(bullets)} changelog line(s).")
