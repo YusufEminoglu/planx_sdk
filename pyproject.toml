@@ -25,6 +25,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
     "black>=22.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
@@ -48,7 +49,7 @@ line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
+select = ["E", "F", "W", "I", "B", "C4"]
 ignore = []
 
 [tool.mypy]
@@ -58,3 +59,15 @@ files = ["src"]
 # scipy and scikit-learn do not ship type stubs; treat them as untyped.
 module = ["scipy.*", "sklearn.*"]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["planx"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+# Safety net with headroom below the current ~45% branch coverage; raise as coverage improves.
+fail_under = 40

@@ -240,7 +240,7 @@ def network_criticality(
     import heapq
 
     edge_usage = np.zeros(len(adj), dtype=np.int64)
-    destinations_set = set(int(d) for d in destinations)
+    destinations_set = {int(d) for d in destinations}
 
     if not destinations_set:
         return edge_usage, np.zeros_like(edge_usage, dtype=np.float64)

@@ -1,5 +1,6 @@
 # PlanX SDK (Software Development Kit)
 
+[![CI](https://github.com/YusufEminoglu/planx_sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/YusufEminoglu/planx_sdk/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/planx-sdk.svg)](https://pypi.org/project/planx-sdk/)
 [![Python version support](https://img.shields.io/pypi/pyversions/planx-sdk.svg)](https://pypi.org/project/planx-sdk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -18,7 +19,7 @@ With this SDK, you can:
 
 ```text
 planx_sdk/
-  ├── .github/workflows/          # GitHub Actions (Automated PyPI publishing)
+  ├── .github/workflows/          # GitHub Actions: CI (tests/lint/types) + PyPI publishing
   ├── pyproject.toml              # Modern package metadata, dependencies, and settings (PEP 517/621)
   ├── README.md                   # Project documentation
   ├── LICENSE                     # License file
