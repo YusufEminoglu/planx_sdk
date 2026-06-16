@@ -12,7 +12,7 @@ from .facility import (
     greedy_mclp,
     greedy_p_median,
 )
-from .mcda import normalize_array, weighted_linear_combination
+from .mcda import normalize_array, topsis_method, vikor_method, weighted_linear_combination
 from .weights import (
     ahp_weights,
     critic_weights,
@@ -24,6 +24,8 @@ from .weights import (
 __all__ = [
     "normalize_array",
     "weighted_linear_combination",
+    "topsis_method",
+    "vikor_method",
     "greedy_mclp",
     "greedy_p_median",
     "greedy_lscp",

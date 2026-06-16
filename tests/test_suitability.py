@@ -2,6 +2,7 @@
 """Tests for the suitability submodule."""
 
 import numpy as np
+import pytest
 
 from planx.suitability import (
     ahp_weights,
@@ -14,6 +15,8 @@ from planx.suitability import (
     greedy_p_median,
     normalize_array,
     pca_weights,
+    topsis_method,
+    vikor_method,
     weighted_linear_combination,
 )
 
@@ -236,3 +239,51 @@ def test_capacitated_location_allocation():
 
     with pytest.raises(ValueError, match="shape"):
         capacitated_location_allocation(np.ones((2, 3)), capacities, demands, pop)
+
+
+def test_topsis_method():
+    # 3 alternatives, 2 criteria (both benefit)
+    # Alt 0 is clearly best, Alt 2 is clearly worst
+    decision_matrix = np.array([[10.0, 100.0], [5.0, 50.0], [1.0, 10.0]])
+    weights = np.array([0.5, 0.5])
+    benefit_criteria = np.array([True, True])
+
+    scores, ranks = topsis_method(decision_matrix, weights, benefit_criteria)
+
+    assert len(scores) == 3
+    assert len(ranks) == 3
+    # Alt 0 should rank 1st, Alt 1 2nd, Alt 2 3rd
+    assert ranks[0] == 1
+    assert ranks[1] == 2
+    assert ranks[2] == 3
+    assert scores[0] > scores[1] > scores[2]
+    # Check bounds
+    assert np.all(scores >= 0.0) & np.all(scores <= 1.0)
+
+    # Error checking
+    with pytest.raises(ValueError):
+        topsis_method(decision_matrix, weights[:-1], benefit_criteria)
+
+
+def test_vikor_method():
+    # 3 alternatives, 2 criteria (both benefit)
+    decision_matrix = np.array([[10.0, 100.0], [5.0, 50.0], [1.0, 10.0]])
+    weights = np.array([0.5, 0.5])
+    benefit_criteria = np.array([True, True])
+
+    scores, ranks = vikor_method(decision_matrix, weights, benefit_criteria, v=0.5)
+
+    assert len(scores) == 3
+    assert len(ranks) == 3
+    # Lower is better in VIKOR compromise index Q
+    # Alt 0 is closest to ideal best, so Q should be 0.0 (best)
+    # Alt 2 is at ideal worst, so Q should be 1.0 (worst)
+    assert np.isclose(scores[0], 0.0)
+    assert np.isclose(scores[2], 1.0)
+    assert ranks[0] == 1
+    assert ranks[1] == 2
+    assert ranks[2] == 3
+
+    # Error checking
+    with pytest.raises(ValueError):
+        vikor_method(decision_matrix, weights, benefit_criteria[:-1])

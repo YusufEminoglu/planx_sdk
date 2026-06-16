@@ -142,3 +142,170 @@ def weighted_linear_combination(
     # Set invalid cells to output nodata
     result = np.where(valid, result, nodata).astype(np.float32)
     return result
+
+
+def topsis_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    benefit_criteria: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculates suitability ranking scores using the TOPSIS method.
+
+    TOPSIS (Technique for Order of Preference by Similarity to Ideal Solution)
+    ranks alternatives by their relative closeness to the ideal best and worst solutions.
+
+    Args:
+        decision_matrix: NumPy array of shape (M, N) for M alternatives and N criteria.
+        weights: 1D array of shape (N,) representing importance of each criterion.
+        benefit_criteria: 1D boolean array of shape (N,) where True represents a benefit
+            criterion (higher is better) and False represents a cost criterion (lower is better).
+
+    Returns:
+        A tuple of:
+          - scores: 1D NumPy array of shape (M,) containing similarity scores in range [0.0, 1.0].
+            Higher score indicates a better alternative.
+          - ranks: 1D NumPy array of shape (M,) containing integer ranks (1 = best, M = worst).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    is_benefit = np.asarray(benefit_criteria, dtype=bool)
+
+    m, n = X.shape
+    if w.shape != (n,):
+        raise ValueError(f"weights length ({w.shape[0]}) must match number of criteria ({n})")
+    if is_benefit.shape != (n,):
+        raise ValueError(
+            f"benefit_criteria length ({is_benefit.shape[0]}) must match number of criteria ({n})"
+        )
+
+    # Step 1: Normalize decision matrix using vector normalization
+    norm_denom = np.sqrt(np.sum(X**2, axis=0))
+    norm_denom = np.where(norm_denom > 0, norm_denom, 1e-9)
+    R = X / norm_denom[None, :]
+
+    # Step 2: Weighted normalized decision matrix
+    w_sum = np.sum(w)
+    if w_sum > 0:
+        w = w / w_sum
+    V = R * w[None, :]
+
+    # Step 3: Determine ideal best and worst solutions
+    v_best = np.zeros(n)
+    v_worst = np.zeros(n)
+
+    for j in range(n):
+        col = V[:, j]
+        if is_benefit[j]:
+            v_best[j] = np.max(col)
+            v_worst[j] = np.min(col)
+        else:
+            v_best[j] = np.min(col)
+            v_worst[j] = np.max(col)
+
+    # Step 4: Calculate separation measures
+    S_best = np.sqrt(np.sum((V - v_best[None, :]) ** 2, axis=1))
+    S_worst = np.sqrt(np.sum((V - v_worst[None, :]) ** 2, axis=1))
+
+    # Step 5: Relative closeness to ideal solution
+    denom = S_best + S_worst
+    with np.errstate(divide="ignore", invalid="ignore"):
+        C = S_worst / np.where(denom > 0, denom, 1e-9)
+        C = np.where(denom > 0, C, 0.5)
+
+    # Step 6: Rank the alternatives (1-indexed)
+    ranks = np.argsort(-C)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, m + 1)
+
+    return C, rank_order
+
+
+def vikor_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    benefit_criteria: np.ndarray,
+    v: float = 0.5,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculates compromise ranking scores using the VIKOR method.
+
+    VIKOR determines a compromise ranking list and compromise solution for conflicting criteria.
+    Lower score represents a better alternative (closer to ideal solution).
+
+    Args:
+        decision_matrix: NumPy array of shape (M, N) containing M alternatives and N criteria.
+        weights: 1D array of shape (N,) representing importance of each criterion.
+        benefit_criteria: 1D boolean array of shape (N,) where True represents a benefit
+            criterion and False represents a cost criterion.
+        v: Weight of the strategy of "majority of criteria" (usually 0.5).
+
+    Returns:
+        A tuple of:
+          - scores: 1D NumPy array of shape (M,) containing Q_i compromise
+            index values (lower is better).
+          - ranks: 1D NumPy array of shape (M,) containing integer ranks
+            (1 = best, M = worst).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    is_benefit = np.asarray(benefit_criteria, dtype=bool)
+
+    m, n = X.shape
+    if w.shape != (n,):
+        raise ValueError(f"weights length ({w.shape[0]}) must match number of criteria ({n})")
+    if is_benefit.shape != (n,):
+        raise ValueError(
+            f"benefit_criteria length ({is_benefit.shape[0]}) must match number of criteria ({n})"
+        )
+
+    # Normalize weights to sum to 1.0 if not already
+    w_sum = np.sum(w)
+    if w_sum > 0:
+        w = w / w_sum
+
+    # Step 1: Find best and worst for each criterion
+    f_best = np.zeros(n)
+    f_worst = np.zeros(n)
+
+    for j in range(n):
+        col = X[:, j]
+        if is_benefit[j]:
+            f_best[j] = np.max(col)
+            f_worst[j] = np.min(col)
+        else:
+            f_best[j] = np.min(col)
+            f_worst[j] = np.max(col)
+
+    # Step 2: Compute S_i (utility) and R_i (regret)
+    S = np.zeros(m)
+    R = np.zeros(m)
+
+    diff = f_best - f_worst
+    diff = np.where(diff > 0, diff, 1e-9)
+
+    for i in range(m):
+        term = w * (f_best - X[i, :]) / diff
+        S[i] = np.sum(term)
+        R[i] = np.max(term)
+
+    # Step 3: Compute Q_i
+    S_star, S_minus = np.min(S), np.max(S)
+    R_star, R_minus = np.min(R), np.max(R)
+
+    S_range = S_minus - S_star
+    R_range = R_minus - R_star
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        term_S = (S - S_star) / np.where(S_range > 0, S_range, 1e-9)
+        term_S = np.where(S_range > 0, term_S, 0.0)
+
+        term_R = (R - R_star) / np.where(R_range > 0, R_range, 1e-9)
+        term_R = np.where(R_range > 0, term_R, 0.0)
+
+    Q = v * term_S + (1.0 - v) * term_R
+
+    # Step 4: Rank by Q (ascending, 1-indexed)
+    ranks = np.argsort(Q)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, m + 1)
+
+    return Q, rank_order

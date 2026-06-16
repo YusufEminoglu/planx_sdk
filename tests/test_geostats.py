@@ -6,11 +6,14 @@ import pytest
 
 from planx.geostats import (
     calculate_getis_ord,
+    calculate_global_geary,
     calculate_mean_center,
     create_distance_band_weights,
     create_knn_weights,
     idw_to_grid,
     idw_to_points,
+    kriging_to_grid,
+    kriging_to_points,
 )
 
 
@@ -114,3 +117,66 @@ def test_spatial_weights():
 
     with pytest.raises(ValueError, match="coords"):
         create_knn_weights(np.ones((3, 3)), ids, k=2)
+
+
+def test_calculate_global_geary():
+    # 4 observations
+    y = np.array([1.0, 2.0, 3.0, 4.0])
+    neighbors = {0: [1], 1: [0, 2], 2: [1, 3], 3: [2]}
+    weights = {0: [1.0], 1: [1.0, 1.0], 2: [1.0, 1.0], 3: [1.0]}
+    id_order = [0, 1, 2, 3]
+
+    c, ec, var, z, p = calculate_global_geary(y, neighbors, weights, id_order)
+
+    # For this perfectly positive spatial autocorrelation case:
+    # C should be exactly 0.3
+    assert np.isclose(c, 0.3)
+    assert np.isclose(ec, 1.0)
+    assert var > 0
+    # Z-score should be negative (indicating clustering/positive autocorrelation for Geary's C < 1)
+    assert z < 0
+    assert 0 <= p <= 1.0
+
+    # Error handling
+    with pytest.raises(ValueError):
+        calculate_global_geary(y[:3], neighbors, weights, id_order[:3])
+
+
+def test_kriging_interpolation():
+    # Source points
+    src_coords = np.array([[0.0, 0.0], [10.0, 0.0], [0.0, 10.0], [10.0, 10.0]])
+    src_values = np.array([10.0, 20.0, 30.0, 40.0])
+
+    # 1. Test target points
+    target_coords = np.array([[5.0, 5.0], [0.0, 0.0]])
+    estimates, variances = kriging_to_points(
+        src_coords, src_values, target_coords, model="spherical", nugget=0.0, sill=10.0, range_=15.0
+    )
+
+    assert len(estimates) == 2
+    assert len(variances) == 2
+    # At (5,5), by symmetry the estimate should be the mean: (10+20+30+40)/4 = 25.0
+    assert np.isclose(estimates[0], 25.0)
+    # At (0,0), it should be exactly the source value 10.0 and variance should be near 0
+    assert np.isclose(estimates[1], 10.0, atol=1e-5)
+    assert variances[1] < 1e-4
+
+    # 2. Test grid interpolation
+    grid, var_grid, x, y = kriging_to_grid(
+        src_coords,
+        src_values,
+        (0.0, 0.0, 10.0, 10.0),
+        cell_size=5.0,
+        model="exponential",
+        range_=10.0,
+    )
+    assert grid.shape == (2, 2)
+    assert var_grid.shape == (2, 2)
+
+    # Argument validation
+    with pytest.raises(ValueError):
+        kriging_to_points(np.ones((3, 3)), src_values, target_coords)
+    with pytest.raises(ValueError):
+        kriging_to_points(src_coords, src_values, target_coords, range_=-1)
+    with pytest.raises(ValueError):
+        kriging_to_points(src_coords, src_values, target_coords, nugget=2.0, sill=1.0)

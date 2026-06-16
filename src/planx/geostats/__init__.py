@@ -6,7 +6,7 @@ Core spatial statistical engines including local/global spatial autocorrelation,
 regression modeling, point pattern analysis, and clustering.
 """
 
-from .interpolation import idw_to_grid, idw_to_points
+from .interpolation import idw_to_grid, idw_to_points, kriging_to_grid, kriging_to_points
 from .stats_engines import (
     calculate_average_nearest_neighbor,
     calculate_bivariate_lee_l,
@@ -15,6 +15,7 @@ from .stats_engines import (
     calculate_exploratory_regression,
     calculate_general_g,
     calculate_getis_ord,
+    calculate_global_geary,
     calculate_global_moran,
     calculate_glr,
     calculate_gwr,
@@ -43,6 +44,7 @@ __all__ = [
     "calculate_local_moran",
     "calculate_ols",
     "calculate_global_moran",
+    "calculate_global_geary",
     "calculate_spatial_gini",
     "calculate_average_nearest_neighbor",
     "calculate_standard_distance",
@@ -60,6 +62,8 @@ __all__ = [
     "calculate_glr",
     "idw_to_points",
     "idw_to_grid",
+    "kriging_to_points",
+    "kriging_to_grid",
     "create_knn_weights",
     "create_distance_band_weights",
 ]

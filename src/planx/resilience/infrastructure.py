@@ -251,3 +251,213 @@ def prioritize_debris_clearance(
     sorted_idx = np.argsort(scores)[::-1]
 
     return b_edges[sorted_idx], scores[sorted_idx]
+
+
+def network_criticality_index(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    target_edges: Optional[Union[np.ndarray, List[int]]] = None,
+    target_nodes: Optional[Union[np.ndarray, List[int]]] = None,
+    origins: Optional[Union[np.ndarray, List[int]]] = None,
+    destinations: Optional[Union[np.ndarray, List[int]]] = None,
+) -> Dict[str, np.ndarray]:
+    """Calculates the Network Criticality Index (NCI) for target edges or nodes.
+
+    NCI measures the relative drop in global network efficiency (or increase in
+    shortest path distances) when a specific edge or node is blocked.
+
+    Args:
+        indptr: CSR indptr array of shape (n + 1,)
+        adj: CSR adj array of shape (E,)
+        weights: CSR edge weights array of shape (E,)
+        n: Number of nodes in the graph.
+        target_edges: Optional list or array of edge indices to evaluate.
+        target_nodes: Optional list or array of node indices to evaluate.
+        origins: Optional list of origin nodes for shortest path calculations.
+            If None, all nodes are used.
+        destinations: Optional list of destination nodes. If None, all nodes are used.
+
+    Returns:
+        A dictionary containing:
+          - "edges_nci": 1D NumPy array of NCI values for target_edges (if provided).
+          - "nodes_nci": 1D NumPy array of NCI values for target_nodes (if provided).
+    """
+    from ..spatial.paths import many_to_many
+
+    origs = np.arange(n) if origins is None else np.asarray(origins, dtype=np.int64)
+    dests = np.arange(n) if destinations is None else np.asarray(destinations, dtype=np.int64)
+
+    # Helper function to compute network efficiency
+    def compute_efficiency(w_curr: np.ndarray) -> float:
+        dists = many_to_many(indptr, adj, w_curr, n, sources=origs)
+        dists = dists[:, dests]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            inv_dists = 1.0 / dists
+            inv_dists[~np.isfinite(inv_dists)] = 0.0
+            for i, o in enumerate(origs):
+                if o in dests:
+                    inv_dists[i, np.where(dests == o)[0][0]] = 0.0
+        return float(np.sum(inv_dists))
+
+    eff_base = compute_efficiency(weights)
+
+    results = {}
+
+    # 1. Edges NCI
+    if target_edges is not None:
+        t_edges = np.asarray(target_edges, dtype=np.int64)
+        nci_edges = np.zeros(len(t_edges), dtype=np.float64)
+        if eff_base > 0:
+            for idx, e in enumerate(t_edges):
+                w_disrupted = weights.copy()
+                w_disrupted[e] = np.inf
+                # Find u and v for edge e
+                u = int(np.searchsorted(indptr, e, side="right") - 1)
+                v = int(adj[e])
+                # Find counterpart edge v -> u and block it too
+                for k in range(indptr[v], indptr[v + 1]):
+                    if adj[k] == u:
+                        w_disrupted[k] = np.inf
+                        break
+                eff_disrupted = compute_efficiency(w_disrupted)
+                nci_edges[idx] = (eff_base - eff_disrupted) / eff_base
+        results["edges_nci"] = nci_edges
+
+    # 2. Nodes NCI
+    if target_nodes is not None:
+        t_nodes = np.asarray(target_nodes, dtype=np.int64)
+        nci_nodes = np.zeros(len(t_nodes), dtype=np.float64)
+        if eff_base > 0:
+            for idx, u in enumerate(t_nodes):
+                w_disrupted = weights.copy()
+                w_disrupted[indptr[u] : indptr[u + 1]] = np.inf
+                incoming = np.isin(adj, [u])
+                w_disrupted[incoming] = np.inf
+                eff_disrupted = compute_efficiency(w_disrupted)
+                nci_nodes[idx] = (eff_base - eff_disrupted) / eff_base
+        results["nodes_nci"] = nci_nodes
+
+    return results
+
+
+def debris_clearance_routing(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    blocked_edges: np.ndarray,
+    debris_volumes: np.ndarray,
+    edge_criticality: np.ndarray,
+    depot_node: int,
+    cost_factor: float = 1.0,
+) -> tuple[np.ndarray, float]:
+    """Computes a greedy clearance route for blocked edges starting from a depot node.
+
+    At each step, selects the next edge that maximizes:
+    Score = Criticality / (DebrisVolume ** cost_factor * (Distance to start + edge_weight) + eps)
+
+    Args:
+        indptr: CSR indptr array of shape (n + 1,)
+        adj: CSR adj array of shape (E,)
+        weights: CSR edge weights array of shape (E,)
+        n: Number of nodes in the graph.
+        blocked_edges: 1D NumPy array of edge indices that are blocked.
+        debris_volumes: 1D NumPy array of debris volumes matching blocked_edges.
+        edge_criticality: 1D NumPy array of shape (E,) containing edge criticality.
+        depot_node: Starting node index for the clearing vehicle.
+        cost_factor: Weight coefficient for debris volume penalty.
+
+    Returns:
+        Tuple of:
+          - clearance_order: 1D NumPy array of blocked edge indices in order of clearance.
+          - total_distance: Float representing the total travel distance of the vehicle.
+    """
+    from ..spatial.paths import many_to_many
+
+    b_edges = list(np.asarray(blocked_edges, dtype=np.int64))
+    vols = list(np.asarray(debris_volumes, dtype=np.float64))
+    crit = np.asarray(edge_criticality, dtype=np.float64)
+
+    if len(b_edges) != len(vols):
+        raise ValueError("blocked_edges and debris_volumes must have the same length")
+
+    # Find u and v for all blocked edges
+    edge_nodes = []
+    for e in b_edges:
+        u = int(np.searchsorted(indptr, e, side="right") - 1)
+        v = int(adj[e])
+        edge_nodes.append((u, v))
+
+    curr_node = int(depot_node)
+    clearance_order = []
+    total_distance = 0.0
+    eps = 1e-6
+
+    # During routing, we use a copy of weights where blocked edges are not yet cleared.
+    # When an edge is cleared, its weight returns to normal (which is stored in weights).
+    # Initially, all blocked edges are set to infinity in the routing weights.
+    w_routing = weights.copy()
+    w_routing[b_edges] = np.inf
+
+    # Keep track of indices
+    remaining_indices = list(range(len(b_edges)))
+
+    while remaining_indices:
+        # Calculate distances from curr_node to all nodes
+        dists = many_to_many(indptr, adj, w_routing, n, sources=[curr_node])[0]
+
+        best_score = -1.0
+        best_rem_idx = -1
+        best_dist_to_u = 0.0
+
+        for rem_idx in remaining_indices:
+            e = b_edges[rem_idx]
+            u, v = edge_nodes[rem_idx]
+            vol = vols[rem_idx]
+            c = crit[e]
+            w_orig = float(weights[e])
+
+            dist_to_u = dists[u]
+            if not np.isfinite(dist_to_u):
+                # If currently unreachable, try fallback using open/unblocked graph distance
+                # or set a large penalty. We use 1e6 penalty to keep it solvable.
+                dist_to_u = 1e6
+
+            # Compute heuristics score
+            cost = np.power(vol, cost_factor) * (dist_to_u + w_orig)
+            score = c / (cost + eps)
+
+            if score > best_score:
+                best_score = score
+                best_rem_idx = rem_idx
+                best_dist_to_u = dist_to_u
+
+        # Add to route
+        e_next = b_edges[best_rem_idx]
+        u_next, v_next = edge_nodes[best_rem_idx]
+        w_orig_next = float(weights[e_next])
+
+        clearance_order.append(e_next)
+        if best_dist_to_u < 1e6:
+            total_distance += best_dist_to_u + w_orig_next
+        else:
+            # Fallback path cost if unreachable
+            total_distance += w_orig_next
+
+        # Move vehicle to the end of the cleared edge
+        curr_node = v_next
+
+        # Clear the edge in routing weights (restore original weight)
+        w_routing[e_next] = w_orig_next
+
+        # Also find and restore the counterpart edge v -> u if it exists
+        for k in range(indptr[v_next], indptr[v_next + 1]):
+            if adj[k] == u_next:
+                w_routing[k] = float(weights[k])
+                break
+
+        remaining_indices.remove(best_rem_idx)
+
+    return np.array(clearance_order, dtype=np.int64), float(total_distance)
