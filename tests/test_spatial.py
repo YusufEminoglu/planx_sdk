@@ -242,7 +242,9 @@ def test_kernel_density_2sfca():
     #
     # Step 2: Sum R_j * W_ij
     # A_0 = R_0 * W_00 + R_1 * W_01 = 0.08454 * 0.8239746 + 0 = 0.069658
-    # A_1 = R_0 * W_10 + R_1 * W_11 = 0.08454 * 0.179443 + 0.12136 * 0.8239746 = 0.01517 + 0.099998 = 0.115168
+    # A_1 = R_0 * W_10 + R_1 * W_11
+    #     = 0.08454 * 0.179443 + 0.12136 * 0.8239746
+    #     = 0.01517 + 0.099998 = 0.115168
     a = kernel_density_2sfca(dists, supply, demand, cutoff=40.0, kernel="quartic")
     np.testing.assert_allclose(a, [0.069658, 0.115168], rtol=1e-4)
 
