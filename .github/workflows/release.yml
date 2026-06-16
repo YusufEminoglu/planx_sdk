@@ -1,0 +1,64 @@
+name: Prepare Release
+
+# Manually triggered. Bumps the version, updates the changelog, tags, and opens
+# a DRAFT GitHub Release. Review the draft and click "Publish release" to trigger
+# publish.yml (PyPI upload) — a bot-published release would not trigger it.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 0.2.0 or 0.2.0a1 (no leading 'v')"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # full history + tags for changelog generation
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Validate version
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([abrc]+[0-9]+)?$'; then
+            echo "::error::Invalid version '${{ inputs.version }}'. Use e.g. 0.2.0 or 0.2.0a1."
+            exit 1
+          fi
+      - name: Bump version and update changelog
+        run: python .github/scripts/prepare_release.py "${{ inputs.version }}"
+      - name: Verify the package still builds
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check --strict dist/*
+      - name: Commit, tag, and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml CHANGELOG.md
+          git commit -m "Release v${{ inputs.version }}"
+          git tag "v${{ inputs.version }}"
+          git push origin HEAD
+          git push origin "v${{ inputs.version }}"
+      - name: Create draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            --draft \
+            --title "v${{ inputs.version }}" \
+            --generate-notes
+          echo "::notice::Draft release v${{ inputs.version }} created. Review it and click 'Publish release' to upload to PyPI."
