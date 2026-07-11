@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.2] - 2026-07-02
+### Added
+- **Local Geary's C** in `planx.geostats` for Anselin-style local cluster and spatial outlier detection, using conditional permutation inference to complement the existing Local Moran's I and Global Geary's C statistics.
+
+---
+
 ## [0.3.0] - 2026-06-16
 ### Added
 - **Huff Gravity Market Model** in `planx.spatial` to compute Choice probabilities for retail and service attraction.

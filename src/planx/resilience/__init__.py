@@ -6,6 +6,11 @@ Models and simulations for evaluating urban vulnerability, seismic risk,
 building collapse debris, and infrastructure recovery corridors.
 """
 
+from .active_travel import (
+    active_travel_equity_gini,
+    job_housing_spatial_mismatch,
+    transport_mismatch_index,
+)
 from .flood import coastal_flood_inundation, pluvial_flood_susceptibility, socio_economic_flood_risk
 from .heat import urban_heat_comfort_risk, urban_heat_island_intensity
 from .infrastructure import (
@@ -40,4 +45,7 @@ __all__ = [
     "prioritize_debris_clearance",
     "network_criticality_index",
     "debris_clearance_routing",
+    "job_housing_spatial_mismatch",
+    "active_travel_equity_gini",
+    "transport_mismatch_index",
 ]

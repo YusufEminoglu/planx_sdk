@@ -5,19 +5,29 @@ import numpy as np
 import pytest
 
 from planx.spatial import (
+    active_mobility_permeability,
+    brandes_betweenness,
+    choice_centrality_una,
+    classify_level_of_traffic_stress,
     closeness_straightness,
     cumulative_opportunities,
     eigenvector,
     enhanced_2sfca,
     gravity_accessibility,
+    gravity_centrality_una,
     huff_gravity_model,
+    identify_low_stress_islands,
     kernel_density_2sfca,
     many_to_many,
     multi_source,
     network_criticality,
+    reach_centrality_una,
     service_area_coverage,
+    simulate_thermal_comfort_pet,
     spatial_equity_gini,
+    thermal_comfort_routing,
 )
+from planx.spatial import paths as spatial_paths
 
 
 @pytest.fixture
@@ -34,6 +44,47 @@ def sample_graph():
     weights = np.array([1.5, 1.5, 2.5, 2.5], dtype=np.float64)
     node_xy = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]], dtype=np.float64)
     return indptr, adj, weights, 3, node_xy
+
+
+@pytest.fixture
+def disconnected_graph():
+    # Node 0 - Node 1 connected (weight 1.0); Node 2 fully isolated.
+    indptr = np.array([0, 1, 2, 2], dtype=np.int64)
+    adj = np.array([1, 0], dtype=np.int64)
+    weights = np.array([1.0, 1.0], dtype=np.float64)
+    return indptr, adj, weights, 3
+
+
+@pytest.fixture
+def triangle_graph():
+    # Triangle where the direct 0-2 edge (weight 5) is never on a shortest
+    # path, since routing via node 1 (1 + 1 = 2) is cheaper. This forces
+    # stale/duplicate entries in the priority queues of the Dijkstra-style
+    # kernels, exercising their "already settled" skip branches.
+    indptr = np.array([0, 2, 4, 6], dtype=np.int64)
+    adj = np.array([1, 2, 0, 2, 1, 0], dtype=np.int64)
+    weights = np.array([1.0, 5.0, 1.0, 1.0, 1.0, 5.0], dtype=np.float64)
+    return indptr, adj, weights, 3
+
+
+@pytest.fixture
+def skewed_triangle_graph():
+    # 0 reaches both 1 and 2 directly and cheaply (weight 1 each); the 1-2
+    # edge is expensive (weight 10), so relaxing it never improves on the
+    # direct route -- exercising a "failed relaxation" branch.
+    indptr = np.array([0, 2, 4, 6], dtype=np.int64)
+    adj = np.array([1, 2, 0, 2, 0, 1], dtype=np.int64)
+    weights = np.array([1.0, 1.0, 1.0, 10.0, 1.0, 10.0], dtype=np.float64)
+    return indptr, adj, weights, 3
+
+
+@pytest.fixture
+def diamond_graph():
+    # 0 -> {1, 2} -> 3, two equal-cost shortest paths between 0 and 3.
+    indptr = np.array([0, 2, 4, 6, 8], dtype=np.int64)
+    adj = np.array([1, 2, 0, 3, 0, 3, 1, 2], dtype=np.int64)
+    weights = np.full(8, 1.0, dtype=np.float64)
+    return indptr, adj, weights, 4
 
 
 def test_dijkstra_many_to_many(sample_graph):
@@ -255,3 +306,706 @@ def test_kernel_density_2sfca():
     # Gaussian kernel, cutoff=40.0
     a_gau = kernel_density_2sfca(dists, supply, demand, cutoff=40.0, kernel="gaussian")
     assert len(a_gau) == 2
+
+
+# --------------------------------------------------------------------------- #
+# paths.py
+# --------------------------------------------------------------------------- #
+
+
+def test_many_to_many_cutoff(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    # Node 2 is 4.0 away from node 0, beyond the 2.0 cutoff -> unreachable.
+    dists = many_to_many(indptr, adj, weights, n, sources=[0], cutoff=2.0)
+    assert dists[0][0] == 0.0
+    assert dists[0][1] == 1.5
+    assert np.isinf(dists[0][2])
+
+
+def test_many_to_many_disconnected(disconnected_graph):
+    indptr, adj, weights, n = disconnected_graph
+    dists = many_to_many(indptr, adj, weights, n, sources=[0])
+    np.testing.assert_allclose(dists[0][:2], [0.0, 1.0])
+    assert np.isinf(dists[0][2])
+
+
+def test_multi_source_cutoff(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    # Both sources are farther than 1.0 from node 1, so it stays unreachable.
+    dists, labels = multi_source(indptr, adj, weights, n, sources=[0, 2], cutoff=1.0)
+    np.testing.assert_allclose(dists, [0.0, np.inf, 0.0])
+    np.testing.assert_array_equal(labels, [0, -1, 1])
+
+
+def test_multi_source_disconnected(disconnected_graph):
+    indptr, adj, weights, n = disconnected_graph
+    dists, labels = multi_source(indptr, adj, weights, n, sources=[0, 2])
+    np.testing.assert_allclose(dists, [0.0, 1.0, 0.0])
+    np.testing.assert_array_equal(labels, [0, 0, 1])
+
+
+def test_many_to_many_pure_python_matches_scipy(sample_graph, monkeypatch):
+    indptr, adj, weights, n, _ = sample_graph
+    monkeypatch.setattr(spatial_paths, "HAS_SCIPY", False)
+    dists = many_to_many(indptr, adj, weights, n, sources=[0, 2])
+    np.testing.assert_allclose(dists[0], [0.0, 1.5, 4.0])
+    np.testing.assert_allclose(dists[1], [4.0, 2.5, 0.0])
+
+
+def test_many_to_many_pure_python_cutoff(sample_graph, monkeypatch):
+    indptr, adj, weights, n, _ = sample_graph
+    monkeypatch.setattr(spatial_paths, "HAS_SCIPY", False)
+    dists = many_to_many(indptr, adj, weights, n, sources=[0], cutoff=2.0)
+    assert dists[0][1] == 1.5
+    assert np.isinf(dists[0][2])
+
+
+def test_many_to_many_pure_python_cancel(sample_graph, monkeypatch):
+    indptr, adj, weights, n, _ = sample_graph
+    monkeypatch.setattr(spatial_paths, "HAS_SCIPY", False)
+    calls = {"n": 0}
+
+    def cancel():
+        calls["n"] += 1
+        return calls["n"] > 1
+
+    dists = many_to_many(indptr, adj, weights, n, sources=[0, 1, 2], cancel=cancel)
+    # First source is processed before cancel() reports True.
+    np.testing.assert_allclose(dists[0], [0.0, 1.5, 4.0])
+
+
+def test_multi_source_pure_python_matches_scipy(sample_graph, monkeypatch):
+    indptr, adj, weights, n, _ = sample_graph
+    monkeypatch.setattr(spatial_paths, "HAS_SCIPY", False)
+    dists, labels = multi_source(indptr, adj, weights, n, sources=[0, 2])
+    np.testing.assert_allclose(dists, [0.0, 1.5, 0.0])
+    np.testing.assert_array_equal(labels, [0, 0, 1])
+
+
+def test_multi_source_pure_python_cutoff(sample_graph, monkeypatch):
+    indptr, adj, weights, n, _ = sample_graph
+    monkeypatch.setattr(spatial_paths, "HAS_SCIPY", False)
+    dists, labels = multi_source(indptr, adj, weights, n, sources=[0, 2], cutoff=1.0)
+    np.testing.assert_allclose(dists, [0.0, np.inf, 0.0])
+    np.testing.assert_array_equal(labels, [0, -1, 1])
+
+
+# --------------------------------------------------------------------------- #
+# centrality.py: closeness_straightness
+# --------------------------------------------------------------------------- #
+
+
+def test_closeness_straightness_no_node_xy(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    metrics = closeness_straightness(indptr, adj, weights, n)
+    assert "straightness" not in metrics
+    np.testing.assert_allclose(metrics["reach"], [2.0, 2.0, 2.0])
+
+
+def test_closeness_straightness_single_node():
+    indptr = np.array([0, 0], dtype=np.int64)
+    adj = np.array([], dtype=np.int64)
+    weights = np.array([], dtype=np.float64)
+    metrics = closeness_straightness(indptr, adj, weights, 1)
+    np.testing.assert_allclose(metrics["reach"], [0.0])
+    np.testing.assert_allclose(metrics["farness"], [0.0])
+    # n == 1 means the (n > 1) branch is skipped, closeness stays 0.
+    np.testing.assert_allclose(metrics["closeness"], [0.0])
+
+
+def test_closeness_straightness_radius(sample_graph):
+    indptr, adj, weights, n, node_xy = sample_graph
+    metrics = closeness_straightness(indptr, adj, weights, n, radius=2.0)
+    np.testing.assert_allclose(metrics["reach"], [1.0, 1.0, 0.0])
+    np.testing.assert_allclose(metrics["farness"], [1.5, 1.5, 0.0])
+    np.testing.assert_allclose(metrics["harmonic"], [1.0 / 1.5, 1.0 / 1.5, 0.0])
+    # Node 2 has farness == 0 -> excluded from the closeness computation.
+    assert metrics["closeness"][2] == 0.0
+
+
+def test_closeness_straightness_cancel(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    calls = {"n": 0}
+
+    def cancel():
+        calls["n"] += 1
+        return calls["n"] > 1
+
+    metrics = closeness_straightness(indptr, adj, weights, n, chunk=1, cancel=cancel)
+    # Only the first chunk (node 0) should have been processed.
+    assert metrics["reach"][0] == 2.0
+    assert metrics["reach"][1] == 0.0
+    assert metrics["reach"][2] == 0.0
+
+
+def test_closeness_straightness_progress(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    seen = []
+    closeness_straightness(indptr, adj, weights, n, chunk=1, progress=seen.append)
+    assert seen == pytest.approx([1 / 3, 2 / 3, 1.0])
+
+
+# --------------------------------------------------------------------------- #
+# centrality.py: eigenvector
+# --------------------------------------------------------------------------- #
+
+
+def test_eigenvector_empty_graph():
+    ev = eigenvector(np.array([0], dtype=np.int64), np.array([], dtype=np.int64), 0)
+    assert ev.shape == (0,)
+
+
+def test_eigenvector_max_iter_exhausted(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    # A single power-iteration step is far from the tol=1e-10 convergence
+    # criterion, exercising the "loop completes without break" path.
+    ev = eigenvector(indptr, adj, n, max_iter=1)
+    np.testing.assert_allclose(ev, [2.0 / 3.0, 1.0, 2.0 / 3.0], rtol=1e-4)
+
+
+# --------------------------------------------------------------------------- #
+# centrality.py: brandes_betweenness
+# --------------------------------------------------------------------------- #
+
+
+def test_brandes_betweenness_basic(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    node_bc, edge_bc, depth = brandes_betweenness(indptr, adj, weights, n)
+    # Middle node lies on the (0, 2) and (2, 0) shortest paths.
+    np.testing.assert_allclose(node_bc, [0.0, 2.0, 0.0])
+    assert edge_bc is None
+    assert depth is None
+
+
+def test_brandes_betweenness_edge_bc(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    # Edge 0 covers CSR entries 0 and 1 (0<->1); edge 1 covers entries 2 and 3 (1<->2).
+    adj_edge = np.array([0, 0, 1, 1], dtype=np.int64)
+    node_bc, edge_bc, depth = brandes_betweenness(
+        indptr, adj, weights, n, adj_edge=adj_edge, num_edges=2
+    )
+    np.testing.assert_allclose(node_bc, [0.0, 2.0, 0.0])
+    np.testing.assert_allclose(edge_bc, [4.0, 4.0])
+    assert depth is None
+
+
+def test_brandes_betweenness_radius_prune(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    adj_edge = np.array([0, 0, 1, 1], dtype=np.int64)
+    node_bc, edge_bc, _ = brandes_betweenness(
+        indptr,
+        adj,
+        weights,
+        n,
+        adj_edge=adj_edge,
+        num_edges=2,
+        w_prune=weights,
+        radius=2.0,
+    )
+    np.testing.assert_allclose(node_bc, [0.0, 0.0, 0.0])
+    np.testing.assert_allclose(edge_bc, [2.0, 0.0])
+
+
+def test_brandes_betweenness_sources_subset_scaling(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    adj_edge = np.array([0, 0, 1, 1], dtype=np.int64)
+    node_bc, edge_bc, _ = brandes_betweenness(
+        indptr, adj, weights, n, adj_edge=adj_edge, num_edges=2, sources=[0]
+    )
+    # Un-scaled contribution from source 0 alone is node_bc=[0,1,0], edge_bc=[2,1];
+    # scaled by n / len(sources) == 3.
+    np.testing.assert_allclose(node_bc, [0.0, 3.0, 0.0])
+    np.testing.assert_allclose(edge_bc, [6.0, 3.0])
+
+
+def test_brandes_betweenness_collect_depth(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    _, _, depth = brandes_betweenness(indptr, adj, weights, n, collect_depth=True)
+    np.testing.assert_allclose(depth["node_count"], [3.0, 3.0, 3.0])
+    np.testing.assert_allclose(depth["total_depth"], [5.5, 4.0, 6.5])
+
+
+def test_brandes_betweenness_cancel(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    node_bc, _, _ = brandes_betweenness(indptr, adj, weights, n, cancel=lambda: True)
+    np.testing.assert_allclose(node_bc, [0.0, 0.0, 0.0])
+
+
+def test_brandes_betweenness_progress(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    seen = []
+    brandes_betweenness(indptr, adj, weights, n, progress=seen.append)
+    assert seen and seen[0] == 0.0
+
+
+# --------------------------------------------------------------------------- #
+# centrality.py: network_criticality
+# --------------------------------------------------------------------------- #
+
+
+def test_network_criticality_empty_destinations(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    usage, criticality = network_criticality(indptr, adj, weights, n, origins=[0], destinations=[])
+    np.testing.assert_array_equal(usage, np.zeros(len(adj), dtype=np.int64))
+    np.testing.assert_allclose(criticality, np.zeros(len(adj)))
+
+
+def test_network_criticality_multi_hop_path(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    # Forces traversal through an already-visited neighbour (node 0 seen twice).
+    usage, criticality = network_criticality(indptr, adj, weights, n, origins=[0], destinations=[2])
+    np.testing.assert_array_equal(usage, [1, 0, 1, 0])
+    np.testing.assert_allclose(criticality, [100.0, 0.0, 100.0, 0.0])
+
+
+def test_network_criticality_unreachable_destination(disconnected_graph):
+    indptr, adj, weights, n = disconnected_graph
+    # Node 2 is isolated, so it can never reach destination 0.
+    usage, criticality = network_criticality(indptr, adj, weights, n, origins=[2], destinations=[0])
+    np.testing.assert_array_equal(usage, np.zeros(len(adj), dtype=np.int64))
+    np.testing.assert_allclose(criticality, np.zeros(len(adj)))
+
+
+def test_network_criticality_no_edges():
+    indptr = np.array([0, 0], dtype=np.int64)
+    adj = np.array([], dtype=np.int64)
+    weights = np.array([], dtype=np.float64)
+    usage, criticality = network_criticality(indptr, adj, weights, 1, origins=[0], destinations=[0])
+    assert usage.shape == (0,)
+    assert criticality.shape == (0,)
+
+
+def test_network_criticality_revisits_stale_heap_entry(triangle_graph):
+    indptr, adj, weights, n = triangle_graph
+    # No node matches destination 999, forcing the search to drain the heap
+    # fully and pop the stale (already-visited) entry for node 2.
+    usage, criticality = network_criticality(
+        indptr, adj, weights, n, origins=[0], destinations=[999]
+    )
+    np.testing.assert_array_equal(usage, np.zeros(len(adj), dtype=np.int64))
+    np.testing.assert_allclose(criticality, np.zeros(len(adj)))
+
+
+def test_network_criticality_failed_relaxation(skewed_triangle_graph):
+    indptr, adj, weights, n = skewed_triangle_graph
+    # Forces an attempted relaxation of an unvisited node that doesn't
+    # improve its distance (the expensive 1-2 edge loses to the direct route).
+    usage, criticality = network_criticality(
+        indptr, adj, weights, n, origins=[0], destinations=[999]
+    )
+    np.testing.assert_array_equal(usage, np.zeros(len(adj), dtype=np.int64))
+    np.testing.assert_allclose(criticality, np.zeros(len(adj)))
+
+
+# --------------------------------------------------------------------------- #
+# Additional branch coverage: stale heap entries / tie-breaking
+# --------------------------------------------------------------------------- #
+
+
+def test_many_to_many_pure_python_stale_heap_entry(triangle_graph, monkeypatch):
+    indptr, adj, weights, n = triangle_graph
+    monkeypatch.setattr(spatial_paths, "HAS_SCIPY", False)
+    dists = many_to_many(indptr, adj, weights, n, sources=[0])
+    np.testing.assert_allclose(dists[0], [0.0, 1.0, 2.0])
+
+
+def test_multi_source_pure_python_stale_heap_entry(triangle_graph, monkeypatch):
+    indptr, adj, weights, n = triangle_graph
+    monkeypatch.setattr(spatial_paths, "HAS_SCIPY", False)
+    dists, labels = multi_source(indptr, adj, weights, n, sources=[0])
+    np.testing.assert_allclose(dists, [0.0, 1.0, 2.0])
+    np.testing.assert_array_equal(labels, [0, 0, 0])
+
+
+def test_multi_source_pure_python_duplicate_source(sample_graph, monkeypatch):
+    indptr, adj, weights, n, _ = sample_graph
+    monkeypatch.setattr(spatial_paths, "HAS_SCIPY", False)
+    # The same node appearing twice in `sources` must not overwrite its label.
+    dists, labels = multi_source(indptr, adj, weights, n, sources=[0, 0])
+    np.testing.assert_allclose(dists, [0.0, 1.5, 4.0])
+    np.testing.assert_array_equal(labels, [0, 0, 0])
+
+
+def test_brandes_betweenness_stale_heap_entry(triangle_graph):
+    indptr, adj, weights, n = triangle_graph
+    adj_edge = np.array([0, 1, 0, 2, 2, 1], dtype=np.int64)
+    node_bc, edge_bc, _ = brandes_betweenness(
+        indptr, adj, weights, n, adj_edge=adj_edge, num_edges=3
+    )
+    # The expensive direct 0-2 edge (id 1) is never on a shortest path.
+    np.testing.assert_allclose(node_bc, [0.0, 2.0, 0.0])
+    np.testing.assert_allclose(edge_bc, [4.0, 0.0, 4.0])
+
+
+def test_brandes_betweenness_equal_length_paths(diamond_graph):
+    indptr, adj, weights, n = diamond_graph
+    node_bc, edge_bc, _ = brandes_betweenness(indptr, adj, weights, n)
+    # Fully symmetric diamond: every node sits on an equal-cost shortest
+    # path between the other two "opposite" nodes, splitting credit evenly.
+    np.testing.assert_allclose(node_bc, [1.0, 1.0, 1.0, 1.0])
+    assert edge_bc is None
+
+
+def test_brandes_betweenness_sources_subset_no_edge_bc(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+    node_bc, edge_bc, _ = brandes_betweenness(indptr, adj, weights, n, sources=[0])
+    np.testing.assert_allclose(node_bc, [0.0, 3.0, 0.0])
+    assert edge_bc is None
+
+
+# ---------------------------------------------------------------------------
+# Additional accessibility.py coverage
+# ---------------------------------------------------------------------------
+
+
+def test_gravity_accessibility_ndim_error():
+    dists = np.array([1.0, 2.0, 3.0])  # 1D, invalid
+    weights = np.array([10.0, 20.0, 30.0])
+    with pytest.raises(ValueError):
+        gravity_accessibility(dists, weights)
+
+
+def test_gravity_accessibility_weight_mismatch_error():
+    dists = np.array([[1.0, 2.0, 3.0]])
+    weights = np.array([10.0, 20.0])  # wrong length
+    with pytest.raises(ValueError):
+        gravity_accessibility(dists, weights)
+
+
+def test_gravity_accessibility_cutoff_masks_far_destinations():
+    dists = np.array([[1.0, 10.0], [5.0, 5.0]])
+    weights = np.array([100.0, 100.0])
+
+    # Without cutoff both destinations contribute.
+    acc_no_cutoff = gravity_accessibility(dists, weights, cutoff=None)
+
+    # With cutoff=8.0, the first origin's distance of 10.0 to the second destination is excluded.
+    acc_cutoff = gravity_accessibility(dists, weights, cutoff=8.0)
+
+    assert acc_cutoff[0] < acc_no_cutoff[0]
+    assert np.isclose(acc_cutoff[1], acc_no_cutoff[1])
+
+
+# ---------------------------------------------------------------------------
+# Walkability and Advanced Active Mobility Tests
+# ---------------------------------------------------------------------------
+
+
+def test_thermal_comfort_routing():
+    # 3-node path: 0 - 1 - 2
+    # CSR graph representation:
+    # 0 -> 1 (edge index 0, cost 1.0)
+    # 1 -> 0 (edge index 1, cost 1.0)
+    # 1 -> 2 (edge index 2, cost 1.0)
+    # 2 -> 1 (edge index 3, cost 1.0)
+    indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1], dtype=np.int64)
+    weights = np.array([10.0, 10.0, 10.0, 10.0], dtype=np.float64)
+
+    # Shade factors: 0->1 is fully shaded (1.0), 1->2 is exposed (0.0)
+    shade = np.array([1.0, 1.0, 0.0, 0.0], dtype=np.float64)
+
+    # 1. Simple routing check
+    res = thermal_comfort_routing(
+        indptr, adj, weights, n=3, start_node=0, end_node=2, shade_factors=shade, alpha=0.5
+    )
+
+    assert res["path"] == [0, 1, 2]
+    assert res["shortest_path"] == [0, 1, 2]
+    assert res["comfort_distance"] == 20.0
+    assert res["shortest_distance"] == 20.0
+    assert np.isclose(res["comfort_index"], 0.5)  # mean of 1.0 and 0.0
+
+    # 2. Add heat weights: 0->1 has 0.0 heat weight, 1->2 has 1.0 heat weight
+    heat = np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float64)
+    res_heat = thermal_comfort_routing(
+        indptr,
+        adj,
+        weights,
+        n=3,
+        start_node=0,
+        end_node=2,
+        shade_factors=shade,
+        heat_weights=heat,
+        alpha=0.5,
+    )
+    assert res_heat["path"] == [0, 1, 2]
+
+    # 3. Test dimension mismatches
+    with pytest.raises(ValueError, match="shade_factors length"):
+        thermal_comfort_routing(
+            indptr, adj, weights, n=3, start_node=0, end_node=2, shade_factors=shade[:-1]
+        )
+
+    with pytest.raises(ValueError, match="heat_weights length"):
+        thermal_comfort_routing(
+            indptr,
+            adj,
+            weights,
+            n=3,
+            start_node=0,
+            end_node=2,
+            shade_factors=shade,
+            heat_weights=heat[:-1],
+        )
+
+    with pytest.raises(ValueError, match="out of bounds"):
+        thermal_comfort_routing(
+            indptr, adj, weights, n=3, start_node=-1, end_node=2, shade_factors=shade
+        )
+
+
+def test_gravity_centrality_una():
+    # 3-node path: 0 - 1 - 2
+    indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1], dtype=np.int64)
+    weights = np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float64)
+
+    # Destination at node 2 with weight 100.0
+    destinations = np.array([2], dtype=np.int64)
+    dest_weights = np.array([100.0], dtype=np.float64)
+
+    # 1. Exponential decay
+    gc_exp = gravity_centrality_una(
+        indptr,
+        adj,
+        weights,
+        n=3,
+        destination_weights=dest_weights,
+        destinations=destinations,
+        cutoff=10.0,
+        decay_method="exponential",
+        beta=0.1,
+    )
+    # Distance from 0 to 2 is 2.0 -> decay is exp(-0.1 * 2) = exp(-0.2)
+    # Distance from 1 to 2 is 1.0 -> decay is exp(-0.1 * 1) = exp(-0.1)
+    # Distance from 2 to 2 is 0.0 -> decay is exp(-0.0) = 1.0
+    assert np.isclose(gc_exp[0], 100.0 * np.exp(-0.2))
+    assert np.isclose(gc_exp[1], 100.0 * np.exp(-0.1))
+    assert np.isclose(gc_exp[2], 100.0)
+
+    # 2. Linear decay
+    gc_lin = gravity_centrality_una(
+        indptr,
+        adj,
+        weights,
+        n=3,
+        destination_weights=dest_weights,
+        destinations=destinations,
+        cutoff=5.0,
+        decay_method="linear",
+    )
+    # f(d) = 1.0 - d / cutoff
+    assert np.isclose(gc_lin[0], 100.0 * (1.0 - 2.0 / 5.0))
+    assert np.isclose(gc_lin[1], 100.0 * (1.0 - 1.0 / 5.0))
+
+    # 3. Validation error checks
+    with pytest.raises(ValueError, match="identical length"):
+        gravity_centrality_una(
+            indptr,
+            adj,
+            weights,
+            n=3,
+            destination_weights=dest_weights[:-1],
+            destinations=destinations,
+            cutoff=5.0,
+        )
+
+    with pytest.raises(ValueError, match="must be >= 0"):
+        gravity_centrality_una(
+            indptr,
+            adj,
+            weights,
+            n=3,
+            destination_weights=dest_weights,
+            destinations=destinations,
+            cutoff=-1.0,
+            decay_method="linear",
+        )
+
+
+def test_active_mobility_permeability():
+    # 3-node path: 0 - 1 - 2
+    indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1], dtype=np.int64)
+    weights = np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float64)
+
+    # Edge indices:
+    # 0->1: index 0
+    # 1->0: index 1
+    # 1->2: index 2
+    # 2->1: index 3
+    # Both directions of the 1-2 edge are high stress (False)
+    low_stress = np.array([True, True, False, False], dtype=bool)
+
+    permeability = active_mobility_permeability(
+        indptr, adj, weights, n=3, low_stress_mask=low_stress
+    )
+
+    # From node 0: on full network, reachable nodes are {1, 2}.
+    # Under low-stress only, we can only reach 1 (since 1-2 is high stress).
+    # So permeability is 50.0% (1 out of 2).
+    assert np.isclose(permeability[0], 50.0)
+
+    # From node 1: full reachable {0, 2}. Under low stress, reachable is {0}.
+    # Permeability is 50.0%.
+    assert np.isclose(permeability[1], 50.0)
+
+    # From node 2: full reachable {0, 1}. Under low stress, neither is reachable.
+    # So permeability is 0.0%.
+    assert np.isclose(permeability[2], 0.0)
+
+    # Test mismatch validation
+    with pytest.raises(ValueError, match="low_stress_mask length"):
+        active_mobility_permeability(indptr, adj, weights, n=3, low_stress_mask=low_stress[:-1])
+
+
+def test_simulate_thermal_comfort_pet():
+    air_temp = np.array([30.0, 35.0])
+    rel_humidity = np.array([75.0, 50.0])
+    wind_speed = np.array([1.5, 2.0])
+    solar_radiation = np.array([800.0, 400.0])
+    sky_view_factor = np.array([0.8, 0.4])
+    canopy_cover = np.array([0.1, 0.5])
+
+    pet = simulate_thermal_comfort_pet(
+        air_temp, rel_humidity, wind_speed, solar_radiation, sky_view_factor, canopy_cover
+    )
+
+    assert len(pet) == 2
+    # Verify that higher temperature + solar radiation yields higher PET
+    assert pet[0] > 30.0
+    assert pet[1] > 25.0
+
+
+def test_reach_centrality_una():
+    # Path 0 - 1 - 2
+    indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1], dtype=np.int64)
+    weights = np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float64)
+
+    destinations = np.array([2], dtype=np.int64)
+    dest_weights = np.array([10.0], dtype=np.float64)
+
+    reach = reach_centrality_una(
+        indptr,
+        adj,
+        weights,
+        n=3,
+        destinations=destinations,
+        destination_weights=dest_weights,
+        cutoff=5.0,
+        decay_method="none",
+    )
+
+    # All nodes are within distance 5.0 of node 2, decay_method "none" -> factor is 1.0
+    assert np.isclose(reach[0], 10.0)
+    assert np.isclose(reach[1], 10.0)
+    assert np.isclose(reach[2], 10.0)
+
+
+def test_choice_centrality_una():
+    # Star graph: Center (node 0) connected to leaves 1, 2, 3
+    indptr = np.array([0, 3, 4, 5, 6], dtype=np.int64)
+    adj = np.array([1, 2, 3, 0, 0, 0], dtype=np.int64)
+    weights = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float64)
+
+    # Shortest paths between leaf nodes (e.g., 1->2, 1->3, etc.) must go through the center (node 0)
+    origins = np.array([1, 2, 3], dtype=np.int64)
+    destinations = np.array([1, 2, 3], dtype=np.int64)
+    orig_w = np.array([1.0, 1.0, 1.0], dtype=np.float64)
+    dest_w = np.array([1.0, 1.0, 1.0], dtype=np.float64)
+
+    choice = choice_centrality_una(
+        indptr,
+        adj,
+        weights,
+        n=5,
+        origins=origins,
+        destinations=destinations,
+        origin_weights=orig_w,
+        destination_weights=dest_w,
+        cutoff=5.0,
+    )
+
+    # Node 0 (center) should have high choice betweenness because all inter-leaf paths cross it
+    assert choice[0] > 0.0
+    # Node 4 is isolated / not in paths, should be 0.0
+    assert choice[4] == 0.0
+
+    # Test parameter validation checks
+    with pytest.raises(ValueError, match="origins and origin_weights"):
+        choice_centrality_una(
+            indptr,
+            adj,
+            weights,
+            n=5,
+            origins=origins,
+            destinations=destinations,
+            origin_weights=orig_w[:-1],
+            destination_weights=dest_w,
+            cutoff=5.0,
+        )
+
+    with pytest.raises(ValueError, match="destinations and destination_weights"):
+        choice_centrality_una(
+            indptr,
+            adj,
+            weights,
+            n=5,
+            origins=origins,
+            destinations=destinations,
+            origin_weights=orig_w,
+            destination_weights=dest_w[:-1],
+            cutoff=5.0,
+        )
+
+
+def test_classify_level_of_traffic_stress():
+    speed_limit = np.array([25.0, 35.0, 45.0, 60.0])
+    num_lanes = np.array([2, 2, 4, 6])
+    has_bike_lane = np.array([True, True, True, False])
+    has_sidewalk = np.array([True, True, False, False])
+    daily_traffic = np.array([2000.0, 5000.0, 7000.0, 12000.0])
+
+    lts = classify_level_of_traffic_stress(
+        speed_limit, num_lanes, has_bike_lane, has_sidewalk, daily_traffic
+    )
+
+    assert len(lts) == 4
+    # LTS 1: Comfortable for kids
+    assert lts[0] == 1
+    # LTS 2: Comfortable for mainstream adults
+    assert lts[1] == 2
+    # LTS 3: Moderate stress
+    assert lts[2] == 3
+    # LTS 4: High stress
+    assert lts[3] == 4
+
+
+def test_identify_low_stress_islands():
+    # 5-node graph:
+    # 0 - 1 (low stress, LTS=1)
+    # 1 - 2 (high stress barrier, LTS=4)
+    # 2 - 3 (low stress, LTS=1)
+    # 3 - 4 (low stress, LTS=1)
+    indptr = np.array([0, 1, 3, 5, 7, 8], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1, 3, 2, 4, 3], dtype=np.int64)
+    edge_lts = np.array([1, 1, 4, 4, 1, 1, 1, 1], dtype=np.int64)
+
+    island_labels, island_sizes, barriers = identify_low_stress_islands(
+        indptr, adj, n=5, edge_lts=edge_lts
+    )
+
+    # 2 islands: {0, 1} and {2, 3, 4}
+    assert island_labels[0] == island_labels[1]
+    assert island_labels[2] == island_labels[3]
+    assert island_labels[3] == island_labels[4]
+    assert island_labels[0] != island_labels[2]
+
+    assert island_sizes[island_labels[0]] == 2
+    assert island_sizes[island_labels[2]] == 3
+
+    # Barrier should be the edge connecting node 1 and 2 (edge indexes 2 and 3)
+    assert len(barriers) > 0
+    assert barriers[0][0] in (2, 3)  # index of 1-2 edge or 2-1 edge
