@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "planx-sdk"
-version = "0.3.1"
+version = "0.3.2"
 authors = [
     { name = "Yusuf Eminoğlu", email = "yusufeminoglu@gmail.com" }
 ]
@@ -52,6 +52,8 @@ exclude = [
     ".venv",
     "build",
     "dist",
+    "tests/run_engine_tests.py",
+    "src/planx/engine",
 ]
 
 [tool.ruff.lint]
@@ -60,6 +62,7 @@ ignore = []
 
 [tool.mypy]
 files = ["src"]
+exclude = ["src/planx/engine/"]
 
 [[tool.mypy.overrides]]
 # scipy and scikit-learn do not ship type stubs; treat them as untyped.
