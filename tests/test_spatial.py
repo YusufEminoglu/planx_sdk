@@ -7,6 +7,7 @@ import pytest
 from planx.spatial import (
     active_mobility_permeability,
     brandes_betweenness,
+    calculate_pedestrian_route_directness,
     calculate_walk_score,
     choice_centrality_una,
     classify_level_of_traffic_stress,
@@ -1334,3 +1335,27 @@ def test_calculate_walk_score():
 
     with pytest.raises(ValueError, match="intersection_density and avg_block_length"):
         calculate_walk_score(dists, weights, np.array([200.0]), block_len)
+
+
+def test_calculate_pedestrian_route_directness():
+    # 2 origins, 2 destinations
+    net_d = np.array([[10.0, 50.0], [np.inf, 20.0]])
+    origins = np.array([[0.0, 0.0], [3.0, 4.0]])
+    destinations = np.array([[0.0, 0.0], [3.0, 4.0]])
+
+    # 1. Base check
+    prd = calculate_pedestrian_route_directness(net_d, origins, destinations)
+    assert prd.shape == (2, 2)
+    # distance 10.0 from (0,0) to (0,0) is collocated -> 1.0
+    assert prd[0, 0] == 1.0
+    # Euclidean distance from (3,4) to (0,0) is 5.0. Network distance is inf -> nan
+    assert np.isnan(prd[1, 0])
+    # distance from (3,4) to (3,4) is collocated -> 1.0 (Euclidean distance 0)
+    assert prd[1, 1] == 1.0
+
+    # 2. Validation checks
+    with pytest.raises(ValueError, match="origin_coords shape"):
+        calculate_pedestrian_route_directness(net_d, np.array([[0.0]]), destinations)
+
+    with pytest.raises(ValueError, match="destination_coords shape"):
+        calculate_pedestrian_route_directness(net_d, origins, np.array([[0.0]]))
