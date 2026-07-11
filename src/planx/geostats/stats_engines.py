@@ -339,6 +339,119 @@ def calculate_local_moran(
     return I_values, z_scores, p_values, quadrants
 
 
+def calculate_local_geary(
+    y: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
+    permutations: int = 199,
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
+    """Calculates Anselin Local Geary's C using conditional permutation inference.
+
+    Local Geary's C_i = sum_j w_ij * (z_i - z_j)^2, where z is the
+    standardized attribute value. Small values indicate positive spatial
+    association (similar values clustered together), while large values
+    indicate negative spatial association (dissimilar neighboring values).
+
+    Because no simple closed-form variance exists for the local statistic,
+    significance is assessed via conditional permutation: for each location,
+    its neighbors' values are repeatedly resampled (without replacement)
+    from the remaining observations to build a reference distribution.
+
+    Args:
+        y: Attribute values.
+        neighbors: Adjacency list mapping node ID to list of neighbor IDs.
+        weights: Weights list mapping node ID to list of weights.
+        id_order: List of node IDs in the order they correspond to y.
+        permutations: Number of conditional permutations per location.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        A tuple of:
+          - c_values: NumPy array of local Geary's C statistics
+          - z_scores: NumPy array of pseudo z-scores from permutation
+          - p_values: NumPy array of pseudo (two-sided) p-values
+          - quadrants: List of strings ('HH', 'LL', 'HL', 'LH', 'Not Significant')
+    """
+    n = len(y)
+    c_values = np.zeros(n)
+    z_scores = np.zeros(n)
+    p_values = np.ones(n)
+    quadrants = ["Not Significant"] * n
+
+    if n <= 2:
+        return c_values, z_scores, p_values, quadrants
+
+    y_mean = np.mean(y)
+    y_std = np.std(y)
+
+    if y_std == 0:
+        return c_values, z_scores, p_values, quadrants
+
+    z = (y - y_mean) / y_std
+    id_to_idx = {fid: idx for idx, fid in enumerate(id_order)}
+    n_perm = max(0, int(permutations))
+    rng = np.random.default_rng(seed)
+    all_indices = np.arange(n)
+
+    for idx, fid in enumerate(id_order):
+        f_neighs = neighbors.get(fid, [])
+        f_weights = weights.get(fid, [])
+
+        valid_neigh_indices = []
+        valid_w = []
+        for j, nid in enumerate(f_neighs):
+            if nid in id_to_idx and id_to_idx[nid] != idx:
+                valid_neigh_indices.append(id_to_idx[nid])
+                valid_w.append(f_weights[j])
+
+        if not valid_w:
+            continue
+
+        w_arr = np.array(valid_w)
+        neigh_z = z[valid_neigh_indices]
+        c_i = float(np.sum(w_arr * (z[idx] - neigh_z) ** 2))
+        c_values[idx] = c_i
+        spatial_lag = float(np.mean(neigh_z))
+
+        if n_perm > 0:
+            others = all_indices[all_indices != idx]
+            k = len(valid_w)
+            if k > len(others):
+                continue
+            sim = np.empty(n_perm)
+            for perm_idx in range(n_perm):
+                sampled_idx = rng.choice(others, size=k, replace=False)
+                sim[perm_idx] = np.sum(w_arr * (z[idx] - z[sampled_idx]) ** 2)
+
+            mean_sim = float(np.mean(sim))
+            std_sim = float(np.std(sim))
+            z_scores[idx] = (c_i - mean_sim) / std_sim if std_sim > 0 else 0.0
+
+            p_low = (int(np.sum(sim <= c_i)) + 1) / (n_perm + 1)
+            p_high = (int(np.sum(sim >= c_i)) + 1) / (n_perm + 1)
+            p_values[idx] = min(1.0, 2.0 * min(p_low, p_high))
+
+            if p_values[idx] < 0.05:
+                high_val = z[idx] > 0
+                high_lag = spatial_lag > 0
+                if c_i < mean_sim:
+                    # Positive spatial association: similar values clustered.
+                    if high_val and high_lag:
+                        quadrants[idx] = "HH"
+                    elif not high_val and not high_lag:
+                        quadrants[idx] = "LL"
+                else:
+                    # Negative spatial association: dissimilar neighboring values.
+                    if high_val and not high_lag:
+                        quadrants[idx] = "HL"
+                    elif not high_val and high_lag:
+                        quadrants[idx] = "LH"
+
+    return c_values, z_scores, p_values, quadrants
+
+
 def _chi2_sf_approx(x: float, df: int) -> float:
     """Wilson-Hilferty transformation approximation for Chi-Square Survival Function (p-value)."""
     if x <= 0:
