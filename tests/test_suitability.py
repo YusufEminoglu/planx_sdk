@@ -235,8 +235,6 @@ def test_capacitated_location_allocation():
     assert len(unassigned_dist) == 3
 
     # Error handling
-    import pytest
-
     with pytest.raises(ValueError, match="shape"):
         capacitated_location_allocation(np.ones((2, 3)), capacities, demands, pop)
 
@@ -287,3 +285,574 @@ def test_vikor_method():
     # Error checking
     with pytest.raises(ValueError):
         vikor_method(decision_matrix, weights, benefit_criteria[:-1])
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: mcda.normalize_array
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_array_validation_errors():
+    arr = np.array([1.0, 2.0], dtype=np.float32)
+    with pytest.raises(ValueError, match="high must be greater than low"):
+        normalize_array(arr, "benefit_minmax", low=10.0, high=5.0)
+
+    with pytest.raises(ValueError, match="spread must be greater than 0"):
+        normalize_array(arr, "benefit_sigmoid", spread=0.0)
+
+    with pytest.raises(ValueError, match="Unknown normalization method"):
+        normalize_array(arr, "not_a_real_method")
+
+
+def test_normalize_array_cost_sigmoid_and_gaussian():
+    arr = np.array([40.0, 50.0, 60.0], dtype=np.float32)
+
+    cost_sig = normalize_array(arr, "cost_sigmoid", mid=50.0, spread=10.0)
+    assert np.isclose(cost_sig[1], 50.0)
+    assert cost_sig[0] > cost_sig[1] > cost_sig[2]
+
+    gauss = normalize_array(arr, "benefit_gaussian", mid=50.0, spread=10.0)
+    # Peak at mid, symmetric decay on both sides
+    assert gauss[1] > gauss[0]
+    assert gauss[1] > gauss[2]
+    assert np.isclose(gauss[0], gauss[2])
+
+
+def test_normalize_array_nodata_preserved():
+    arr = np.array([10.0, 50.0, np.nan], dtype=np.float32)
+    norm = normalize_array(arr, "benefit_minmax", low=0.0, high=100.0, nodata=-1.0)
+    # NaN input should be replaced with the nodata value in the output
+    assert norm[2] == -1.0
+    assert norm[0] == 10.0
+
+    arr2 = np.array([10.0, 50.0, 999.0], dtype=np.float32)
+    norm2 = normalize_array(arr2, "benefit_minmax", low=0.0, high=100.0, nodata=999.0)
+    # The nodata sentinel value should be excluded and preserved
+    assert norm2[2] == 999.0
+
+    # No explicit nodata: NaN inputs become NaN outputs
+    arr3 = np.array([10.0, np.nan], dtype=np.float32)
+    norm3 = normalize_array(arr3, "benefit_minmax", low=0.0, high=100.0)
+    assert np.isnan(norm3[1])
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: mcda.weighted_linear_combination
+# ---------------------------------------------------------------------------
+
+
+def test_wlc_validation_errors():
+    with pytest.raises(ValueError, match="At least one criterion array"):
+        weighted_linear_combination([], [1.0])
+
+    with pytest.raises(ValueError, match="Number of weights"):
+        weighted_linear_combination([np.ones((2, 2))], [0.5, 0.5])
+
+    with pytest.raises(ValueError, match="identical shapes"):
+        weighted_linear_combination([np.ones((2, 2)), np.ones((3, 3))], [0.5, 0.5])
+
+    with pytest.raises(ValueError, match="Constraint array shape"):
+        weighted_linear_combination(
+            [np.ones((2, 2)), np.ones((2, 2))],
+            [0.5, 0.5],
+            constraint_array=np.ones((3, 3)),
+        )
+
+
+def test_wlc_renormalizes_weights_not_summing_to_one():
+    c1 = np.array([[10.0, 20.0], [30.0, 40.0]], dtype=np.float32)
+    c2 = np.array([[50.0, 60.0], [70.0, 80.0]], dtype=np.float32)
+
+    # Weights [0.3, 0.3] sum to 0.6 -> should be re-normalized to [0.5, 0.5]
+    result = weighted_linear_combination([c1, c2], [0.3, 0.3])
+    expected = 0.5 * c1 + 0.5 * c2
+    np.testing.assert_allclose(result, expected)
+
+
+def test_wlc_criteria_nodatas():
+    c1 = np.array([[10.0, 20.0], [30.0, 40.0]], dtype=np.float32)
+    c2 = np.array([[10.0, 20.0], [30.0, 999.0]], dtype=np.float32)
+
+    result = weighted_linear_combination([c1, c2], [0.5, 0.5], criteria_nodatas=[None, 999.0])
+    # The pixel where c2 is nodata (999.0) should be excluded and set to output nodata
+    assert result[1, 1] == -9999.0
+    # Other pixels should compute normally
+    assert np.isclose(result[0, 0], 10.0)
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: mcda.topsis_method / vikor_method
+# ---------------------------------------------------------------------------
+
+
+def test_topsis_method_mixed_benefit_cost_criteria():
+    decision_matrix = np.array([[10.0, 100.0], [5.0, 10.0], [1.0, 50.0]])
+    weights = np.array([0.5, 0.5])
+    # Criterion 0 is a benefit, criterion 1 is a cost
+    benefit_criteria = np.array([True, False])
+
+    scores, ranks = topsis_method(decision_matrix, weights, benefit_criteria)
+    assert scores.shape == (3,)
+    assert ranks.shape == (3,)
+    assert set(ranks.tolist()) == {1, 2, 3}
+
+    with pytest.raises(ValueError, match="benefit_criteria length"):
+        topsis_method(decision_matrix, weights, np.array([True]))
+
+
+def test_topsis_method_zero_weights():
+    decision_matrix = np.array([[10.0, 100.0], [5.0, 10.0], [1.0, 50.0]])
+    weights = np.array([0.0, 0.0])
+    benefit_criteria = np.array([True, True])
+
+    scores, ranks = topsis_method(decision_matrix, weights, benefit_criteria)
+    # With all-zero weights, every alternative collapses to the same
+    # (degenerate) point, so scores should be equal (falls back to 0.5).
+    np.testing.assert_allclose(scores, [0.5, 0.5, 0.5])
+
+
+def test_vikor_method_mixed_benefit_cost_criteria():
+    decision_matrix = np.array([[10.0, 100.0], [5.0, 10.0], [1.0, 50.0]])
+    weights = np.array([0.5, 0.5])
+    benefit_criteria = np.array([True, False])
+
+    scores, ranks = vikor_method(decision_matrix, weights, benefit_criteria)
+    assert scores.shape == (3,)
+    assert ranks.shape == (3,)
+    assert set(ranks.tolist()) == {1, 2, 3}
+
+    with pytest.raises(ValueError, match="benefit_criteria length"):
+        vikor_method(decision_matrix, weights, np.array([True]))
+
+    with pytest.raises(ValueError, match="weights length"):
+        vikor_method(decision_matrix, weights[:-1], benefit_criteria)
+
+
+def test_vikor_method_zero_weights():
+    decision_matrix = np.array([[10.0, 100.0], [5.0, 10.0], [1.0, 50.0]])
+    weights = np.array([0.0, 0.0])
+    benefit_criteria = np.array([True, True])
+
+    scores, ranks = vikor_method(decision_matrix, weights, benefit_criteria)
+    np.testing.assert_allclose(scores, [0.0, 0.0, 0.0])
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: weights.ahp_weights
+# ---------------------------------------------------------------------------
+
+
+def test_ahp_weights_validation_errors():
+    with pytest.raises(ValueError, match="must be square"):
+        ahp_weights(np.ones((2, 3)))
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        ahp_weights(np.zeros((0, 0)))
+
+    with pytest.raises(ValueError, match="must be positive"):
+        ahp_weights(np.array([[1.0, -2.0], [0.5, 1.0]]))
+
+
+def test_ahp_weights_large_matrix_uses_default_ri():
+    # 11x11 matrix (n > 10) exercises the ri_map.get(n, 1.49) fallback
+    n = 11
+    rng = np.random.default_rng(42)
+    matrix = np.ones((n, n))
+    upper = rng.uniform(1.0, 5.0, size=(n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            matrix[i, j] = upper[i, j]
+            matrix[j, i] = 1.0 / upper[i, j]
+
+    weights, cr = ahp_weights(matrix)
+    assert weights.shape == (n,)
+    assert np.isclose(np.sum(weights), 1.0)
+    assert cr >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: weights.decision_matrix_from_layers
+# ---------------------------------------------------------------------------
+
+
+def test_decision_matrix_from_layers_validation_errors():
+    with pytest.raises(ValueError, match="At least one layer"):
+        decision_matrix_from_layers([])
+
+    with pytest.raises(ValueError, match="Layer at index 1"):
+        decision_matrix_from_layers([np.ones((2, 2)), np.ones((3, 3))])
+
+
+def test_decision_matrix_from_layers_with_nodata():
+    lyr1 = np.array([[1.0, 2.0], [3.0, 999.0]])
+    lyr2 = np.array([[10.0, 20.0], [30.0, 40.0]])
+
+    dm, mask = decision_matrix_from_layers([lyr1, lyr2], nodata=999.0)
+    assert dm.shape == (3, 2)
+    assert np.all(mask == [[True, True], [True, False]])
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: weights.entropy_weights
+# ---------------------------------------------------------------------------
+
+
+def test_entropy_weights_validation_error():
+    with pytest.raises(ValueError, match="2D array"):
+        entropy_weights(np.array([1.0, 2.0, 3.0]))
+
+
+def test_entropy_weights_degenerate_shapes():
+    # Zero alternatives: falls back to uniform weights
+    weights = entropy_weights(np.zeros((0, 3)))
+    np.testing.assert_allclose(weights, [1 / 3, 1 / 3, 1 / 3])
+
+    # Zero criteria: returns an empty array
+    weights_empty = entropy_weights(np.zeros((4, 0)))
+    assert weights_empty.shape == (0,)
+
+
+def test_entropy_weights_constant_matrix_falls_back_to_uniform():
+    # All criteria are identical across alternatives -> zero diversification
+    # degree for every criterion, triggering the uniform-weight fallback.
+    decision_matrix = np.ones((4, 3)) * 5.0
+    weights = entropy_weights(decision_matrix)
+    np.testing.assert_allclose(weights, [1 / 3, 1 / 3, 1 / 3])
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: weights.critic_weights
+# ---------------------------------------------------------------------------
+
+
+def test_critic_weights_validation_errors():
+    with pytest.raises(ValueError, match="2D array"):
+        critic_weights(np.array([1.0, 2.0, 3.0]))
+
+    decision_matrix = np.array([[10.0, 100.0], [20.0, 80.0], [15.0, 90.0]])
+    with pytest.raises(ValueError, match="directions length"):
+        critic_weights(decision_matrix, directions=[1])
+
+
+def test_critic_weights_degenerate_shapes():
+    weights, sigmas, contrasts = critic_weights(np.zeros((0, 3)))
+    np.testing.assert_allclose(weights, [1 / 3, 1 / 3, 1 / 3])
+    np.testing.assert_allclose(sigmas, [0.0, 0.0, 0.0])
+    np.testing.assert_allclose(contrasts, [1.0, 1.0, 1.0])
+
+    weights_empty, _, _ = critic_weights(np.zeros((4, 0)))
+    assert weights_empty.shape == (0,)
+
+
+def test_critic_weights_default_directions():
+    # directions=None should default to treating all criteria as benefit
+    decision_matrix = np.array(
+        [
+            [10.0, 100.0, 1.0],
+            [20.0, 80.0, 1.2],
+            [15.0, 90.0, 1.1],
+            [30.0, 70.0, 1.5],
+            [25.0, 60.0, 1.3],
+        ]
+    )
+    weights, sigmas, contrasts = critic_weights(decision_matrix)
+    assert weights.shape == (3,)
+    assert np.isclose(np.sum(weights), 1.0)
+
+
+def test_critic_weights_constant_matrix_falls_back_to_uniform():
+    # Zero variance across all criteria -> zero contrast score sum
+    decision_matrix = np.ones((4, 3)) * 5.0
+    weights, sigmas, contrasts = critic_weights(decision_matrix)
+    np.testing.assert_allclose(weights, [1 / 3, 1 / 3, 1 / 3])
+    np.testing.assert_allclose(sigmas, [0.0, 0.0, 0.0])
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: weights.pca_weights
+# ---------------------------------------------------------------------------
+
+
+def test_pca_weights_validation_error():
+    with pytest.raises(ValueError, match="2D array"):
+        pca_weights(np.array([1.0, 2.0, 3.0]))
+
+
+def test_pca_weights_too_few_alternatives():
+    # Fewer than 3 alternatives falls back to uniform weights
+    weights = pca_weights(np.array([[1.0, 2.0], [3.0, 4.0]]))
+    np.testing.assert_allclose(weights, [0.5, 0.5])
+
+
+def test_pca_weights_single_criterion():
+    # A single criterion column exercises the 0-d covariance reshape branch
+    weights = pca_weights(np.array([[1.0], [2.0], [3.0], [4.0]]))
+    np.testing.assert_allclose(weights, [1.0])
+
+
+def test_pca_weights_constant_matrix_falls_back_to_uniform():
+    # Zero variance in every criterion -> eigenvalues are all ~0
+    decision_matrix = np.ones((5, 3)) * 3.0
+    weights = pca_weights(decision_matrix)
+    np.testing.assert_allclose(weights, [1 / 3, 1 / 3, 1 / 3])
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: facility.greedy_mclp
+# ---------------------------------------------------------------------------
+
+
+def test_greedy_mclp_validation_errors():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0]])
+    pop = np.array([100.0, 200.0])
+
+    with pytest.raises(ValueError, match="candidate_coords"):
+        greedy_mclp(np.ones((2, 3)), demands, pop, max_distance=5.0, k=1)
+
+    with pytest.raises(ValueError, match="demand_coords"):
+        greedy_mclp(candidates, np.ones((2, 3)), pop, max_distance=5.0, k=1)
+
+    with pytest.raises(ValueError, match="demand_pop"):
+        greedy_mclp(candidates, demands, np.ones(3), max_distance=5.0, k=1)
+
+    with pytest.raises(ValueError, match="existing_coords"):
+        greedy_mclp(
+            candidates, demands, pop, max_distance=5.0, k=1, existing_coords=np.ones((1, 3))
+        )
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: facility.greedy_p_median
+# ---------------------------------------------------------------------------
+
+
+def test_greedy_p_median_validation_errors():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0]])
+
+    with pytest.raises(ValueError, match="dists must be a 2D array"):
+        greedy_p_median(dists=np.ones((2, 2, 2)), p=1)
+
+    with pytest.raises(ValueError, match="Must provide either dists"):
+        greedy_p_median(p=1)
+
+    with pytest.raises(ValueError, match="candidate_coords"):
+        greedy_p_median(candidate_coords=np.ones((2, 3)), demand_coords=demands, p=1)
+
+    with pytest.raises(ValueError, match="demand_coords"):
+        greedy_p_median(candidate_coords=candidates, demand_coords=np.ones((2, 3)), p=1)
+
+    with pytest.raises(ValueError, match="demand_pop"):
+        greedy_p_median(
+            candidate_coords=candidates, demand_coords=demands, demand_pop=np.ones(3), p=1
+        )
+
+    with pytest.raises(ValueError, match="p must be greater than 0"):
+        greedy_p_median(candidate_coords=candidates, demand_coords=demands, p=0)
+
+    with pytest.raises(ValueError, match="existing_coords"):
+        greedy_p_median(
+            candidate_coords=candidates,
+            demand_coords=demands,
+            p=1,
+            existing_coords=np.ones((1, 3)),
+        )
+
+
+def test_greedy_p_median_default_population_is_uniform():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+
+    selected, costs = greedy_p_median(candidate_coords=candidates, demand_coords=demands, p=1)
+    assert len(selected) == 1
+    assert len(costs) == 1
+
+
+def test_greedy_p_median_existing_indices():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+    pop = np.array([100.0, 200.0, 500.0])
+
+    selected, costs = greedy_p_median(
+        candidate_coords=candidates,
+        demand_coords=demands,
+        demand_pop=pop,
+        p=1,
+        existing_indices=[2],
+    )
+    # Facility 2 is already selected/existing, so it should not reappear
+    # in the "newly selected" output list.
+    assert 2 not in selected
+    assert len(selected) == 1
+
+    with pytest.raises(ValueError, match="existing_indices"):
+        greedy_p_median(
+            candidate_coords=candidates,
+            demand_coords=demands,
+            demand_pop=pop,
+            p=1,
+            existing_indices=[99],
+        )
+
+
+def test_greedy_p_median_existing_coords():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+    pop = np.array([100.0, 200.0, 500.0])
+
+    selected, costs = greedy_p_median(
+        candidate_coords=candidates,
+        demand_coords=demands,
+        demand_pop=pop,
+        p=1,
+        existing_coords=np.array([[20.0, 20.0]]),
+    )
+    assert len(selected) == 1
+    assert len(costs) == 1
+
+
+def test_greedy_p_median_exhausts_candidates():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+    pop = np.array([100.0, 200.0, 500.0])
+
+    # Requesting more facilities than available candidates should stop early
+    selected, costs = greedy_p_median(
+        candidate_coords=candidates, demand_coords=demands, demand_pop=pop, p=10
+    )
+    assert len(selected) == 3
+    assert len(costs) == 3
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: facility.greedy_lscp
+# ---------------------------------------------------------------------------
+
+
+def test_greedy_lscp_validation_errors():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0]])
+    pop = np.array([100.0, 200.0])
+
+    with pytest.raises(ValueError, match="candidate_coords"):
+        greedy_lscp(np.ones((2, 3)), demands, demand_pop=pop)
+
+    with pytest.raises(ValueError, match="demand_coords"):
+        greedy_lscp(candidates, np.ones((2, 3)), demand_pop=pop)
+
+    with pytest.raises(ValueError, match="demand_pop"):
+        greedy_lscp(candidates, demands, demand_pop=np.ones(3))
+
+    with pytest.raises(ValueError, match="existing_coords"):
+        greedy_lscp(candidates, demands, demand_pop=pop, existing_coords=np.ones((1, 3)))
+
+
+def test_greedy_lscp_default_population_is_uniform():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+
+    selected, cov_frac = greedy_lscp(candidates, demands, max_distance=50.0, target_coverage=1.0)
+    assert cov_frac == 1.0
+
+
+def test_greedy_lscp_zero_population_fallback():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0]])
+    demands = np.array([[0.0, 0.0], [10.0, 10.0]])
+    pop = np.array([0.0, 0.0])
+
+    selected, cov_frac = greedy_lscp(
+        candidates, demands, demand_pop=pop, max_distance=100.0, target_coverage=1.0
+    )
+    # No population can ever be covered, so the greedy loop breaks immediately
+    assert selected == []
+    assert cov_frac == 0.0
+
+
+def test_greedy_lscp_existing_coords_already_meets_target():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    pop = np.array([100.0, 100.0, 100.0])
+    existing = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+
+    selected, cov_frac = greedy_lscp(
+        candidates,
+        demands,
+        demand_pop=pop,
+        max_distance=1.0,
+        target_coverage=1.0,
+        existing_coords=existing,
+    )
+    # Existing facilities already cover 100% of demand, no new facilities needed
+    assert selected == []
+    assert cov_frac == 1.0
+
+
+def test_greedy_lscp_requires_multiple_iterations():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    pop = np.array([100.0, 100.0, 100.0])
+
+    selected, cov_frac = greedy_lscp(
+        candidates, demands, demand_pop=pop, max_distance=1.0, target_coverage=1.0
+    )
+    assert len(selected) == 3
+    assert cov_frac == 1.0
+
+
+def test_greedy_lscp_unreachable_target_stops_early():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0]])
+    demands = np.array([[1.0, 1.0], [100.0, 100.0]])
+    pop = np.array([100.0, 900.0])
+
+    # The second demand point is unreachable by any candidate within
+    # max_distance, so 100% coverage can never be achieved.
+    selected, cov_frac = greedy_lscp(
+        candidates, demands, demand_pop=pop, max_distance=5.0, target_coverage=1.0
+    )
+    assert selected == [0]
+    assert np.isclose(cov_frac, 0.1)
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: facility.capacitated_location_allocation
+# ---------------------------------------------------------------------------
+
+
+def test_capacitated_location_allocation_validation_errors():
+    facilities = np.array([[0.0, 0.0], [10.0, 0.0]])
+    capacities = np.array([150.0, 200.0])
+    demands = np.array([[1.0, 0.0], [9.0, 0.0]])
+    pop = np.array([100.0, 150.0])
+
+    with pytest.raises(ValueError, match="facility_capacities"):
+        capacitated_location_allocation(facilities, np.ones(3), demands, pop)
+
+    with pytest.raises(ValueError, match="demand_coords"):
+        capacitated_location_allocation(facilities, capacities, np.ones((2, 3)), pop)
+
+    with pytest.raises(ValueError, match="demand_pop"):
+        capacitated_location_allocation(facilities, capacities, demands, np.ones(3))
+
+
+def test_capacitated_location_allocation_empty_facilities_or_demands():
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+    pop = np.array([100.0, 200.0, 500.0])
+
+    # No facilities at all: every demand point should be unassigned
+    allocations, unassigned, usage = capacitated_location_allocation(
+        np.zeros((0, 2)), np.zeros(0), demands, pop
+    )
+    assert allocations == {}
+    assert list(unassigned) == [0, 1, 2]
+    assert usage.shape == (0,)
+
+    # No demand points at all: nothing to allocate, no facilities used
+    facilities = np.array([[0.0, 0.0], [10.0, 10.0]])
+    capacities = np.array([10.0, 10.0])
+    allocations2, unassigned2, usage2 = capacitated_location_allocation(
+        facilities, capacities, np.zeros((0, 2)), np.zeros(0)
+    )
+    assert allocations2 == {}
+    assert list(unassigned2) == []
+    np.testing.assert_allclose(usage2, [0.0, 0.0])
