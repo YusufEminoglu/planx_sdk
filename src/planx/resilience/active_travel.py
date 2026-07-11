@@ -7,7 +7,7 @@ Features inspired by GSD Urban Theory Lab (Harvard), Center for Geographic Analy
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -178,3 +178,77 @@ def transport_mismatch_index(
     total_mismatch = np.sum(vuln * mismatch_weights)
 
     return float(total_mismatch / sum_vuln)
+
+
+def calculate_tod_index(
+    densities: np.ndarray,
+    land_use_shares: np.ndarray,
+    connectivity: np.ndarray,
+    weights: Optional[tuple[float, float, float]] = None,
+) -> np.ndarray:
+    """Calculates a Transit-Oriented Development (TOD) Index.
+
+    Based on the 3Ds: Density, Diversity, and Design.
+
+    Density: Normalized density score (e.g. population or employment density).
+    Diversity: Land-use mix score using Shannon entropy on land-use category shares.
+    Design: Pedestrian network connectivity score (e.g. intersection density, link-to-node ratio).
+
+    Entropy formula:
+        H = -sum(p_i * log(p_i)) / log(K)
+        where K is number of land-use classes.
+
+    Args:
+        densities: 1D NumPy array of shape (N,) containing density values.
+        land_use_shares: 2D NumPy array of shape (N, K) containing shares of K land-use classes.
+            Each row must sum to 1.0 (will be normalized internally if not).
+        connectivity: 1D NumPy array of shape (N,) containing connectivity values.
+        weights: Optional tuple of three floats (w_density, w_diversity, w_design).
+            Defaults to equal weights (1/3 each).
+
+    Returns:
+        1D NumPy array of shape (N,) containing TOD Index scores normalized to range [0, 100].
+    """
+    dens = np.asarray(densities, dtype=np.float64)
+    shares = np.asarray(land_use_shares, dtype=np.float64)
+    conn = np.asarray(connectivity, dtype=np.float64)
+
+    n = len(dens)
+    if shares.shape[0] != n:
+        raise ValueError("land_use_shares rows must match densities size")
+    if len(conn) != n:
+        raise ValueError("connectivity size must match densities size")
+
+    if weights is None:
+        w = (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0)
+    else:
+        w_sum = sum(weights)
+        if w_sum <= 0:
+            w = (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0)
+        else:
+            w = tuple(val / w_sum for val in weights)
+
+    # 1. Density Score: normalized to [0, 100]
+    min_d, max_d = np.min(dens), np.max(dens)
+    d_diff = max_d - min_d
+    score_dens = (dens - min_d) / d_diff * 100.0 if d_diff > 0.0 else np.zeros(n)
+
+    # 2. Diversity Score (Shannon Entropy)
+    k = shares.shape[1]
+    entropy = np.zeros(n, dtype=np.float64)
+    if k > 1:
+        row_sums = np.sum(shares, axis=1, keepdims=True)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            p = np.where(row_sums > 0.0, shares / row_sums, 0.0)
+            log_p = np.where(p > 0.0, np.log(p), 0.0)
+        entropy = -np.sum(p * log_p, axis=1) / np.log(k)
+
+    score_div = entropy * 100.0
+
+    # 3. Design Score: connectivity normalized to [0, 100]
+    min_c, max_c = np.min(conn), np.max(conn)
+    c_diff = max_c - min_c
+    score_design = (conn - min_c) / c_diff * 100.0 if c_diff > 0.0 else np.zeros(n)
+
+    tod_index = (score_dens * w[0]) + (score_div * w[1]) + (score_design * w[2])
+    return np.clip(tod_index, 0.0, 100.0)

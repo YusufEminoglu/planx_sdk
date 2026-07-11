@@ -6,6 +6,7 @@ import pytest
 
 from planx.resilience.active_travel import (
     active_travel_equity_gini,
+    calculate_tod_index,
     job_housing_spatial_mismatch,
     transport_mismatch_index,
 )
@@ -86,3 +87,33 @@ def test_transport_mismatch_index():
     # Edge case: zero vulnerable population
     m_zero = transport_mismatch_index(acc, np.array([0.0, 0.0, 0.0]))
     assert m_zero == 0.0
+
+
+def test_calculate_tod_index():
+    densities = np.array([100.0, 500.0])
+    shares = np.array([[0.8, 0.2], [0.5, 0.5]])
+    connectivity = np.array([10.0, 50.0])
+
+    # 1. Equal weights
+    tod = calculate_tod_index(densities, shares, connectivity)
+    assert len(tod) == 2
+    assert tod[1] > tod[0]
+
+    # 2. Custom weights
+    tod_custom = calculate_tod_index(densities, shares, connectivity, weights=(0.5, 0.2, 0.3))
+    assert len(tod_custom) == 2
+
+    # 3. Invalid/negative weights defaults to equal weights
+    tod_invalid_w = calculate_tod_index(densities, shares, connectivity, weights=(-1, -2, -3))
+    assert np.allclose(tod_invalid_w, tod)
+
+    # 4. Single land use category diversity (entropy = 0)
+    tod_single_share = calculate_tod_index(densities, np.array([[1.0], [1.0]]), connectivity)
+    assert len(tod_single_share) == 2
+
+    # 5. Validation errors
+    with pytest.raises(ValueError, match="land_use_shares rows"):
+        calculate_tod_index(densities, np.array([[1.0]]), connectivity)
+
+    with pytest.raises(ValueError, match="connectivity size"):
+        calculate_tod_index(densities, shares, np.array([10.0]))

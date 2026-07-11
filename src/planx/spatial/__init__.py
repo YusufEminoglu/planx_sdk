@@ -24,6 +24,7 @@ from .centrality import (
 from .paths import many_to_many, multi_source
 from .walkability import (
     active_mobility_permeability,
+    calculate_walk_score,
     choice_centrality_una,
     classify_level_of_traffic_stress,
     gravity_centrality_una,
@@ -56,4 +57,5 @@ __all__ = [
     "classify_level_of_traffic_stress",
     "identify_low_stress_islands",
     "three_step_2sfca",
+    "calculate_walk_score",
 ]
