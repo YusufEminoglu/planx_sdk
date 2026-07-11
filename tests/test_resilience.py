@@ -13,6 +13,7 @@ from planx.resilience import (
     landslide_susceptibility,
     multi_hazard_composite,
     network_criticality_index,
+    optimize_canopy_placement,
     pluvial_flood_susceptibility,
     prioritize_debris_clearance,
     simulate_network_disruption,
@@ -1083,3 +1084,75 @@ def test_debris_clearance_routing_counterpart_search_branches():
     )
     np.testing.assert_array_equal(clearance_order_tri, [0])
     assert np.isclose(total_distance_tri, 1.0)
+
+
+def test_optimize_canopy_placement():
+    # Setup simple network: 3 nodes
+    indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1], dtype=np.int64)
+    edge_w = np.array([10.0, 10.0, 10.0, 10.0], dtype=np.float64)
+
+    # Segment indicators
+    flow = np.array([100.0, 100.0, 20.0, 20.0])  # high flow on edge 0->1
+    canopy = np.array([0.1, 0.1, 0.8, 0.8])  # edge 1->2 already has high canopy
+    heat = np.array([45.0, 45.0, 35.0, 35.0])  # higher heat index on 0->1
+
+    # 1. Budget of 1 tree placement
+    optimal_sites = optimize_canopy_placement(
+        indptr,
+        adj,
+        edge_w,
+        n=3,
+        pedestrian_flow=flow,
+        existing_canopy=canopy,
+        heat_index=heat,
+        num_trees=1,
+    )
+    # Edge index 0 (or 1) should be chosen first because it has high flow and low canopy
+    assert len(optimal_sites) == 1
+    assert optimal_sites[0] in (0, 1)
+
+    # 2. Budget is zero or negative
+    assert (
+        len(
+            optimize_canopy_placement(
+                indptr,
+                adj,
+                edge_w,
+                n=3,
+                pedestrian_flow=flow,
+                existing_canopy=canopy,
+                heat_index=heat,
+                num_trees=0,
+            )
+        )
+        == 0
+    )
+    assert (
+        len(
+            optimize_canopy_placement(
+                indptr,
+                adj,
+                edge_w,
+                n=3,
+                pedestrian_flow=flow,
+                existing_canopy=canopy,
+                heat_index=heat,
+                num_trees=-5,
+            )
+        )
+        == 0
+    )
+
+    # 3. Validation errors
+    with pytest.raises(ValueError, match="match number of edges"):
+        optimize_canopy_placement(
+            indptr,
+            adj,
+            edge_w,
+            n=3,
+            pedestrian_flow=flow[:-1],
+            existing_canopy=canopy,
+            heat_index=heat,
+            num_trees=1,
+        )

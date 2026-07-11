@@ -169,3 +169,64 @@ def urban_heat_island_intensity(
     uhi_intensity = np.maximum(uhi_intensity, 0.0)
 
     return uhi_intensity
+
+
+def optimize_canopy_placement(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    edge_lengths: np.ndarray,
+    n: int,
+    pedestrian_flow: np.ndarray,
+    existing_canopy: np.ndarray,
+    heat_index: np.ndarray,
+    num_trees: int,
+) -> np.ndarray:
+    """Identifies the optimal street segments to plant trees for maximum heat mitigation.
+
+    Prioritizes segments with high pedestrian traffic (choice centrality flow) and high
+    heat stress that lack adequate existing canopy cover.
+
+    Priority Score formula:
+        Priority = Flow * Heat * (1.0 - Existing_Canopy)
+
+    Args:
+        indptr: CSR indptr array of shape (n + 1,).
+        adj: CSR adj array of shape (E,).
+        edge_lengths: CSR edge weights array of shape (E,).
+        n: Number of nodes in the network.
+        pedestrian_flow: 1D array of shape (E,) representing pedestrian choice centrality flow.
+        existing_canopy: 1D array of shape (E,) representing existing canopy [0.0, 1.0].
+        heat_index: 1D array of shape (E,) representing heat/PET index values.
+        num_trees: Total budget of segments to plant new trees on.
+
+    Returns:
+        1D NumPy array of sorted edge indices representing the optimal planting sites
+        (highest impact first).
+    """
+    flow = np.asarray(pedestrian_flow, dtype=np.float64)
+    canopy = np.asarray(existing_canopy, dtype=np.float64)
+    heat = np.asarray(heat_index, dtype=np.float64)
+
+    num_edges = len(adj)
+    if len(flow) != num_edges or len(canopy) != num_edges or len(heat) != num_edges:
+        raise ValueError("flow, existing_canopy, and heat_index arrays must match number of edges")
+
+    if num_trees <= 0:
+        return np.array([], dtype=np.int64)
+
+    # Normalize heat to [0.0, 1.0] if not already normalized
+    min_h, max_h = np.min(heat), np.max(heat)
+    h_diff = max_h - min_h
+    if h_diff > 0:
+        h_norm = (heat - min_h) / h_diff
+    else:
+        h_norm = np.zeros_like(heat)
+
+    # Compute priority score
+    priority = flow * h_norm * (1.0 - canopy)
+
+    # Sort descending
+    sorted_indices = np.argsort(priority)[::-1]
+
+    # Return top N
+    return sorted_indices[:num_trees]
