@@ -1115,3 +1115,156 @@ def test_accessibility_additional_coverage():
         kernel_density_2sfca(dists, supply, demand, cutoff=0.0)
     with pytest.raises(ValueError, match="Unknown kernel type"):
         kernel_density_2sfca(dists, supply, demand, cutoff=5.0, kernel="invalid")
+
+
+def test_walkability_additional_coverage():
+    # 3-node path: 0 - 1 - 2
+    indptr = np.array([0, 1, 3, 4], dtype=np.int64)
+    adj = np.array([1, 0, 2, 1], dtype=np.int64)
+    weights = np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float64)
+    shade = np.array([1.0, 1.0, 0.0, 0.0], dtype=np.float64)
+
+    # 1. thermal_comfort_routing edge cases
+    # start == end
+    res_same = thermal_comfort_routing(
+        indptr, adj, weights, n=3, start_node=0, end_node=0, shade_factors=shade
+    )
+    assert res_same["path"] == [0]
+    assert res_same["comfort_index"] == 1.0
+
+    # disconnected target
+    res_disc = thermal_comfort_routing(
+        np.array([0, 0, 0, 0]),
+        np.array([]),
+        np.array([]),
+        n=3,
+        start_node=0,
+        end_node=2,
+        shade_factors=np.array([]),
+    )
+    assert res_disc["path"] == []
+
+    # 2. gravity_centrality_una decay modes and validation
+    destinations = np.array([2], dtype=np.int64)
+    dest_weights = np.array([100.0], dtype=np.float64)
+    # Power decay
+    gc_pow = gravity_centrality_una(
+        indptr,
+        adj,
+        weights,
+        n=3,
+        destination_weights=dest_weights,
+        destinations=destinations,
+        cutoff=5.0,
+        decay_method="power",
+        beta=0.5,
+    )
+    assert len(gc_pow) == 3
+    # Unknown decay
+    with pytest.raises(ValueError, match="Unknown decay method"):
+        gravity_centrality_una(
+            indptr,
+            adj,
+            weights,
+            n=3,
+            destination_weights=dest_weights,
+            destinations=destinations,
+            cutoff=5.0,
+            decay_method="invalid",
+        )
+
+    # 3. choice_centrality_una decay methods & parameters
+    origins = np.array([0], dtype=np.int64)
+    orig_weights = np.array([10.0], dtype=np.float64)
+    # Power decay
+    cc_pow = choice_centrality_una(
+        indptr,
+        adj,
+        weights,
+        n=3,
+        origins=origins,
+        destinations=destinations,
+        origin_weights=orig_weights,
+        destination_weights=dest_weights,
+        cutoff=5.0,
+        decay_method="power",
+        beta=0.5,
+    )
+    assert len(cc_pow) == 3
+    # Exponential decay
+    cc_exp = choice_centrality_una(
+        indptr,
+        adj,
+        weights,
+        n=3,
+        origins=origins,
+        destinations=destinations,
+        origin_weights=orig_weights,
+        destination_weights=dest_weights,
+        cutoff=5.0,
+        decay_method="exponential",
+        beta=0.1,
+    )
+    assert len(cc_exp) == 3
+    # Linear decay
+    cc_lin = choice_centrality_una(
+        indptr,
+        adj,
+        weights,
+        n=3,
+        origins=origins,
+        destinations=destinations,
+        origin_weights=orig_weights,
+        destination_weights=dest_weights,
+        cutoff=5.0,
+        decay_method="linear",
+    )
+    assert len(cc_lin) == 3
+    # Unknown decay
+    with pytest.raises(ValueError, match="Unknown decay method"):
+        choice_centrality_una(
+            indptr,
+            adj,
+            weights,
+            n=3,
+            origins=origins,
+            destinations=destinations,
+            origin_weights=orig_weights,
+            destination_weights=dest_weights,
+            cutoff=5.0,
+            decay_method="invalid",
+        )
+    # Linear decay with negative/zero cutoff raises
+    with pytest.raises(ValueError, match="linear decay requires a positive cutoff"):
+        choice_centrality_una(
+            indptr,
+            adj,
+            weights,
+            n=3,
+            origins=origins,
+            destinations=destinations,
+            origin_weights=orig_weights,
+            destination_weights=dest_weights,
+            cutoff=-1.0,
+            decay_method="linear",
+        )
+
+    # 4. classify_level_of_traffic_stress alternative branches
+    speeds = np.array([30.0, 40.0, 50.0])
+    lanes = np.array([3, 3, 2])
+    bike = np.array([False, False, True])
+    sidewalk = np.array([False, False, True])
+    traffic = np.array([5000.0, 1000.0, 9000.0])
+    lts_alt = classify_level_of_traffic_stress(speeds, lanes, bike, sidewalk, traffic)
+    assert len(lts_alt) == 3
+
+    # 5. active_mobility_permeability count_full == 0
+    # Create isolated graph
+    perm_zero = active_mobility_permeability(
+        np.array([0, 0, 0]),
+        np.array([]),
+        np.array([]),
+        n=2,
+        low_stress_mask=np.array([], dtype=bool),
+    )
+    assert np.all(perm_zero == 100.0)
