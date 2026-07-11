@@ -376,6 +376,11 @@ def choice_centrality_una(
     choice = np.zeros(n, dtype=np.float64)
     method_lower = decay_method.lower().replace(" ", "_").replace("-", "_")
 
+    if method_lower not in ("none", "exponential", "power", "linear"):
+        raise ValueError(f"Unknown decay method: {decay_method}")
+    if method_lower == "linear" and cutoff <= 0:
+        raise ValueError("linear decay requires a positive cutoff value")
+
     # Helper function to compute decay factor
     def get_decay(dist_val: float) -> float:
         if dist_val > cutoff:
@@ -387,12 +392,8 @@ def choice_centrality_una(
         elif method_lower == "power":
             safe_d = max(dist_val, 1e-9)
             return float(safe_d ** (-beta))
-        elif method_lower == "linear":
-            if cutoff <= 0:
-                raise ValueError("linear decay requires a positive cutoff value")
+        else:  # linear
             return float(max(0.0, 1.0 - (dist_val / cutoff)))
-        else:
-            raise ValueError(f"Unknown decay method: {decay_method}")
 
     # Run Dijkstra for each origin
     for s_idx, s in enumerate(origs):
