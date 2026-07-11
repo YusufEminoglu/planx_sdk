@@ -855,3 +855,48 @@ def test_calculate_glr_unsupported_family_raises():
 def test_calculate_glr_insufficient_observations_raises():
     with pytest.raises(ValueError, match="more observations than model parameters"):
         calculate_glr(np.array([1.0, 2.0]), np.array([[1.0], [2.0]]), family="gaussian")
+
+
+def test_stats_engines_additional_coverage():
+    # 1. Getis-Ord validation and edge cases
+    from planx.geostats import calculate_getis_ord
+
+    # n <= 1
+    z, p, bins = calculate_getis_ord(np.array([1.0]), {}, {}, [0], star=True)
+    assert len(z) == 1
+
+    # y_std == 0
+    z, p, bins = calculate_getis_ord(
+        np.array([5.0, 5.0, 5.0]), {0: [1, 2]}, {0: [1, 1]}, [0, 1, 2], star=True
+    )
+    assert np.all(z == 0.0)
+
+    # Gi* with star=False
+    y_high = np.array([1000.0, 1.0, 1.0, 1.0], dtype=np.float64)
+    z_g, p_g, bins_g = calculate_getis_ord(
+        y_high,
+        {0: [1], 1: [0, 2], 2: [1, 3], 3: [2]},
+        {0: [1.0], 1: [0.5, 0.5], 2: [0.5, 0.5], 3: [1.0]},
+        [0, 1, 2, 3],
+        star=False,
+    )
+    assert len(z_g) == 4
+
+    # 2. Bivariate Lee's L with negative association classes
+    x_neg = np.array([1.0, 2.0, 3.0, 4.0])
+    y_neg = np.array([4.0, 3.0, 2.0, 1.0])
+    local_l, spatial_lag_y, classes = calculate_bivariate_lee_l(
+        x_neg, y_neg, LINE_NEIGHBORS, LINE_WEIGHTS_ROWSTD, LINE_ID_ORDER
+    )
+    assert any(c in ["High-X / Low-Y Lag", "Low-X / High-Y Lag"] for c in classes)
+
+    # 3. calculate_mean_center weight sum is 0
+    from planx.geostats import calculate_mean_center
+
+    mx, my = calculate_mean_center(
+        np.array([1.0, 2.0]), np.array([1.0, 2.0]), weights=np.array([0.0, 0.0])
+    )
+    assert np.isclose(mx, 1.5)
+
+    # 4. calculate_central_feature with n <= 1
+    assert calculate_central_feature(np.array([1.0]), np.array([1.0])) == 0
