@@ -9,6 +9,7 @@ building collapse debris, and infrastructure recovery corridors.
 from .active_travel import (
     active_travel_equity_gini,
     calculate_tod_index,
+    equity_weighted_accessibility,
     job_housing_spatial_mismatch,
     transport_mismatch_index,
 )
@@ -51,4 +52,5 @@ __all__ = [
     "transport_mismatch_index",
     "optimize_canopy_placement",
     "calculate_tod_index",
+    "equity_weighted_accessibility",
 ]

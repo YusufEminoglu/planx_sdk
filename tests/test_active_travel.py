@@ -7,6 +7,7 @@ import pytest
 from planx.resilience.active_travel import (
     active_travel_equity_gini,
     calculate_tod_index,
+    equity_weighted_accessibility,
     job_housing_spatial_mismatch,
     transport_mismatch_index,
 )
@@ -117,3 +118,26 @@ def test_calculate_tod_index():
 
     with pytest.raises(ValueError, match="connectivity size"):
         calculate_tod_index(densities, shares, np.array([10.0]))
+
+
+def test_equity_weighted_accessibility():
+    acc = np.array([50.0, 100.0])
+    dep = np.array([2.0, 1.0])
+
+    # 1. Base weights calculation
+    res = equity_weighted_accessibility(acc, dep, alpha=1.0)
+    assert len(res) == 2
+    # mean_dep = 1.5, multiplier = [2/1.5, 1/1.5] = [4/3, 2/3]
+    # res = [50 * 4/3, 100 * 2/3] = [66.666, 66.666]
+    assert np.allclose(res, [200.0 / 3.0, 200.0 / 3.0])
+
+    # 2. Zero deprivation fallback
+    res_zero = equity_weighted_accessibility(acc, np.array([0.0, 0.0]))
+    assert np.allclose(res_zero, acc)
+
+    # 3. Validation errors
+    with pytest.raises(ValueError, match="identical length"):
+        equity_weighted_accessibility(acc[:-1], dep)
+
+    with pytest.raises(ValueError, match="alpha must be a non-negative float"):
+        equity_weighted_accessibility(acc, dep, alpha=-1.0)

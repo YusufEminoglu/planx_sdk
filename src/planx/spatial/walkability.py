@@ -784,3 +784,54 @@ def calculate_walk_score(
     walk_scores = raw_scores * (1.0 - total_penalty)
 
     return np.clip(walk_scores, 0.0, 100.0)
+
+
+def calculate_pedestrian_route_directness(
+    network_distances: np.ndarray,
+    origin_coords: np.ndarray,
+    destination_coords: np.ndarray,
+) -> np.ndarray:
+    """Calculates the Pedestrian Route Directness (PRD) index for origin-destination pairs.
+
+    PRD is the ratio of the network distance to the straight-line (Euclidean) distance.
+    A value closer to 1.0 represents highly direct routes (good design/connectivity),
+    whereas values > 1.5 indicate circuitous routes.
+
+    PRD = d_network / d_euclidean
+
+    Args:
+        network_distances: NumPy array of shape (M, N) containing network path distances
+            from M origins to N destinations.
+        origin_coords: NumPy array of shape (M, 2) containing (X, Y) coordinates.
+        destination_coords: NumPy array of shape (N, 2) containing (X, Y) coordinates.
+
+    Returns:
+        NumPy array of shape (M, N) containing PRD scores. Unreachable or collocated pairs
+        (Euclidean distance of 0) will return NaN or 1.0 respectively.
+    """
+    net_d = np.asarray(network_distances, dtype=np.float64)
+    origs = np.asarray(origin_coords, dtype=np.float64)
+    dests = np.asarray(destination_coords, dtype=np.float64)
+
+    m, n = net_d.shape
+    if origs.shape != (m, 2):
+        raise ValueError(
+            f"origin_coords shape ({origs.shape}) must match number of origins ({m}, 2)"
+        )
+    if dests.shape != (n, 2):
+        raise ValueError(
+            f"destination_coords shape ({dests.shape}) must match number of destinations ({n}, 2)"
+        )
+
+    # Compute Euclidean distances (M, N)
+    dx = origs[:, 0, None] - dests[None, :, 0]
+    dy = origs[:, 1, None] - dests[None, :, 1]
+    euclidean = np.sqrt(dx**2 + dy**2)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        prd = np.where(euclidean > 0.0, net_d / euclidean, 1.0)
+
+    # Set unreachable routes (infinity network distance) to NaN
+    prd[~np.isfinite(net_d)] = np.nan
+
+    return prd

@@ -252,3 +252,47 @@ def calculate_tod_index(
 
     tod_index = (score_dens * w[0]) + (score_div * w[1]) + (score_design * w[2])
     return np.clip(tod_index, 0.0, 100.0)
+
+
+def equity_weighted_accessibility(
+    accessibility: np.ndarray,
+    deprivation_index: np.ndarray,
+    alpha: float = 1.0,
+) -> np.ndarray:
+    """Calculates spatial equity-weighted accessibility scores.
+
+    Discounts or scales raw accessibility scores based on neighborhood deprivation levels.
+    A higher deprivation neighborhood receives a relative boost/priority weight, while
+    wealthier zones may be discounted, helping planners identify high-need areas.
+
+    A_weighted_i = A_i * (Deprivation_i / Mean_Deprivation)^alpha
+
+    Args:
+        accessibility: 1D NumPy array of shape (N,) containing raw accessibility scores.
+        deprivation_index: 1D NumPy array of shape (N,) containing deprivation/vulnerability scores.
+        alpha: Elasticity weight of deprivation. Higher alpha places more extreme priority
+            on high-deprivation areas. Must be non-negative.
+
+    Returns:
+        1D NumPy array of shape (N,) containing equity-weighted accessibility scores.
+    """
+    acc = np.asarray(accessibility, dtype=np.float64)
+    dep = np.asarray(deprivation_index, dtype=np.float64)
+
+    if len(acc) != len(dep):
+        raise ValueError("accessibility and deprivation_index must have identical length")
+    if alpha < 0.0:
+        raise ValueError("alpha must be a non-negative float")
+
+    mean_dep = np.mean(dep)
+    if mean_dep <= 0.0:
+        # If no deprivation or zero average, return raw accessibility
+        return acc
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        multiplier = (dep / mean_dep) ** alpha
+
+    # Replace any potential inf/nan from alpha computations safely
+    multiplier[~np.isfinite(multiplier)] = 0.0
+
+    return acc * multiplier
