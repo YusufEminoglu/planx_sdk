@@ -1009,3 +1009,109 @@ def test_identify_low_stress_islands():
     # Barrier should be the edge connecting node 1 and 2 (edge indexes 2 and 3)
     assert len(barriers) > 0
     assert barriers[0][0] in (2, 3)  # index of 1-2 edge or 2-1 edge
+
+
+def test_accessibility_additional_coverage():
+    # Setup simple data
+    dists = np.array([[1.0, 2.0], [3.0, 4.0]])
+    weights = np.array([10.0, 20.0])
+
+    # 1. gravity_accessibility decay methods
+    # Power
+    ga_power = gravity_accessibility(dists, weights, decay_method="power", beta=0.5)
+    assert len(ga_power) == 2
+    # Gaussian
+    ga_gauss = gravity_accessibility(dists, weights, decay_method="gaussian", beta=2.0)
+    assert len(ga_gauss) == 2
+    # Linear
+    ga_linear = gravity_accessibility(dists, weights, decay_method="linear", cutoff=10.0)
+    assert len(ga_linear) == 2
+    # Invalid decay
+    with pytest.raises(ValueError, match="Unknown decay method"):
+        gravity_accessibility(dists, weights, decay_method="invalid")
+    with pytest.raises(ValueError, match="linear decay requires a positive cutoff"):
+        gravity_accessibility(dists, weights, decay_method="linear", cutoff=None)
+
+    # 2. cumulative_opportunities validation errors
+    with pytest.raises(ValueError, match="must be a 2D array"):
+        cumulative_opportunities(np.array([1.0, 2.0]), weights, cutoff=5.0)
+    with pytest.raises(ValueError, match="length must match"):
+        cumulative_opportunities(dists, np.array([10.0]), cutoff=5.0)
+
+    # 3. enhanced_2sfca validation errors & decay methods
+    supply = np.array([5.0, 5.0])
+    demand = np.array([100.0, 100.0])
+    with pytest.raises(ValueError, match="supply length"):
+        enhanced_2sfca(dists, np.array([5.0]), demand, cutoff=5.0)
+    with pytest.raises(ValueError, match="demand length"):
+        enhanced_2sfca(dists, supply, np.array([100.0]), cutoff=5.0)
+    with pytest.raises(ValueError, match="cutoff must be greater than 0"):
+        enhanced_2sfca(dists, supply, demand, cutoff=0.0)
+    with pytest.raises(ValueError, match="Unknown decay method"):
+        enhanced_2sfca(dists, supply, demand, cutoff=5.0, decay_method="invalid")
+
+    # Decay methods
+    # Gaussian
+    e2_gauss = enhanced_2sfca(dists, supply, demand, cutoff=5.0, decay_method="gaussian", beta=2.0)
+    assert len(e2_gauss) == 2
+    # Exponential
+    e2_exp = enhanced_2sfca(dists, supply, demand, cutoff=5.0, decay_method="exponential", beta=0.5)
+    assert len(e2_exp) == 2
+
+    # 4. spatial_equity_gini edge cases
+    with pytest.raises(ValueError, match="same length"):
+        spatial_equity_gini(np.array([1.0]), np.array([1.0, 2.0]))
+    # sum(p) <= 0
+    assert spatial_equity_gini(np.array([1.0, 2.0]), np.array([0.0, 0.0])) == 0.0
+    # mean_a <= 0
+    assert spatial_equity_gini(np.array([0.0, 0.0]), np.array([10.0, 20.0])) == 0.0
+    # denominator <= 0
+    assert spatial_equity_gini(np.array([-1.0, -1.0]), np.array([10.0, 10.0])) == 0.0
+
+    # 5. service_area_coverage edge cases
+    indptr = np.array([0, 1, 2], dtype=np.int64)
+    adj = np.array([1, 0], dtype=np.int64)
+    edge_w = np.array([1.0, 1.0], dtype=np.float64)
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        service_area_coverage(indptr, adj, edge_w, n=2, facilities=np.array([]), thresholds=[1.0])
+    with pytest.raises(ValueError, match="node_population shape"):
+        service_area_coverage(
+            indptr,
+            adj,
+            edge_w,
+            n=2,
+            facilities=np.array([0]),
+            thresholds=[1.0],
+            node_population=np.array([1.0]),
+        )
+
+    # Default population & zero population
+    res_def = service_area_coverage(
+        indptr, adj, edge_w, n=2, facilities=np.array([0]), thresholds=[1.0], node_population=None
+    )
+    assert 1.0 in res_def
+    res_zero = service_area_coverage(
+        indptr,
+        adj,
+        edge_w,
+        n=2,
+        facilities=np.array([0]),
+        thresholds=[1.0],
+        node_population=np.array([0.0, 0.0]),
+    )
+    assert res_zero[1.0]["coverage_fraction"] == 0.0
+
+    # 6. huff_gravity_model validation error
+    with pytest.raises(ValueError, match="Unknown decay method"):
+        huff_gravity_model(dists, weights, decay_method="invalid")
+
+    # 7. kernel_density_2sfca validation errors & decay methods
+    with pytest.raises(ValueError, match="supply length"):
+        kernel_density_2sfca(dists, np.array([5.0]), demand, cutoff=5.0)
+    with pytest.raises(ValueError, match="demand length"):
+        kernel_density_2sfca(dists, supply, np.array([100.0]), cutoff=5.0)
+    with pytest.raises(ValueError, match="cutoff must be greater than 0"):
+        kernel_density_2sfca(dists, supply, demand, cutoff=0.0)
+    with pytest.raises(ValueError, match="Unknown kernel type"):
+        kernel_density_2sfca(dists, supply, demand, cutoff=5.0, kernel="invalid")
