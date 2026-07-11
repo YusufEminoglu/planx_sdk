@@ -42,16 +42,17 @@ planx_sdk/
   │       │   ├── mcda.py         # Normalization methods (Sigmoid, Gaussian, Min-Max) and WLC
   │       │   ├── facility.py     # Facility location optimization (MCLP, p-Median, LSCP)
   │       │   └── weights.py      # Decision matrix weighting methods (AHP, Entropy, CRITIC, PCA)
-  │       └── resilience/         # Urban resilience, disaster risk, and hazard simulation engines
-  │           ├── __init__.py
-  │           ├── seismic.py      # Monte Carlo seismic structural damage and debris propagation simulation
-  │           ├── flood.py        # DEM-based pluvial (surface water) and connected coastal flood models
-  │           ├── landslide.py    # Terrain slope (Horn's method), soil and LULC landslide screening
-  │           ├── wildfire.py     # Terrain slope/aspect and fuel-based wildfire risk index
-  │           ├── social.py       # Social Vulnerability Index (SVI) screening and analysis
-  │           ├── heat.py         # Urban heat comfort risk and green space deficit screening model
-  │           ├── synthesis.py    # Multi-hazard composite index and equity-oriented priority synthesis
-  │           └── infrastructure.py# Infrastructure disruption, service loss, and bottleneck analysis
+  │       ├── resilience/         # Urban resilience, disaster risk, and hazard simulation engines
+  │       │   ├── __init__.py
+  │       │   ├── seismic.py      # Monte Carlo seismic structural damage and debris propagation simulation
+  │       │   ├── flood.py        # DEM-based pluvial (surface water) and connected coastal flood models
+  │       │   ├── landslide.py    # Terrain slope (Horn's method), soil and LULC landslide screening
+  │       │   ├── wildfire.py     # Terrain slope/aspect and fuel-based wildfire risk index
+  │       │   ├── social.py       # Social Vulnerability Index (SVI) screening and analysis
+  │       │   ├── heat.py         # Urban heat comfort risk and green space deficit screening model
+  │       │   ├── synthesis.py    # Multi-hazard composite index and equity-oriented priority synthesis
+  │       │   └── infrastructure.py# Infrastructure disruption, service loss, and bottleneck analysis
+  │       └── engine/             # Direct copy of the QGIS plugin's embedded NumPy/SciPy analytics engine (28 modules)
   └── tests/                      # Unit tests
 ```
 
@@ -436,6 +437,26 @@ print("KNN Weights:", weights_knn)
 # 2. Create Distance Band weights (threshold distance = 1.5)
 neighbors_db, weights_db = create_distance_band_weights(coords, ids, threshold=1.5)
 print("Distance Band Neighbors:", neighbors_db)
+```
+
+### 14. Local Geary's C (`planx.geostats`)
+Computes Anselin's Local Geary's C to detect local clusters (similar neighboring values) and spatial outliers (dissimilar neighboring values). Significance is assessed via conditional permutation, complementing the existing Local Moran's I and Global Geary's C statistics.
+
+```python
+import numpy as np
+from planx.geostats import calculate_local_geary
+
+# 4 observations along a line: 0 - 1 - 2 - 3
+y = np.array([1.0, 2.0, 3.0, 4.0])
+neighbors = {0: [1], 1: [0, 2], 2: [1, 3], 3: [2]}
+weights = {0: [1.0], 1: [1.0, 1.0], 2: [1.0, 1.0], 3: [1.0]}
+id_order = [0, 1, 2, 3]
+
+c_values, z_scores, p_values, quadrants = calculate_local_geary(
+    y, neighbors, weights, id_order, permutations=199, seed=42
+)
+print("Local Geary's C:", c_values)
+print("Cluster/Outlier classification:", quadrants)
 ```
 
 ---

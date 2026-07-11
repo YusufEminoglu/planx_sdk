@@ -21,6 +21,16 @@ from .centrality import (
     network_criticality,
 )
 from .paths import many_to_many, multi_source
+from .walkability import (
+    active_mobility_permeability,
+    choice_centrality_una,
+    classify_level_of_traffic_stress,
+    gravity_centrality_una,
+    identify_low_stress_islands,
+    reach_centrality_una,
+    simulate_thermal_comfort_pet,
+    thermal_comfort_routing,
+)
 
 __all__ = [
     "many_to_many",
@@ -36,4 +46,12 @@ __all__ = [
     "kernel_density_2sfca",
     "spatial_equity_gini",
     "service_area_coverage",
+    "thermal_comfort_routing",
+    "gravity_centrality_una",
+    "active_mobility_permeability",
+    "simulate_thermal_comfort_pet",
+    "reach_centrality_una",
+    "choice_centrality_una",
+    "classify_level_of_traffic_stress",
+    "identify_low_stress_islands",
 ]
