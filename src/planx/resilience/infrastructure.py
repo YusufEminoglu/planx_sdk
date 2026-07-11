@@ -136,12 +136,17 @@ def infrastructure_service_loss(
         diff = min_post[connected] - min_pre[connected]
         # Clip diff at 0 in case numeric issues show minor decreases
         diff = np.clip(diff, 0.0, None)
-        mean_delay = float(np.average(diff, weights=dem[connected]))
+        connected_weights = dem[connected]
+        # Fall back to an unweighted average when connected origins carry zero
+        # demand, since np.average raises ZeroDivisionError for zero-sum weights.
+        if np.sum(connected_weights) <= 0:
+            connected_weights = np.ones_like(connected_weights)
+        mean_delay = float(np.average(diff, weights=connected_weights))
 
         # Calculate percent increase for the service vulnerability index
         # Avoid division by zero by using max(min_pre, 1.0)
         pct_increase = diff / np.maximum(min_pre[connected], 1.0)
-        avg_pct_increase = float(np.average(pct_increase, weights=dem[connected]))
+        avg_pct_increase = float(np.average(pct_increase, weights=connected_weights))
     else:
         mean_delay = 0.0
         avg_pct_increase = 0.0
