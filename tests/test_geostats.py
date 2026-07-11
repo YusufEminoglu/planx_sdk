@@ -8,6 +8,7 @@ from planx.geostats import (
     calculate_getis_ord,
     calculate_global_geary,
     calculate_global_moran,
+    calculate_local_geary,
     calculate_local_moran,
     calculate_mean_center,
     create_distance_band_weights,
@@ -227,3 +228,54 @@ def test_calculate_local_moran():
     # Too few elements
     I_short, _, _, _ = calculate_local_moran(y[:2], neighbors, weights, id_order[:2])
     assert len(I_short) == 2
+
+
+def test_calculate_local_geary():
+    # Perfectly positive spatial autocorrelation on a line 0-1-2-3
+    y = np.array([1.0, 2.0, 3.0, 4.0])
+    neighbors = {0: [1], 1: [0, 2], 2: [1, 3], 3: [2]}
+    weights = {0: [1.0], 1: [1.0, 1.0], 2: [1.0, 1.0], 3: [1.0]}
+    id_order = [0, 1, 2, 3]
+
+    c_vals, z_scores, p_vals, quadrants = calculate_local_geary(
+        y, neighbors, weights, id_order, permutations=199, seed=42
+    )
+
+    assert len(c_vals) == 4
+    assert len(z_scores) == 4
+    assert len(p_vals) == 4
+    assert len(quadrants) == 4
+    assert np.all(c_vals >= 0.0)
+    assert np.all((p_vals >= 0.0) & (p_vals <= 1.0))
+    assert all(q in ["HH", "LL", "HL", "LH", "Not Significant"] for q in quadrants)
+
+    # Middle observations (similar to neighbors) should have low Local Geary's C
+    # relative to an observation surrounded by very dissimilar values.
+    y_outlier = np.array([1.0, 1.0, 100.0, 1.0])
+    weights_outlier = {0: [1.0], 1: [1.0, 1.0], 2: [1.0, 1.0], 3: [1.0]}
+    c_outlier, _, _, _ = calculate_local_geary(
+        y_outlier, neighbors, weights_outlier, id_order, permutations=99, seed=1
+    )
+    assert c_outlier[2] > c_outlier[0]
+
+    # Edge cases: too few elements returns zeroed arrays
+    c_short, z_short, p_short, q_short = calculate_local_geary(
+        y[:2], neighbors, weights, id_order[:2]
+    )
+    assert len(c_short) == 2
+    assert np.all(c_short == 0.0)
+
+    # Zero variance field returns zeroed arrays without error
+    c_flat, _, _, q_flat = calculate_local_geary(
+        np.array([5.0, 5.0, 5.0, 5.0]), neighbors, weights, id_order
+    )
+    assert np.all(c_flat == 0.0)
+    assert all(q == "Not Significant" for q in q_flat)
+
+    # No permutations still returns the observed statistic
+    c_no_perm, z_no_perm, p_no_perm, _ = calculate_local_geary(
+        y, neighbors, weights, id_order, permutations=0
+    )
+    assert np.any(c_no_perm > 0.0)
+    assert np.all(z_no_perm == 0.0)
+    assert np.all(p_no_perm == 1.0)
