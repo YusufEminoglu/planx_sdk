@@ -670,3 +670,117 @@ def active_mobility_permeability(
             permeability[i] = 100.0
 
     return permeability
+
+
+def calculate_walk_score(
+    amenity_distances: np.ndarray,
+    amenity_weights: np.ndarray,
+    intersection_density: np.ndarray,
+    avg_block_length: np.ndarray,
+) -> np.ndarray:
+    """Calculates Walk Score (0-100) for location points based on amenity accessibility.
+
+    Applies standard distance decay and penalties for low intersection density
+    and high average block lengths.
+
+    Distance Decay (Walk Score Methodology):
+        - <= 400m (0.25 miles): 100% value
+        - 400m - 800m (0.5 miles): linear decay to 75%
+        - 800m - 1200m (0.75 miles): linear decay to 60%
+        - 1200m - 1600m (1.0 mile): linear decay to 50%
+        - 1600m - 2400m (1.5 miles): linear decay to 12.5%
+        - > 2400m: 0% value
+
+    Intersection Density Penalty:
+        - >= 200 intersections/sq mi: 0% penalty
+        - 150 - 200: 1% penalty
+        - 120 - 150: 2% penalty
+        - 90 - 120: 3% penalty
+        - 60 - 90: 4% penalty
+        - < 60: 5% penalty
+
+    Average Block Length Penalty:
+        - <= 120m: 0% penalty
+        - 120m - 150m: 1% penalty
+        - 150m - 180m: 2% penalty
+        - 180m - 200m: 3% penalty
+        - 200m - 250m: 4% penalty
+        - > 250m: 5% penalty
+
+    Args:
+        amenity_distances: NumPy array of shape (M, N) containing distances (in meters)
+            from M origins to N nearest amenities.
+        amenity_weights: NumPy array of shape (N,) containing category weights (must sum to 1.0).
+        intersection_density: NumPy array of shape (M,) containing local intersection density.
+        avg_block_length: NumPy array of shape (M,) containing average local block length in meters.
+
+    Returns:
+        1D NumPy array of shape (M,) containing estimated Walk Scores in range [0, 100].
+    """
+    dists = np.asarray(amenity_distances, dtype=np.float64)
+    w = np.asarray(amenity_weights, dtype=np.float64)
+    int_dens = np.asarray(intersection_density, dtype=np.float64)
+    block_len = np.asarray(avg_block_length, dtype=np.float64)
+
+    m, n = dists.shape
+    if w.shape != (n,):
+        raise ValueError(f"amenity_weights shape ({w.shape}) must match number of amenities ({n})")
+    if int_dens.shape != (m,) or block_len.shape != (m,):
+        raise ValueError(
+            "intersection_density and avg_block_length must have length equal to number of origins"
+        )
+
+    # Normalize weights to sum to 1
+    total_w = np.sum(w)
+    if total_w > 0.0:
+        w = w / total_w
+    else:
+        w = np.ones_like(w) / n
+
+    # Compute distance decay factors (M, N)
+    decay = np.zeros_like(dists)
+
+    # <= 400m
+    mask_400 = dists <= 400.0
+    decay[mask_400] = 1.0
+
+    # 400m - 800m
+    mask_800 = (dists > 400.0) & (dists <= 800.0)
+    decay[mask_800] = 1.0 - 0.25 * ((dists[mask_800] - 400.0) / 400.0)
+
+    # 800m - 1200m
+    mask_1200 = (dists > 800.0) & (dists <= 1200.0)
+    decay[mask_1200] = 0.75 - 0.15 * ((dists[mask_1200] - 800.0) / 400.0)
+
+    # 1200m - 1600m
+    mask_1600 = (dists > 1200.0) & (dists <= 1600.0)
+    decay[mask_1600] = 0.60 - 0.10 * ((dists[mask_1600] - 1200.0) / 400.0)
+
+    # 1600m - 2400m
+    mask_2400 = (dists > 1600.0) & (dists <= 2400.0)
+    decay[mask_2400] = 0.50 - 0.375 * ((dists[mask_2400] - 1600.0) / 800.0)
+
+    # Weighted amenity accessibility score (M,)
+    raw_scores = np.sum(decay * w[None, :], axis=1) * 100.0
+
+    # Calculate penalties (M,)
+    # Intersection density penalty
+    int_penalty = np.zeros(m, dtype=np.float64)
+    int_penalty[int_dens < 200.0] = 0.01
+    int_penalty[int_dens < 150.0] = 0.02
+    int_penalty[int_dens < 120.0] = 0.03
+    int_penalty[int_dens < 90.0] = 0.04
+    int_penalty[int_dens < 60.0] = 0.05
+
+    # Average block length penalty
+    block_penalty = np.zeros(m, dtype=np.float64)
+    block_penalty[block_len > 120.0] = 0.01
+    block_penalty[block_len > 150.0] = 0.02
+    block_penalty[block_len > 180.0] = 0.03
+    block_penalty[block_len > 200.0] = 0.04
+    block_penalty[block_len > 250.0] = 0.05
+
+    total_penalty = int_penalty + block_penalty
+    walk_scores = raw_scores * (1.0 - total_penalty)
+
+    return np.clip(walk_scores, 0.0, 100.0)

@@ -7,6 +7,7 @@ import pytest
 from planx.spatial import (
     active_mobility_permeability,
     brandes_betweenness,
+    calculate_walk_score,
     choice_centrality_una,
     classify_level_of_traffic_stress,
     closeness_straightness,
@@ -1309,3 +1310,27 @@ def test_three_step_2sfca():
 
     with pytest.raises(ValueError, match="Unknown decay method"):
         three_step_2sfca(dists, supply, demand, cutoff=40.0, decay_method="invalid")
+
+
+def test_calculate_walk_score():
+    # 2 locations, 3 amenities
+    dists = np.array([[200.0, 600.0, 1500.0], [500.0, 1000.0, 3000.0]])
+    weights = np.array([0.5, 0.3, 0.2])
+    int_dens = np.array([220.0, 80.0])  # no penalty vs 4% penalty
+    block_len = np.array([100.0, 260.0])  # no penalty vs 5% penalty
+
+    # 1. Calculate walk scores
+    scores = calculate_walk_score(dists, weights, int_dens, block_len)
+    assert len(scores) == 2
+    assert scores[0] > scores[1]  # location 0 is much closer and has no penalties
+
+    # 2. Equal weights fallback when sum is 0
+    scores_fallback = calculate_walk_score(dists, np.array([0.0, 0.0, 0.0]), int_dens, block_len)
+    assert len(scores_fallback) == 2
+
+    # 3. Validation errors
+    with pytest.raises(ValueError, match="amenity_weights shape"):
+        calculate_walk_score(dists, np.array([0.5, 0.5]), int_dens, block_len)
+
+    with pytest.raises(ValueError, match="intersection_density and avg_block_length"):
+        calculate_walk_score(dists, weights, np.array([200.0]), block_len)
