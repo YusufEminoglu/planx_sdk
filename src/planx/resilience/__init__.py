@@ -12,7 +12,7 @@ from .active_travel import (
     transport_mismatch_index,
 )
 from .flood import coastal_flood_inundation, pluvial_flood_susceptibility, socio_economic_flood_risk
-from .heat import urban_heat_comfort_risk, urban_heat_island_intensity
+from .heat import optimize_canopy_placement, urban_heat_comfort_risk, urban_heat_island_intensity
 from .infrastructure import (
     debris_clearance_routing,
     identify_critical_bottlenecks,
@@ -48,4 +48,5 @@ __all__ = [
     "job_housing_spatial_mismatch",
     "active_travel_equity_gini",
     "transport_mismatch_index",
+    "optimize_canopy_placement",
 ]

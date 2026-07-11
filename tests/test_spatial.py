@@ -26,6 +26,7 @@ from planx.spatial import (
     simulate_thermal_comfort_pet,
     spatial_equity_gini,
     thermal_comfort_routing,
+    three_step_2sfca,
 )
 from planx.spatial import paths as spatial_paths
 
@@ -1268,3 +1269,43 @@ def test_walkability_additional_coverage():
         low_stress_mask=np.array([], dtype=bool),
     )
     assert np.all(perm_zero == 100.0)
+
+
+def test_three_step_2sfca():
+    # 2 origins, 2 destinations
+    dists = np.array([[10.0, 50.0], [30.0, 10.0]])
+    supply = np.array([10.0, 20.0])
+    demand = np.array([100.0, 200.0])
+
+    # 1. 3SFCA (none decay)
+    A_none = three_step_2sfca(dists, supply, demand, cutoff=40.0, decay_method="none")
+    assert len(A_none) == 2
+
+    # 2. Gaussian decay
+    A_gauss = three_step_2sfca(
+        dists, supply, demand, cutoff=40.0, decay_method="gaussian", beta=20.0
+    )
+    assert len(A_gauss) == 2
+
+    # 3. Exponential decay
+    A_exp = three_step_2sfca(
+        dists, supply, demand, cutoff=40.0, decay_method="exponential", beta=0.05
+    )
+    assert len(A_exp) == 2
+
+    # 4. Linear decay
+    A_lin = three_step_2sfca(dists, supply, demand, cutoff=40.0, decay_method="linear")
+    assert len(A_lin) == 2
+
+    # 5. Validation errors
+    with pytest.raises(ValueError, match="supply length"):
+        three_step_2sfca(dists, np.array([10.0]), demand, cutoff=40.0)
+
+    with pytest.raises(ValueError, match="demand length"):
+        three_step_2sfca(dists, supply, np.array([100.0]), cutoff=40.0)
+
+    with pytest.raises(ValueError, match="cutoff must be greater than 0"):
+        three_step_2sfca(dists, supply, demand, cutoff=-5.0)
+
+    with pytest.raises(ValueError, match="Unknown decay method"):
+        three_step_2sfca(dists, supply, demand, cutoff=40.0, decay_method="invalid")

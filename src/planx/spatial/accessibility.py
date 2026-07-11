@@ -431,3 +431,80 @@ def kernel_density_2sfca(
     A = np.sum(W * R[None, :], axis=1)
 
     return A
+
+
+def three_step_2sfca(
+    dists: np.ndarray,
+    supply: np.ndarray,
+    demand: np.ndarray,
+    cutoff: float,
+    decay_method: str = "none",
+    beta: float = 1.0,
+) -> np.ndarray:
+    """Calculates spatial accessibility using the Three-Step Floating Catchment Area (3SFCA) method.
+
+    Introduces selection probabilities based on distance competition between multiple facilities
+    to address 2SFCA demand overestimation.
+
+    Args:
+        dists: NumPy array of shape (M, N) containing distances/costs from M
+            origins (demand points) to N destinations (facilities/supply points).
+        supply: NumPy array of shape (N,) containing capacity/supply values.
+        demand: NumPy array of shape (M,) containing population/demand values.
+        cutoff: Catchment threshold distance (d0).
+        decay_method: Weight decay function: 'gaussian', 'exponential', 'linear', or 'none'.
+        beta: Decay parameter.
+
+    Returns:
+        1D NumPy array of shape (M,) containing accessibility scores.
+    """
+    d = np.asarray(dists, dtype=np.float64)
+    s = np.asarray(supply, dtype=np.float64)
+    p = np.asarray(demand, dtype=np.float64)
+
+    m, n = d.shape
+    if s.shape != (n,):
+        raise ValueError(f"supply length ({s.shape[0]}) must match number of destinations ({n})")
+    if p.shape != (m,):
+        raise ValueError(f"demand length ({p.shape[0]}) must match number of origins ({m})")
+
+    if cutoff <= 0:
+        raise ValueError("cutoff must be greater than 0")
+
+    mask = (d <= cutoff) & np.isfinite(d)
+    method_lower = decay_method.lower().replace(" ", "_").replace("-", "_")
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        if method_lower == "none":
+            W = np.ones_like(d)
+        elif method_lower == "gaussian":
+            W = np.exp(-0.5 * (d / beta) ** 2) if beta > 0.0 else np.zeros_like(d)
+        elif method_lower == "exponential":
+            W = np.exp(-beta * d)
+        elif method_lower == "linear":
+            W = np.clip(1.0 - (d / cutoff), 0.0, 1.0)
+        else:
+            raise ValueError(f"Unknown decay method: {decay_method}")
+
+    W[~mask] = 0.0
+    W[~np.isfinite(d)] = 0.0
+
+    # Step 1: Calculate Selection Probability G_ij (M, N)
+    # Sum of W_ik across destinations for each origin
+    sum_w_orig = np.sum(W, axis=1, keepdims=True)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        G = np.where(sum_w_orig > 0, W / sum_w_orig, 0.0)
+
+    # Step 2: Compute weighted demand at supply locations R_j
+    # sum_k (G_kj * P_k * W_kj) -> shape (N,)
+    weighted_demand = np.sum(G * p[:, None] * W, axis=0)
+
+    R = np.zeros(n, dtype=np.float64)
+    valid_demand = weighted_demand > 0.0
+    R[valid_demand] = s[valid_demand] / weighted_demand[valid_demand]
+
+    # Step 3: Sum selection-adjusted supply-to-demand ratios at each origin
+    # A_i = sum_j (G_ij * R_j * W_ij) -> shape (M,)
+    A = np.sum(G * R[None, :] * W, axis=1)
+
+    return A

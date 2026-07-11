@@ -13,6 +13,7 @@ from .accessibility import (
     kernel_density_2sfca,
     service_area_coverage,
     spatial_equity_gini,
+    three_step_2sfca,
 )
 from .centrality import (
     brandes_betweenness,
@@ -54,4 +55,5 @@ __all__ = [
     "choice_centrality_una",
     "classify_level_of_traffic_stress",
     "identify_low_stress_islands",
+    "three_step_2sfca",
 ]
