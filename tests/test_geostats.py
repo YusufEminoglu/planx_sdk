@@ -121,6 +121,32 @@ def test_spatial_weights():
     with pytest.raises(ValueError, match="coords"):
         create_knn_weights(np.ones((3, 3)), ids, k=2)
 
+    with pytest.raises(ValueError, match="ids length"):
+        create_knn_weights(coords, ids[:-1], k=2)
+
+    with pytest.raises(ValueError, match="k must be less than"):
+        create_knn_weights(coords, ids, k=5)
+
+    with pytest.raises(ValueError, match="k must be greater than 0"):
+        create_knn_weights(coords, ids, k=0)
+
+    # 3. Distance Band validation errors and standardizations
+    with pytest.raises(ValueError, match="coords must be"):
+        create_distance_band_weights(np.ones((3, 3)), ids, threshold=1.5)
+
+    with pytest.raises(ValueError, match="ids length"):
+        create_distance_band_weights(coords, ids[:-1], threshold=1.5)
+
+    with pytest.raises(ValueError, match="threshold must be greater than 0"):
+        create_distance_band_weights(coords, ids, threshold=-1.0)
+
+    # Row-standardized inverse distance band weights
+    _, w_db_inv_std = create_distance_band_weights(
+        coords, ids, threshold=2.5, row_standardized=True, binary=False, power=1.0
+    )
+    # Sum of weights for any node with neighbors should be 1.0
+    assert np.isclose(np.sum(w_db_inv_std[100]), 1.0)
+
 
 def test_calculate_global_geary():
     # 4 observations
@@ -279,3 +305,57 @@ def test_calculate_local_geary():
     assert np.any(c_no_perm > 0.0)
     assert np.all(z_no_perm == 0.0)
     assert np.all(p_no_perm == 1.0)
+
+
+def test_interpolation_additional_coverage():
+    src_coords = np.array([[0.0, 0.0], [10.0, 0.0]])
+    src_values = np.array([10.0, 20.0])
+    target_coords = np.array([[5.0, 5.0]])
+
+    # 1. idw_to_points validation checks
+    with pytest.raises(ValueError, match="source_values must be a 1D array"):
+        idw_to_points(src_coords, np.ones((2, 2)), target_coords)
+
+    with pytest.raises(ValueError, match="target_coords must be of shape"):
+        idw_to_points(src_coords, src_values, np.ones((1, 3)))
+
+    with pytest.raises(ValueError, match="power must be greater than 0"):
+        idw_to_points(src_coords, src_values, target_coords, power=-1.0)
+
+    res_empty = idw_to_points(np.zeros((0, 2)), np.zeros(0), target_coords)
+    assert np.isnan(res_empty[0])
+
+    res_k1 = idw_to_points(src_coords, src_values, target_coords, max_points=1)
+    assert len(res_k1) == 1
+
+    res_w_zero = idw_to_points(src_coords, src_values, target_coords, search_radius=0.1)
+    assert np.isnan(res_w_zero[0])
+
+    # 2. idw_to_grid bounds validation
+    with pytest.raises(ValueError, match="Invalid grid bounds"):
+        idw_to_grid(src_coords, src_values, (10.0, 0.0, 0.0, 10.0), cell_size=5.0)
+
+    with pytest.raises(ValueError, match="cell_size must be greater than 0"):
+        idw_to_grid(src_coords, src_values, (0.0, 0.0, 10.0, 10.0), cell_size=-1.0)
+
+    grid, _, _ = idw_to_grid(src_coords, src_values, (0.0, 0.0, 10.0, 10.0), cell_size=50.0)
+    assert grid.shape == (0, 0)
+
+    # 3. semivariogram linear model & unknown semivariogram model
+    from planx.geostats.interpolation import _semivariogram
+
+    sv_lin = _semivariogram(np.array([1.0, 2.0]), model="linear", nugget=1.0, sill=5.0, range_=10.0)
+    assert len(sv_lin) == 2
+
+    with pytest.raises(ValueError, match="Unknown semivariogram model"):
+        _semivariogram(np.array([1.0]), model="invalid", nugget=0.0, sill=1.0, range_=10.0)
+
+    # 4. kriging_to_points validations
+    with pytest.raises(ValueError, match="sill must be greater than or equal to nugget"):
+        kriging_to_points(src_coords, src_values, target_coords, nugget=5.0, sill=2.0)
+
+    with pytest.raises(ValueError, match="range_ must be greater than 0"):
+        kriging_to_points(src_coords, src_values, target_coords, range_=-1.0)
+
+    est, var = kriging_to_points(np.zeros((0, 2)), np.zeros(0), target_coords)
+    assert np.isnan(est[0]) and np.isnan(var[0])
