@@ -414,3 +414,124 @@ def classify_local_climate_zones(
     lcz[(bsf < 0.0) | (isf < 0.0) | (h < 0.0)] = 11
 
     return lcz
+
+
+def calculate_solar_access(
+    height_grid: np.ndarray,
+    resolution: float,
+    sun_altitudes: np.ndarray,
+    sun_azimuths: np.ndarray,
+    max_shadow_dist: float = 150.0,
+) -> np.ndarray:
+    """Calculates the Solar Access Index (0-100) across an urban height grid (DSM).
+
+    Measures the percentage of time each cell receives direct sunlight across a series of
+    sun positions (defined by altitude and azimuth angles).
+
+    Args:
+        height_grid: 2D NumPy array of shape (R, C) representing building/surface heights.
+        resolution: Grid cell resolution in meters.
+        sun_altitudes: 1D NumPy array of solar altitude angles in degrees
+            (sun height above horizon).
+        sun_azimuths: 1D NumPy array of solar azimuth angles in degrees
+            (compass direction of sun).
+        max_shadow_dist: Maximum distance in meters to trace shadows (default 150.0m).
+
+    Returns:
+        2D NumPy array of shape (R, C) containing solar access index values [0.0, 100.0].
+    """
+    heights = np.asarray(height_grid, dtype=np.float64)
+    alts = np.asarray(sun_altitudes, dtype=np.float64)
+    azis = np.asarray(sun_azimuths, dtype=np.float64)
+
+    if heights.ndim != 2:
+        raise ValueError("height_grid must be a 2D array")
+    if resolution <= 0.0:
+        raise ValueError("resolution must be greater than 0.0")
+    if len(alts) != len(azis):
+        raise ValueError("sun_altitudes and sun_azimuths must have identical length")
+
+    rows, cols = heights.shape
+    num_steps = len(alts)
+    if num_steps == 0:
+        return np.full(heights.shape, 100.0)
+
+    # Shift helper
+    def _shift_grid(grid: np.ndarray, oy: int, ox: int) -> np.ndarray:
+        shifted = np.zeros_like(grid)
+        if oy >= 0:
+            t_ystart, t_yend = oy, rows
+            s_ystart, s_yend = 0, rows - oy
+        else:
+            t_ystart, t_yend = 0, rows + oy
+            s_ystart, s_yend = -oy, rows
+
+        if ox >= 0:
+            t_xstart, t_xend = ox, cols
+            s_xstart, s_xend = 0, cols - ox
+        else:
+            t_xstart, t_xend = 0, cols + ox
+            s_xstart, s_xend = -ox, cols
+
+        if t_ystart < t_yend and t_xstart < t_xend:
+            shifted[t_ystart:t_yend, t_xstart:t_xend] = grid[s_ystart:s_yend, s_xstart:s_xend]
+        return shifted
+
+    sunlit_sum = np.zeros_like(heights, dtype=np.float64)
+    valid_steps = 0
+
+    for step in range(num_steps):
+        alt_deg = alts[step]
+        azi_deg = azis[step]
+
+        # If sun is below or at the horizon, it's completely shaded
+        if alt_deg <= 0.0:
+            continue
+
+        valid_steps += 1
+
+        alt_rad = np.radians(alt_deg)
+        azi_rad = np.radians(azi_deg)
+
+        # Shadow direction is opposite to the sun's azimuth
+        # In grid row-down coordinates: dx = -sin(azi), dy = cos(azi)
+        dx_shadow = -np.sin(azi_rad)
+        dy_shadow = np.cos(azi_rad)
+
+        # Initialize shadow height grid with the heights themselves
+        shadow_height = heights.copy()
+
+        # Find maximum propagation pixels based on maximum heights in the grid
+        max_h = float(np.max(heights))
+        tan_alt = np.tan(alt_rad)
+
+        # Avoid division by zero
+        max_d_proj = max_h / tan_alt if tan_alt > 0.0 else max_shadow_dist
+        max_dist = min(max_shadow_dist, max_d_proj)
+        max_pixels = max(1, int(round(max_dist / resolution)))
+
+        seen = set()
+        unique_steps = []
+        for p in range(1, max_pixels + 1):
+            ox = int(round(p * dx_shadow))
+            oy = int(round(p * dy_shadow))
+            if ox == 0 and oy == 0:
+                continue
+            if (oy, ox) not in seen:
+                seen.add((oy, ox))
+                unique_steps.append((oy, ox))
+
+        for oy, ox in unique_steps:
+            d = np.hypot(ox, oy) * resolution
+            shifted = _shift_grid(heights, oy, ox)
+            sh = shifted - d * tan_alt
+            shadow_height = np.maximum(shadow_height, sh)
+
+        # A cell is sunlit if its height is equal to or greater than the shadow height
+        is_sunlit = heights >= (shadow_height - 1e-5)
+        sunlit_sum += is_sunlit.astype(np.float64)
+
+    if valid_steps == 0:
+        return np.zeros_like(heights)
+
+    return (sunlit_sum / valid_steps) * 100.0

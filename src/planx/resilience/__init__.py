@@ -16,6 +16,7 @@ from .active_travel import (
 from .flood import coastal_flood_inundation, pluvial_flood_susceptibility, socio_economic_flood_risk
 from .heat import (
     calculate_grid_sky_view_factor,
+    calculate_solar_access,
     classify_local_climate_zones,
     optimize_canopy_placement,
     urban_heat_comfort_risk,
@@ -61,4 +62,5 @@ __all__ = [
     "equity_weighted_accessibility",
     "calculate_grid_sky_view_factor",
     "classify_local_climate_zones",
+    "calculate_solar_access",
 ]
