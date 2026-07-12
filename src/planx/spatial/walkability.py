@@ -407,7 +407,7 @@ def choice_centrality_una(
 
         # Dijkstra queues and order
         heap = [(0.0, s_val)]
-        preds = [[] for _ in range(n)]
+        preds: list[list[int]] = [[] for _ in range(n)]
         order = []
         visited = np.zeros(n, dtype=bool)
 
@@ -585,7 +585,7 @@ def identify_low_stress_islands(
         curr_island += 1
 
     # Calculate island sizes
-    island_sizes = {}
+    island_sizes: dict[int, int] = {}
     for lbl in island_labels:
         island_sizes[int(lbl)] = island_sizes.get(int(lbl), 0) + 1
 
