@@ -8,6 +8,7 @@ from planx.spatial import (
     active_mobility_permeability,
     brandes_betweenness,
     calculate_15m_city_score,
+    calculate_average_route_circuity,
     calculate_pedestrian_route_directness,
     calculate_walk_score,
     choice_centrality_una,
@@ -1451,3 +1452,40 @@ def test_street_orientation_entropy():
     zero_ent, zero_props = street_orientation_entropy(indptr, adj, zero_xy)
     assert zero_ent == 0.0
     assert np.all(zero_props == 0.0)
+
+
+def test_calculate_average_route_circuity():
+    # 1. Empty/single node cases
+    assert (
+        calculate_average_route_circuity(
+            np.array([0]), np.array([]), np.array([]), np.zeros((0, 2))
+        )
+        == 1.0
+    )
+    assert (
+        calculate_average_route_circuity(
+            np.array([0, 0]), np.array([]), np.array([]), np.zeros((1, 2))
+        )
+        == 1.0
+    )
+
+    # 2. Simple indirect path test: 1 -> 0 -> 2
+    # Node coordinates: 0: (0,0), 1: (0,3), 2: (4,0)
+    # Edge weights: 0 -> 1 is 3, 0 -> 2 is 4, 1 -> 0 is 3, 2 -> 0 is 4
+    # Route 1 -> 2: shortest path is 1 -> 0 -> 2 (length 7).
+    # Euclidean distance from 1 to 2 is 5. Circuity = 7/5 = 1.4.
+    indptr = np.array([0, 2, 3, 4], dtype=np.int64)
+    adj = np.array([1, 2, 0, 0], dtype=np.int64)
+    weights = np.array([3.0, 4.0, 3.0, 4.0], dtype=np.float64)
+    node_xy = np.array([[0.0, 0.0], [0.0, 3.0], [4.0, 0.0]])
+
+    # Force sampling to choose pairs
+    val = calculate_average_route_circuity(indptr, adj, weights, node_xy, num_samples=10, seed=42)
+    assert val >= 1.0
+
+    # 3. Parameter validation checks
+    with pytest.raises(ValueError, match="node_xy shape"):
+        calculate_average_route_circuity(indptr, adj, weights, np.zeros((5, 2)))
+
+    with pytest.raises(ValueError, match="num_samples must be greater"):
+        calculate_average_route_circuity(indptr, adj, weights, node_xy, num_samples=0)
