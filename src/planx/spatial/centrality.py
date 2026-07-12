@@ -291,3 +291,173 @@ def network_criticality(
         edge_criticality = np.zeros_like(edge_usage, dtype=np.float64)
 
     return edge_usage, edge_criticality
+
+
+def street_orientation_entropy(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    node_xy: np.ndarray,
+    num_bins: int = 36,
+) -> tuple[float, np.ndarray]:
+    """Calculates the Shannon entropy of street orientations (bearings).
+
+    Quantifies the directional disorder/order of the street network. A grid-like city
+    has low entropy (streets concentrated in specific cardinal directions), whereas an
+    organic city has high entropy (streets distributed uniformly in all directions).
+
+    Args:
+        indptr: CSR indptr array of shape (n + 1,)
+        adj: CSR adj array of shape (E,)
+        node_xy: NumPy array of shape (n, 2) containing node coordinates [X, Y].
+        num_bins: Number of bins to group bearings into (default 36, which is 10 degrees each).
+
+    Returns:
+        Tuple of:
+            - entropy: Shannon entropy of orientations normalized to [0.0, 1.0].
+            - bin_proportions: 1D NumPy array of shape (num_bins,) containing proportion of
+              streets in each orientation bin.
+    """
+    indptr = np.asarray(indptr, dtype=np.int64)
+    adj = np.asarray(adj, dtype=np.int64)
+
+    n = len(indptr) - 1
+    if node_xy.shape != (n, 2):
+        raise ValueError(f"node_xy shape ({node_xy.shape}) must match number of nodes ({n})")
+    if num_bins <= 0:
+        raise ValueError("num_bins must be greater than 0")
+
+    # Reconstruct source nodes for all edges
+    source_nodes = np.repeat(np.arange(n, dtype=np.int64), np.diff(indptr))
+
+    # Calculate dx and dy for each directed edge
+    coords_src = node_xy[source_nodes]
+    coords_dst = node_xy[adj]
+    dx = coords_dst[:, 0] - coords_src[:, 0]
+    dy = coords_dst[:, 1] - coords_src[:, 1]
+
+    # Ignore zero-length self-loops or duplicate location nodes
+    valid = (dx != 0.0) | (dy != 0.0)
+    if not np.any(valid):
+        return 0.0, np.zeros(num_bins, dtype=np.float64)
+
+    dx = dx[valid]
+    dy = dy[valid]
+
+    # Calculate compass bearings: 0 is North, 90 is East, 180 is South, 270 is West.
+    # Standard compass bearing is measured clockwise from North.
+    # In standard math coordinates: X is East (dx), Y is North (dy).
+    # bearing = arctan2(dx, dy) in radians
+    bearings = np.degrees(np.arctan2(dx, dy))
+    bearings = (bearings + 360.0) % 360.0
+
+    # Bin bearings into num_bins equal slices between [0, 360)
+    # np.histogram finds counts of bearings falling in each bin
+    bin_edges = np.linspace(0.0, 360.0, num_bins + 1)
+    counts, _ = np.histogram(bearings, bins=bin_edges)
+
+    # Convert counts to proportions
+    total_edges = float(np.sum(counts))
+    if total_edges <= 0.0:
+        return 0.0, np.zeros(num_bins, dtype=np.float64)
+
+    p = counts / total_edges
+    # Calculate Shannon entropy: H = -sum(p_i * log(p_i))
+    # Avoid log(0) using np.errstate or np.where
+    with np.errstate(divide="ignore", invalid="ignore"):
+        log_p = np.where(p > 0.0, np.log(p), 0.0)
+    h = -np.sum(p * log_p)
+
+    # Normalize entropy to range [0.0, 1.0] by dividing by log(num_bins) (max possible entropy)
+    max_h = np.log(num_bins)
+    normalized_entropy = float(h / max_h) if max_h > 0.0 else 0.0
+
+    return normalized_entropy, p
+
+
+def pagerank_centrality(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray | None = None,
+    alpha: float = 0.85,
+    max_iter: int = 100,
+    tol: float = 1e-6,
+) -> np.ndarray:
+    """Calculates PageRank centrality on a spatial network.
+
+    PageRank centrality measures the structural importance of network nodes under random walk
+    dynamics. Outgoing transitions can be unweighted or weighted inversely by distance.
+
+    Args:
+        indptr: CSR indptr array of shape (n + 1,)
+        adj: CSR adj array of shape (E,)
+        weights: Optional CSR edge weights array of shape (E,) representing travel distances/costs.
+            If provided, transition probabilities are weighted inversely by cost (1 / weight).
+        alpha: Damping factor (default 0.85).
+        max_iter: Maximum number of power iterations (default 100).
+        tol: Convergence tolerance (default 1e-6).
+
+    Returns:
+        1D NumPy array of shape (n,) containing PageRank scores.
+    """
+    indptr = np.asarray(indptr, dtype=np.int64)
+    adj = np.asarray(adj, dtype=np.int64)
+
+    n = len(indptr) - 1
+    if n <= 0:
+        return np.zeros(0, dtype=np.float64)
+
+    if alpha < 0.0 or alpha > 1.0:
+        raise ValueError("alpha damping factor must be in range [0.0, 1.0]")
+    if max_iter <= 0:
+        raise ValueError("max_iter must be greater than 0")
+    if tol <= 0.0:
+        raise ValueError("tol tolerance must be greater than 0.0")
+
+    # Construct source nodes for all edges
+    source_nodes = np.repeat(np.arange(n, dtype=np.int64), np.diff(indptr))
+
+    transition_probs = np.zeros(len(adj), dtype=np.float64)
+    dangling_mask = np.zeros(n, dtype=bool)
+
+    for u in range(n):
+        start = indptr[u]
+        end = indptr[u + 1]
+        if start == end:
+            dangling_mask[u] = True
+            continue
+
+        if weights is None:
+            w_out = np.ones(end - start, dtype=np.float64)
+        else:
+            w_out = np.asarray(weights[start:end], dtype=np.float64)
+            # Avoid division by zero, handle negative weights
+            w_out = np.where(w_out > 0.0, 1.0 / w_out, 0.0)
+
+        sum_w = np.sum(w_out)
+        if sum_w <= 0.0:
+            w_out = np.ones(end - start, dtype=np.float64)
+            sum_w = float(end - start)
+
+        transition_probs[start:end] = w_out / sum_w
+
+    x = np.full(n, 1.0 / n, dtype=np.float64)
+
+    for _ in range(max_iter):
+        x_new = np.zeros(n, dtype=np.float64)
+
+        dangling_sum = np.sum(x[dangling_mask])
+
+        # Matrix-vector multiplication Mx
+        contributions = transition_probs * x[source_nodes]
+        np.add.at(x_new, adj, contributions)
+
+        # Apply damping factor and distribute dangling probability
+        x_new = (alpha * x_new) + (alpha * dangling_sum / n) + ((1.0 - alpha) / n)
+
+        # Check convergence
+        err = np.sum(np.abs(x_new - x))
+        x = x_new
+        if err < tol:
+            break
+
+    return x

@@ -21,6 +21,8 @@ from .centrality import (
     closeness_straightness,
     eigenvector,
     network_criticality,
+    pagerank_centrality,
+    street_orientation_entropy,
 )
 from .paths import many_to_many, multi_source
 from .walkability import (
@@ -62,4 +64,6 @@ __all__ = [
     "calculate_walk_score",
     "calculate_pedestrian_route_directness",
     "calculate_15m_city_score",
+    "pagerank_centrality",
+    "street_orientation_entropy",
 ]

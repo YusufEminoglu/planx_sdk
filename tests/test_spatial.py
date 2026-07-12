@@ -24,10 +24,12 @@ from planx.spatial import (
     many_to_many,
     multi_source,
     network_criticality,
+    pagerank_centrality,
     reach_centrality_una,
     service_area_coverage,
     simulate_thermal_comfort_pet,
     spatial_equity_gini,
+    street_orientation_entropy,
     thermal_comfort_routing,
     three_step_2sfca,
 )
@@ -1398,3 +1400,54 @@ def test_calculate_pedestrian_route_directness():
 
     with pytest.raises(ValueError, match="destination_coords shape"):
         calculate_pedestrian_route_directness(net_d, origins, np.array([[0.0]]))
+
+
+def test_pagerank_centrality():
+    # 1. Empty/Single node
+    assert len(pagerank_centrality(np.array([0]), np.array([]))) == 0
+    np.testing.assert_allclose(pagerank_centrality(np.array([0, 0]), np.array([])), [1.0])
+
+    # 2. Symmetric cycle: 0 -> 1 -> 2 -> 0
+    indptr = np.array([0, 1, 2, 3], dtype=np.int64)
+    adj = np.array([1, 2, 0], dtype=np.int64)
+    pr = pagerank_centrality(indptr, adj, alpha=0.85)
+    np.testing.assert_allclose(pr, [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0])
+
+    # 3. Validation errors
+    with pytest.raises(ValueError, match="alpha damping factor"):
+        pagerank_centrality(indptr, adj, alpha=1.5)
+    with pytest.raises(ValueError, match="max_iter must be greater"):
+        pagerank_centrality(indptr, adj, max_iter=0)
+
+
+def test_street_orientation_entropy():
+    # 1. Square grid (0 -> 1 East, 0 -> 2 North, 1 -> 3 North, 2 -> 3 East)
+    # Node coordinates:
+    # 0: (0,0), 1: (1,0), 2: (0,1), 3: (1,1)
+    indptr = np.array([0, 2, 3, 4, 4], dtype=np.int64)
+    adj = np.array([1, 2, 3, 3], dtype=np.int64)
+    node_xy = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
+
+    entropy, props = street_orientation_entropy(indptr, adj, node_xy, num_bins=36)
+    # Expected: 2 edges North (0 deg, bin 0), 2 edges East (90 deg, bin 9)
+    # H = - (0.5 * ln(0.5) + 0.5 * ln(0.5)) = ln(2)
+    # Max H = ln(36)
+    expected_entropy = np.log(2) / np.log(36)
+    assert np.isclose(entropy, expected_entropy)
+    assert props[0] == 0.5
+    assert props[9] == 0.5
+    assert np.sum(props) == 1.0
+
+    # 2. Validation error on coordinate shape
+    with pytest.raises(ValueError, match="node_xy shape"):
+        street_orientation_entropy(indptr, adj, np.zeros((3, 2)))
+
+    # 3. Validation error on num_bins
+    with pytest.raises(ValueError, match="num_bins must be greater"):
+        street_orientation_entropy(indptr, adj, node_xy, num_bins=0)
+
+    # 4. Zero length / duplicate locations
+    zero_xy = np.zeros((4, 2))
+    zero_ent, zero_props = street_orientation_entropy(indptr, adj, zero_xy)
+    assert zero_ent == 0.0
+    assert np.all(zero_props == 0.0)
