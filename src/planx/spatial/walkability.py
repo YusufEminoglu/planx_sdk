@@ -835,3 +835,83 @@ def calculate_pedestrian_route_directness(
     prd[~np.isfinite(net_d)] = np.nan
 
     return prd
+
+
+def calculate_average_route_circuity(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    node_xy: np.ndarray,
+    num_samples: int = 100,
+    seed: int | None = None,
+) -> float:
+    """Calculates the average network route circuity of a spatial network.
+
+    Circuity is the ratio of the shortest network path distance to the straight-line
+    (Euclidean) distance. Measures how circuitous/inefficient a network is due to layout
+    or obstacles.
+
+    Samples random origin-destination node pairs, computes shortest path network distances,
+    and returns the average ratio across all reachable pairs.
+
+    Args:
+        indptr: CSR indptr array of shape (n + 1,)
+        adj: CSR adj array of shape (E,)
+        weights: CSR edge weights array of shape (E,)
+        node_xy: NumPy array of shape (n, 2) containing node coordinates [X, Y].
+        num_samples: Number of random node pairs to sample (default 100).
+        seed: Random seed for sampling reproducibility.
+
+    Returns:
+        Average circuity ratio (float). Returns 1.0 if no valid pairs or paths exist.
+    """
+    indptr = np.asarray(indptr, dtype=np.int64)
+    adj = np.asarray(adj, dtype=np.int64)
+    weights = np.asarray(weights, dtype=np.float64)
+    node_xy = np.asarray(node_xy, dtype=np.float64)
+
+    n = len(indptr) - 1
+    if n <= 1:
+        return 1.0
+
+    if node_xy.shape != (n, 2):
+        raise ValueError(f"node_xy shape ({node_xy.shape}) must match number of nodes ({n})")
+    if num_samples <= 0:
+        raise ValueError("num_samples must be greater than 0")
+
+    rng = np.random.RandomState(seed)
+
+    # Sample random origin/destination pairs
+    # Generate slightly more to account for self-pairs (u == v)
+    u_raw = rng.randint(0, n, size=num_samples * 2)
+    v_raw = rng.randint(0, n, size=num_samples * 2)
+
+    valid_mask = u_raw != v_raw
+    u = u_raw[valid_mask][:num_samples]
+    v = v_raw[valid_mask][:num_samples]
+
+    if len(u) == 0:
+        return 1.0
+
+    unique_sources = np.unique(u)
+    # Compute distances from unique sources to all nodes
+    dmat = many_to_many(indptr, adj, weights, n, unique_sources)
+
+    # Map source node to row index in dmat
+    source_to_row = {node: idx for idx, node in enumerate(unique_sources)}
+
+    circuity_values = []
+    for ui, vi in zip(u, v):
+        row = source_to_row[ui]
+        d_net = dmat[row, vi]
+        if np.isinf(d_net):
+            continue  # ignore unreachable pairs
+
+        d_eucl = float(np.hypot(node_xy[ui, 0] - node_xy[vi, 0], node_xy[ui, 1] - node_xy[vi, 1]))
+        if d_eucl > 0.0:
+            circuity_values.append(d_net / d_eucl)
+
+    if len(circuity_values) == 0:
+        return 1.0
+
+    return float(np.mean(circuity_values))
