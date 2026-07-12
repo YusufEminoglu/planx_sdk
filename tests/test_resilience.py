@@ -5,6 +5,8 @@ import numpy as np
 import pytest
 
 from planx.resilience import (
+    calculate_grid_sky_view_factor,
+    classify_local_climate_zones,
     coastal_flood_inundation,
     debris_clearance_routing,
     equity_adjusted_priority,
@@ -1144,7 +1146,6 @@ def test_optimize_canopy_placement():
         == 0
     )
 
-    # 3. Validation errors
     with pytest.raises(ValueError, match="match number of edges"):
         optimize_canopy_placement(
             indptr,
@@ -1156,3 +1157,50 @@ def test_optimize_canopy_placement():
             heat_index=heat,
             num_trees=1,
         )
+
+
+def test_calculate_grid_sky_view_factor():
+    # 1. Open area
+    flat_grid = np.zeros((5, 5))
+    svf_open = calculate_grid_sky_view_factor(
+        flat_grid, resolution=1.0, max_radius=3.0, num_directions=4
+    )
+    np.testing.assert_allclose(svf_open, 1.0)
+
+    # 2. Obstructed center canyon
+    canyon_grid = np.zeros((3, 3))
+    canyon_grid[1, 1] = 10.0  # tall building in center
+    svf = calculate_grid_sky_view_factor(
+        canyon_grid, resolution=1.0, max_radius=2.0, num_directions=8
+    )
+    # The edges should see the central obstruction, SVF should be < 1.0
+    assert svf[0, 0] < 1.0
+    assert svf[0, 1] < 1.0
+    assert svf[1, 1] == 1.0  # top of building has no obstruction above it
+
+    # 3. Validation errors
+    with pytest.raises(ValueError, match="height_grid must be a 2D array"):
+        calculate_grid_sky_view_factor(np.zeros(5))
+
+    with pytest.raises(ValueError, match="resolution must be greater"):
+        calculate_grid_sky_view_factor(flat_grid, resolution=0.0)
+
+
+def test_classify_local_climate_zones():
+    # 3x1 grid representing different cell characteristics
+    # Row 0: Compact high-rise (BSF=0.5, H=30.0, ISF=0.8) -> LCZ 1
+    # Row 1: Open low-rise (BSF=0.3, H=5.0, ISF=0.4) -> LCZ 6
+    # Row 2: Pervious (BSF=0.01, H=0.0, ISF=0.05) -> LCZ 11
+    bsf = np.array([[0.5], [0.3], [0.01]])
+    isf = np.array([[0.8], [0.4], [0.05]])
+    h = np.array([[30.0], [5.0], [0.0]])
+
+    lcz = classify_local_climate_zones(bsf, isf, h)
+    assert lcz.shape == (3, 1)
+    assert lcz[0, 0] == 1
+    assert lcz[1, 0] == 6
+    assert lcz[2, 0] == 11
+
+    # Validation errors
+    with pytest.raises(ValueError, match="same shape"):
+        classify_local_climate_zones(bsf, isf, np.zeros((2, 1)))
