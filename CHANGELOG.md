@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.3] - 2026-07-12
+### Changed
+- feat: add Sky View Factor (SVF) and Local Climate Zone (LCZ) models
+- feat: add Intersection Density & Closeness Profiler model
+- feat: add Average Route Circuity model
+- feat: add PageRank Centrality and Street Orientation Entropy models
+- fix: resolve lint and mypy type checking issues and add 15m city tests
+- feat: add Pedestrian Route Directness (PRD) and Equity-Weighted Accessibility models
+- feat: add Walk Score calculator and Transit-Oriented Development (TOD) Index models
+- feat: add 3SFCA accessibility model and optimal tree canopy greening locator
+- refactor: move decay validation to top of choice_centrality_una
+- test: add edge cases and validations for comfort routing and choice centrality decay methods
+- test: add edge cases and validations for Getis-Ord, central feature, and Lee's L in stats engines
+- test: expand coverage tests for spatial weights and IDW/Kriging interpolation
+- test: add edge-case and parameter validation tests for gravity accessibility models
+- feat: implement advanced active mobility, walkability comfort, and spatial mismatch analytics
+- feat: port QGIS plugin embedded analytics engine and integrate test suite
+- test: add test coverage for facility location allocation and resilience models
+- feat: implement Local Geary's C spatial statistic and tests
+
+---
+
 ## [0.3.2] - 2026-07-02
 ### Added
 - **Local Geary's C** in `planx.geostats` for Anselin-style local cluster and spatial outlier detection, using conditional permutation inference to complement the existing Local Moran's I and Global Geary's C statistics.
