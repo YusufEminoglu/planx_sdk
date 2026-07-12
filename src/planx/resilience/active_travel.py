@@ -166,8 +166,8 @@ def transport_mismatch_index(
         return 0.0
 
     # Min-max normalize accessibility to [0.0, 100.0]
-    min_acc = np.min(acc)
-    max_acc = np.max(acc)
+    min_acc = float(np.min(acc))
+    max_acc = float(np.max(acc))
     diff = max_acc - min_acc
     if diff <= 0:
         diff = 1.0
@@ -226,7 +226,9 @@ def calculate_tod_index(
         if w_sum <= 0:
             w = (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0)
         else:
-            w = tuple(val / w_sum for val in weights)
+            if len(weights) != 3:
+                raise ValueError("weights must be a tuple of 3 elements")
+            w = (weights[0] / w_sum, weights[1] / w_sum, weights[2] / w_sum)
 
     # 1. Density Score: normalized to [0, 100]
     min_d, max_d = np.min(dens), np.max(dens)

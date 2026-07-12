@@ -7,6 +7,7 @@ import pytest
 from planx.spatial import (
     active_mobility_permeability,
     brandes_betweenness,
+    calculate_15m_city_score,
     calculate_pedestrian_route_directness,
     calculate_walk_score,
     choice_centrality_una,
@@ -146,6 +147,44 @@ def test_accessibility():
 
     ga_exp = gravity_accessibility(dists, weights, decay_method="exponential", beta=0.5)
     np.testing.assert_allclose(ga_exp, [17.527144, 13.820863], rtol=1e-5)
+
+
+def test_calculate_15m_city_score():
+    # 1. Normal case
+    dists = np.array([[400.0, 1500.0, 800.0], [1300.0, 1000.0, 2000.0]])
+    cats = ["grocery", "park", "grocery"]
+    weights = {"grocery": 2.0, "park": 1.0}
+
+    # unique: grocery (2.0), park (1.0) -> sum_w = 3.0
+    # norm_weights: grocery = 2/3, park = 1/3
+    # counts: grocery=2, park=1
+    # col_weights: grocery col 0 = 1/3, grocery col 2 = 1/3, park col 1 = 1/3
+    # origin 0: dists = [400, 1500, 800] -> [True, False, True] -> weighted = 2/3
+    # origin 1: dists = [1300, 1000, 2000] -> [False, True, False] -> weighted = 1/3
+    scores = calculate_15m_city_score(dists, cats, weights)
+    np.testing.assert_allclose(scores, [66.66666667, 33.33333333])
+
+    # 2. Sum of weights <= 0.0
+    weights_zero = {"grocery": 0.0, "park": 0.0}
+    # norm_weights: grocery = 0.5, park = 0.5
+    # col_weights: grocery col 0 = 0.25, grocery col 2 = 0.25, park col 1 = 0.5
+    # origin 0: [True, False, True] -> weighted = 0.5 -> score = 50.0
+    # origin 1: [False, True, False] -> weighted = 0.5 -> score = 50.0
+    scores_zero = calculate_15m_city_score(dists, cats, weights_zero)
+    np.testing.assert_allclose(scores_zero, [50.0, 50.0])
+
+    # 3. Invalid dimensions
+    with pytest.raises(ValueError, match="amenity_distances must be a 2D array"):
+        calculate_15m_city_score(np.array([400.0, 800.0]), cats, weights)
+
+    # 4. Length mismatch
+    with pytest.raises(ValueError, match="amenity_categories length .* must match columns"):
+        calculate_15m_city_score(dists, ["grocery", "park"], weights)
+
+    # 5. Empty/Zero columns case
+    empty_dists = np.empty((3, 0))
+    empty_scores = calculate_15m_city_score(empty_dists, [], weights)
+    np.testing.assert_allclose(empty_scores, [0.0, 0.0, 0.0])
 
 
 def test_network_criticality(sample_graph):

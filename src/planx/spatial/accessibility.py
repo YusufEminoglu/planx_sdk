@@ -508,3 +508,73 @@ def three_step_2sfca(
     A = np.sum(G * R[None, :] * W, axis=1)
 
     return A
+
+
+def calculate_15m_city_score(
+    amenity_distances: np.ndarray,
+    amenity_categories: list[str],
+    category_weights: dict[str, float],
+    max_threshold: float = 1200.0,
+) -> np.ndarray:
+    """Calculates the 15-Minute City accessibility index (0-100) for location points.
+
+    Measures the degree to which essential amenities are reachable within a given walking
+    distance threshold, weighted by category importances.
+
+    For each origin i:
+        Score_i = sum_k (Weight_k * I(distance_i,k <= max_threshold)) * 100
+        where I is the indicator function (1.0 if reachable, else 0.0).
+
+    Args:
+        amenity_distances: NumPy array of shape (M, N) containing distances (in meters)
+            from M origins to N nearest amenities.
+        amenity_categories: List of strings of length N matching the category label
+            of each amenity.
+        category_weights: Dictionary mapping category labels to importance weights
+            (will be normalized).
+        max_threshold: Distance threshold representing the maximum walking limit (default: 1200m).
+
+    Returns:
+        1D NumPy array of shape (M,) containing 15-minute city scores in range [0, 100].
+    """
+    dists = np.asarray(amenity_distances, dtype=np.float64)
+    if dists.ndim != 2:
+        raise ValueError("amenity_distances must be a 2D array of shape (M, N)")
+
+    m, n = dists.shape
+
+    if len(amenity_categories) != n:
+        raise ValueError(
+            f"amenity_categories length ({len(amenity_categories)}) "
+            f"must match columns of dists ({n})"
+        )
+
+    if n == 0:
+        return np.zeros(m, dtype=np.float64)
+
+    # Group categories and compute weights per column
+    col_weights = np.zeros(n, dtype=np.float64)
+
+    # Normalize category weights dictionary
+    unique_cats = set(amenity_categories)
+    sum_w = sum(category_weights.get(cat, 0.0) for cat in unique_cats)
+    if sum_w <= 0.0:
+        norm_weights = {cat: 1.0 / len(unique_cats) for cat in unique_cats}
+    else:
+        norm_weights = {cat: category_weights.get(cat, 0.0) / sum_w for cat in unique_cats}
+
+    # Count amenities per category to split weights equally within category members
+    cat_counts: dict[str, int] = {}
+    for cat in amenity_categories:
+        cat_counts[cat] = cat_counts.get(cat, 0) + 1
+
+    for idx, cat in enumerate(amenity_categories):
+        col_weights[idx] = norm_weights.get(cat, 0.0) / cat_counts[cat]
+
+    # Indicator matrix (M, N) indicating if amenity is within threshold
+    within_threshold = (dists <= max_threshold) & np.isfinite(dists)
+
+    # Compute weighted score (M,)
+    scores = np.sum(within_threshold * col_weights[None, :], axis=1) * 100.0
+
+    return np.clip(scores, 0.0, 100.0)

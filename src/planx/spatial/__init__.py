@@ -6,6 +6,7 @@ Network centrality and shortest path calculations on sparse graphs.
 """
 
 from .accessibility import (
+    calculate_15m_city_score,
     cumulative_opportunities,
     enhanced_2sfca,
     gravity_accessibility,
@@ -60,4 +61,5 @@ __all__ = [
     "three_step_2sfca",
     "calculate_walk_score",
     "calculate_pedestrian_route_directness",
+    "calculate_15m_city_score",
 ]
