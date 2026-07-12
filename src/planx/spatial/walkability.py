@@ -915,3 +915,85 @@ def calculate_average_route_circuity(
         return 1.0
 
     return float(np.mean(circuity_values))
+
+
+def profile_intersection_density_closeness(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    radius: float = 800.0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Profiles intersection density and closeness using network-based catchments.
+
+    Identifies walkable "town centers" or clusters of high connectivity by analyzing
+    neighboring intersections within a given travel threshold (radius).
+
+    For each intersection node i:
+        - Density: Number of other intersections reachable within the travel radius.
+        - Avg Distance: Mean network distance to all reachable intersections.
+        - Profile Score: Density / Avg Distance (scaled to [0.0, 100.0]).
+
+    Args:
+        indptr: CSR indptr array of shape (n + 1,)
+        adj: CSR adj array of shape (E,)
+        weights: CSR edge weights array of shape (E,) representing travel distances/costs.
+        radius: Travel network distance threshold (default 800.0 meters, ~10 mins walk).
+
+    Returns:
+        Tuple of:
+            - density: 1D NumPy array of shape (n,) containing neighbor counts.
+            - avg_distance: 1D NumPy array of shape (n,) containing average network distance.
+            - profile_score: 1D NumPy array of shape (n,) containing combined scores in [0, 100].
+    """
+    indptr = np.asarray(indptr, dtype=np.int64)
+    adj = np.asarray(adj, dtype=np.int64)
+    weights = np.asarray(weights, dtype=np.float64)
+
+    n = len(indptr) - 1
+    if n <= 0:
+        return (
+            np.zeros(0, dtype=np.float64),
+            np.zeros(0, dtype=np.float64),
+            np.zeros(0, dtype=np.float64),
+        )
+
+    if radius <= 0.0:
+        raise ValueError("radius must be greater than 0.0")
+
+    density = np.zeros(n, dtype=np.float64)
+    avg_dist = np.zeros(n, dtype=np.float64)
+    scores = np.zeros(n, dtype=np.float64)
+
+    # Compute distances to all nodes within the network radius cutoff
+    # Run in chunks to handle memory efficiently for large graphs
+    chunk_size = 128
+    all_nodes = np.arange(n, dtype=np.int64)
+
+    for start in range(0, n, chunk_size):
+        sources = all_nodes[start : start + chunk_size]
+        dmat = many_to_many(indptr, adj, weights, n, sources, cutoff=radius)
+
+        for idx, s in enumerate(sources):
+            row_dists = dmat[idx]
+            # Exclude the source node itself
+            mask = (row_dists <= radius) & np.isfinite(row_dists)
+            mask[s] = False
+
+            k = int(np.sum(mask))
+            density[s] = float(k)
+
+            if k > 0:
+                mean_d = float(np.mean(row_dists[mask]))
+                avg_dist[s] = mean_d
+                # score is density / mean distance
+                scores[s] = float(k / mean_d) if mean_d > 0.0 else 0.0
+            else:
+                avg_dist[s] = 0.0
+                scores[s] = 0.0
+
+    # Normalize profile scores to range [0.0, 100.0]
+    max_score = float(np.max(scores)) if len(scores) > 0 else 0.0
+    if max_score > 0.0:
+        scores = (scores / max_score) * 100.0
+
+    return density, avg_dist, scores

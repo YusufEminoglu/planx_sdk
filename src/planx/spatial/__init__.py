@@ -34,6 +34,7 @@ from .walkability import (
     classify_level_of_traffic_stress,
     gravity_centrality_una,
     identify_low_stress_islands,
+    profile_intersection_density_closeness,
     reach_centrality_una,
     simulate_thermal_comfort_pet,
     thermal_comfort_routing,
@@ -68,4 +69,5 @@ __all__ = [
     "pagerank_centrality",
     "street_orientation_entropy",
     "calculate_average_route_circuity",
+    "profile_intersection_density_closeness",
 ]
