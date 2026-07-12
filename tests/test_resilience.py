@@ -6,6 +6,7 @@ import pytest
 
 from planx.resilience import (
     calculate_grid_sky_view_factor,
+    calculate_solar_access,
     classify_local_climate_zones,
     coastal_flood_inundation,
     debris_clearance_routing,
@@ -1204,3 +1205,46 @@ def test_classify_local_climate_zones():
     # Validation errors
     with pytest.raises(ValueError, match="same shape"):
         classify_local_climate_zones(bsf, isf, np.zeros((2, 1)))
+
+
+def test_calculate_solar_access():
+    # 1. Flat grid - open area
+    flat_grid = np.zeros((3, 3))
+    alts = np.array([45.0])
+    azis = np.array([180.0])
+    access = calculate_solar_access(
+        flat_grid, resolution=1.0, sun_altitudes=alts, sun_azimuths=azis
+    )
+    np.testing.assert_allclose(access, 100.0)
+
+    # 2. Obstructed grid - canyon shadow
+    canyon_grid = np.zeros((3, 3))
+    canyon_grid[1, 1] = 10.0  # building in center
+    # Sun at 45 deg altitude, 180 deg (South) azimuth -> shadow cast North (ox=0, oy=-1)
+    access = calculate_solar_access(
+        canyon_grid,
+        resolution=1.0,
+        sun_altitudes=alts,
+        sun_azimuths=azis,
+        max_shadow_dist=5.0,
+    )
+    # The cell at (0, 1) (North of center building) should be shaded (0.0% solar access)
+    assert access[0, 1] == 0.0
+    # The cell at (2, 1) (South of center building) should be sunlit (100.0% solar access)
+    assert access[2, 1] == 100.0
+
+    # 3. Empty steps
+    access_empty = calculate_solar_access(
+        canyon_grid,
+        resolution=1.0,
+        sun_altitudes=np.array([]),
+        sun_azimuths=np.array([]),
+    )
+    np.testing.assert_allclose(access_empty, 100.0)
+
+    # 4. Validation errors
+    with pytest.raises(ValueError, match="height_grid must be a 2D array"):
+        calculate_solar_access(np.zeros(3), 1.0, alts, azis)
+
+    with pytest.raises(ValueError, match="identical length"):
+        calculate_solar_access(flat_grid, 1.0, np.array([45.0]), np.array([180.0, 90.0]))
