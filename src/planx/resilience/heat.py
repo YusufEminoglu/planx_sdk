@@ -230,3 +230,187 @@ def optimize_canopy_placement(
 
     # Return top N
     return sorted_indices[:num_trees]
+
+
+def calculate_grid_sky_view_factor(
+    height_grid: np.ndarray,
+    resolution: float = 1.0,
+    max_radius: float = 100.0,
+    num_directions: int = 8,
+) -> np.ndarray:
+    """Calculates the Sky View Factor (SVF) for an urban height grid (DSM).
+
+    SVF measures the proportion of sky visible from the ground at each cell, ranging from
+    0.0 (completely obstructed canyon) to 1.0 (completely open sky).
+
+    Calculates SVF using a high-performance 2D grid shifting proxy along radial directions.
+
+    Args:
+        height_grid: 2D NumPy array of shape (R, C) representing building/surface heights.
+        resolution: Grid cell resolution in meters (default 1.0m).
+        max_radius: Maximum radius to search for obstacles in meters (default 100.0m).
+        num_directions: Number of radial directions to check (default 8).
+
+    Returns:
+        2D NumPy array of shape (R, C) containing SVF values [0.0, 1.0].
+    """
+    heights = np.asarray(height_grid, dtype=np.float64)
+    if heights.ndim != 2:
+        raise ValueError("height_grid must be a 2D array")
+    if resolution <= 0.0:
+        raise ValueError("resolution must be greater than 0.0")
+    if max_radius <= 0.0:
+        raise ValueError("max_radius must be greater than 0.0")
+    if num_directions <= 0:
+        raise ValueError("num_directions must be greater than 0")
+
+    rows, cols = heights.shape
+    svf = np.zeros_like(heights)
+
+    max_pixels = max(1, int(round(max_radius / resolution)))
+
+    # Shift helper
+    def _shift_grid(grid: np.ndarray, oy: int, ox: int) -> np.ndarray:
+        shifted = np.zeros_like(grid)
+        if oy >= 0:
+            t_ystart, t_yend = oy, rows
+            s_ystart, s_yend = 0, rows - oy
+        else:
+            t_ystart, t_yend = 0, rows + oy
+            s_ystart, s_yend = -oy, rows
+
+        if ox >= 0:
+            t_xstart, t_xend = ox, cols
+            s_xstart, s_xend = 0, cols - ox
+        else:
+            t_xstart, t_xend = 0, cols + ox
+            s_xstart, s_xend = -ox, cols
+
+        if t_ystart < t_yend and t_xstart < t_xend:
+            shifted[t_ystart:t_yend, t_xstart:t_xend] = grid[s_ystart:s_yend, s_xstart:s_xend]
+        return shifted
+
+    # Iterate over all directions
+    for k in range(num_directions):
+        theta = 2.0 * np.pi * k / num_directions
+        max_angles_k = np.zeros_like(heights)
+
+        # Collect unique pixel steps to minimize grid shifting operations
+        seen = set()
+        unique_steps = []
+        for p in range(1, max_pixels + 1):
+            ox = int(round(p * np.sin(theta)))
+            oy = int(round(p * np.cos(theta)))
+            if ox == 0 and oy == 0:
+                continue
+            if (oy, ox) not in seen:
+                seen.add((oy, ox))
+                unique_steps.append((oy, ox))
+
+        for oy, ox in unique_steps:
+            d = np.hypot(ox, oy) * resolution
+            shifted = _shift_grid(heights, oy, ox)
+            diff = shifted - heights
+            # Calculate elevation angle
+            angles = np.arctan(np.maximum(0.0, diff) / d)
+            max_angles_k = np.maximum(max_angles_k, angles)
+
+        # Contribution of this direction to SVF: cos(alpha_k)^2
+        svf += np.cos(max_angles_k) ** 2
+
+    svf /= num_directions
+    return np.clip(svf, 0.0, 1.0)
+
+
+def classify_local_climate_zones(
+    building_share: np.ndarray,
+    impervious_share: np.ndarray,
+    building_height: np.ndarray,
+) -> np.ndarray:
+    """Classifies grid cells into Local Climate Zone (LCZ) built categories (Stewart & Oke, 2012).
+
+    Uses building footprint share (BSF), impervious surface share (ISF), and average
+    building height to classify each cell into a built LCZ type (1 to 10) or pervious (11).
+
+    Built Categories:
+        - 1: Compact high-rise (BSF > 0.4, Height > 25m)
+        - 2: Compact mid-rise (BSF > 0.4, Height 10m-25m)
+        - 3: Compact low-rise (BSF > 0.4, Height 3m-10m)
+        - 4: Open high-rise (BSF 0.2-0.4, Height > 25m)
+        - 5: Open mid-rise (BSF 0.2-0.4, Height 10m-25m)
+        - 6: Open low-rise (BSF 0.2-0.4, Height 3m-10m)
+        - 7: Lightweight low-rise (BSF > 0.5, Height 3m-10m, with low ISF)
+        - 8: Large low-rise (BSF 0.3-0.5, Height 3m-15m, with high ISF)
+        - 9: Sparsely built (BSF 0.05-0.2, Height 3m-15m)
+        - 10: Heavy industry / large industrial blocks (BSF > 0.2, Height 5m-15m, high ISF)
+        - 11: Pervious / natural surfaces (BSF < 0.05)
+
+    Args:
+        building_share: 2D NumPy array of shape (R, C) containing building footprint
+            share [0.0, 1.0].
+        impervious_share: 2D NumPy array of shape (R, C) containing impervious
+            area share [0.0, 1.0].
+        building_height: 2D NumPy array of shape (R, C) containing average building
+            heights (meters).
+
+    Returns:
+        2D NumPy array of shape (R, C) containing LCZ class labels (integers 1 to 11).
+    """
+    bsf = np.asarray(building_share, dtype=np.float64)
+    isf = np.asarray(impervious_share, dtype=np.float64)
+    h = np.asarray(building_height, dtype=np.float64)
+
+    shape = bsf.shape
+    if isf.shape != shape or h.shape != shape:
+        raise ValueError("All input arrays must have the same shape")
+
+    # Initialize all as 11 (pervious / other)
+    lcz = np.full(shape, 11, dtype=np.int32)
+
+    # Built masks:
+    pervious_mask = bsf < 0.05
+    is_built = ~pervious_mask
+
+    # Compact masks (BSF > 0.4)
+    is_compact = is_built & (bsf >= 0.4)
+    # Open masks (BSF 0.2 to 0.4)
+    is_open = is_built & (bsf >= 0.2) & (bsf < 0.4)
+    # Sparsely built (BSF 0.05 to 0.2)
+    is_sparse = is_built & (bsf >= 0.05) & (bsf < 0.2)
+
+    # Height thresholds
+    is_high = h > 25.0
+    is_mid = (h >= 10.0) & (h <= 25.0)
+    is_low = h < 10.0
+
+    # Assign LCZs based on hierarchy
+    # Compact high-rise (1)
+    lcz[is_compact & is_high] = 1
+    # Compact mid-rise (2)
+    lcz[is_compact & is_mid] = 2
+    # Compact low-rise (3)
+    lcz[is_compact & is_low] = 3
+
+    # Open high-rise (4)
+    lcz[is_open & is_high] = 4
+    # Open mid-rise (5)
+    lcz[is_open & is_mid] = 5
+    # Open low-rise (6)
+    lcz[is_open & is_low] = 6
+
+    # Large low-rise (8)
+    lcz[is_open & (h >= 3.0) & (h <= 15.0) & (isf >= 0.5)] = 8
+
+    # Lightweight low-rise (7)
+    lcz[is_compact & (h >= 3.0) & (h <= 10.0) & (isf < 0.3)] = 7
+
+    # Heavy industry (10)
+    lcz[is_open & (h >= 5.0) & (h <= 15.0) & (isf >= 0.7)] = 10
+
+    # Sparsely built (9)
+    lcz[is_sparse & (h >= 3.0) & (h <= 15.0)] = 9
+
+    # Set any negative/invalid parameters to 11
+    lcz[(bsf < 0.0) | (isf < 0.0) | (h < 0.0)] = 11
+
+    return lcz
