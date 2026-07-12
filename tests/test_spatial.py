@@ -26,6 +26,7 @@ from planx.spatial import (
     multi_source,
     network_criticality,
     pagerank_centrality,
+    profile_intersection_density_closeness,
     reach_centrality_una,
     service_area_coverage,
     simulate_thermal_comfort_pet,
@@ -1489,3 +1490,26 @@ def test_calculate_average_route_circuity():
 
     with pytest.raises(ValueError, match="num_samples must be greater"):
         calculate_average_route_circuity(indptr, adj, weights, node_xy, num_samples=0)
+
+
+def test_profile_intersection_density_closeness():
+    # 1. Empty graph case
+    d, a, s = profile_intersection_density_closeness(
+        np.array([0]), np.array([]), np.array([]), radius=500.0
+    )
+    assert len(d) == 0 and len(a) == 0 and len(s) == 0
+
+    # 2. Symmetric cycle: 0 - 1 - 2 - 0 (each edge weight 100.0)
+    indptr = np.array([0, 2, 4, 6], dtype=np.int64)
+    adj = np.array([1, 2, 0, 2, 0, 1], dtype=np.int64)
+    weights = np.array([100.0, 100.0, 100.0, 100.0, 100.0, 100.0], dtype=np.float64)
+
+    # Cutoff radius = 150.0
+    d, a, s = profile_intersection_density_closeness(indptr, adj, weights, radius=150.0)
+    np.testing.assert_allclose(d, [2.0, 2.0, 2.0])
+    np.testing.assert_allclose(a, [100.0, 100.0, 100.0])
+    np.testing.assert_allclose(s, [100.0, 100.0, 100.0])
+
+    # 3. Radius validation check
+    with pytest.raises(ValueError, match="radius must be greater"):
+        profile_intersection_density_closeness(indptr, adj, weights, radius=0.0)
