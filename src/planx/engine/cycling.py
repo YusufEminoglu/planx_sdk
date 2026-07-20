@@ -51,8 +51,8 @@ def parse_lts_rules(text):
             raise ValueError(f"LTS rules need known 'key=value' entries: '{token}'")
         try:
             rules[key] = float(value.strip())
-        except ValueError:
-            raise ValueError(f"LTS rule '{key}' needs a numeric value")
+        except ValueError as exc:
+            raise ValueError(f"LTS rule '{key}' needs a numeric value") from exc
     return rules
 
 

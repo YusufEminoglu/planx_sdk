@@ -141,7 +141,12 @@ def theil_t(x, w=None):
     if mu <= 0:
         return 0.0
     r = x / mu
-    term = np.where(r > 0, r * np.log(r), 0.0)
+    # ``np.where`` evaluates both branches, so computing the logarithm in
+    # its argument still emits warnings for zero-valued observations. Mask
+    # first to preserve the x*log(x) -> 0 limit without spurious warnings.
+    term = np.zeros_like(r)
+    positive = r > 0
+    term[positive] = r[positive] * np.log(r[positive])
     return float((w * term).sum() / total)
 
 

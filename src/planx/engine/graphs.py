@@ -85,8 +85,17 @@ def build_node_graph(polylines, tolerance: float = 0.01, costs=None) -> NodeGrap
     quantization). ``costs`` (optional, per polyline) overrides length as the
     routing cost; metric length is always kept for radii/statistics.
     """
-    node_index = {}
-    node_pts = []
+    tolerance = float(tolerance)
+    if not math.isfinite(tolerance) or tolerance <= 0:
+        raise ValueError("tolerance must be a finite, positive value")
+    polylines = [np.asarray(coords, dtype=np.float64) for coords in polylines]
+    if any(coords.ndim != 2 or coords.shape[1] != 2 or len(coords) < 2 for coords in polylines):
+        raise ValueError("each polyline must have shape (N, 2) with N >= 2")
+    if any(not np.all(np.isfinite(coords)) for coords in polylines):
+        raise ValueError("polyline coordinates must contain only finite values")
+
+    node_index: dict[tuple[int, int], int] = {}
+    node_pts: list[tuple[float, float]] = []
 
     def node_id(pt):
         key = (round(pt[0] / tolerance), round(pt[1] / tolerance))
@@ -107,11 +116,15 @@ def build_node_graph(polylines, tolerance: float = 0.01, costs=None) -> NodeGrap
     if costs is None:
         edge_cost = edge_len.copy()
     else:
-        edge_cost = np.asarray(costs, dtype=np.float64)
+        # Copy so replacing invalid custom costs with metric lengths does not
+        # mutate an ndarray owned by the caller.
+        edge_cost = np.asarray(costs, dtype=np.float64).copy()
+        if edge_cost.ndim != 1 or len(edge_cost) != len(polylines):
+            raise ValueError("costs must be a one-dimensional value per polyline")
         bad = ~np.isfinite(edge_cost) | (edge_cost <= 0)
         edge_cost[bad] = edge_len[bad]
     return NodeGraph(
-        np.asarray(node_pts, dtype=np.float64),
+        np.asarray(node_pts, dtype=np.float64).reshape(-1, 2),
         np.asarray(e_from, dtype=np.int32),
         np.asarray(e_to, dtype=np.int32),
         edge_cost,
@@ -204,11 +217,20 @@ def internal_curvature_deg(coords: np.ndarray) -> float:
 def build_segment_graph(polylines, tolerance: float = 0.01) -> SegmentGraph:
     """Build the angular dual graph from a list of (k_i, 2) coordinate arrays."""
 
+    tolerance = float(tolerance)
+    if not math.isfinite(tolerance) or tolerance <= 0:
+        raise ValueError("tolerance must be a finite, positive value")
+    polylines = [np.asarray(coords, dtype=np.float64) for coords in polylines]
+    if any(coords.ndim != 2 or coords.shape[1] != 2 or len(coords) < 2 for coords in polylines):
+        raise ValueError("each polyline must have shape (N, 2) with N >= 2")
+    if any(not np.all(np.isfinite(coords)) for coords in polylines):
+        raise ValueError("polyline coordinates must contain only finite values")
+
     def node_key(pt):
         return (round(pt[0] / tolerance), round(pt[1] / tolerance))
 
     # ends[node] -> list of (segment id, outward bearing)
-    ends = {}
+    ends: dict[tuple[int, int], list[tuple[int, float]]] = {}
     n = len(polylines)
     seg_len = np.empty(n, dtype=np.float64)
     seg_curve = np.empty(n, dtype=np.float64)
@@ -219,7 +241,10 @@ def build_segment_graph(polylines, tolerance: float = 0.01) -> SegmentGraph:
             key = node_key(pt)
             ends.setdefault(key, []).append((s, _bearing(pt, nxt)))
 
-    src, dst, ang, metric = [], [], [], []
+    src: list[int] = []
+    dst: list[int] = []
+    ang: list[float] = []
+    metric: list[float] = []
     for incident in ends.values():
         m = len(incident)
         if m < 2:
@@ -240,9 +265,9 @@ def build_segment_graph(polylines, tolerance: float = 0.01) -> SegmentGraph:
                 ang.extend((cost_ang, cost_ang))
                 metric.extend((cost_met, cost_met))
 
-    src = np.asarray(src, dtype=np.int64)
-    order = np.argsort(src, kind="stable")
-    counts = np.bincount(src, minlength=n)
+    src_arr = np.asarray(src, dtype=np.int64)
+    order = np.argsort(src_arr, kind="stable")
+    counts = np.bincount(src_arr, minlength=n)
     indptr = np.concatenate([[0], np.cumsum(counts)]).astype(np.int64)
     return SegmentGraph(
         n,

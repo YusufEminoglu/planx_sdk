@@ -26,7 +26,7 @@ RADIUS_GLOBAL = "n"
 
 def parse_radii(text: str):
     """Parse a radii string like ``"400, 800, n"`` -> [400.0, 800.0, None]."""
-    radii = []
+    radii: list[float | None] = []
     for token in str(text).replace(";", ",").split(","):
         token = token.strip().lower()
         if not token:

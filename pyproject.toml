@@ -10,10 +10,10 @@ authors = [
 ]
 description = "Core spatial analytics, spatial statistics, and urban resilience engines for the PlanX ecosystem."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: GIS",
 ]
@@ -26,9 +26,9 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
-    "black>=22.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
 ]
 
 [tool.setuptools]
@@ -53,7 +53,6 @@ exclude = [
     "build",
     "dist",
     "tests/run_engine_tests.py",
-    "src/planx/engine",
 ]
 
 [tool.ruff.lint]
@@ -62,7 +61,6 @@ ignore = []
 
 [tool.mypy]
 files = ["src"]
-exclude = ["src/planx/engine/"]
 
 [[tool.mypy.overrides]]
 # scipy and scikit-learn do not ship type stubs; treat them as untyped.
@@ -78,5 +76,5 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-# Safety net with headroom below the current ~45% branch coverage; raise as coverage improves.
-fail_under = 40
+# Keep meaningful headroom below the current ~90% branch coverage.
+fail_under = 85

@@ -47,8 +47,8 @@ def parse_targets(text):
         key = key.strip().lower()
         try:
             area = float(value.strip())
-        except ValueError:
-            raise ValueError(f"Not a number in '{token}'")
+        except ValueError as exc:
+            raise ValueError(f"Not a number in '{token}'") from exc
         if not key or area < 0:
             raise ValueError(f"Invalid target entry: '{token}'")
         targets.append((key, area))
@@ -544,7 +544,7 @@ def allocate_contiguous(
         else:
             import warnings
 
-            warnings.warn(msg, UserWarning)
+            warnings.warn(msg, UserWarning, stacklevel=2)
         return allocate_multi(
             suit,
             area,

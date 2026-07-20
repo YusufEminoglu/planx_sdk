@@ -13,7 +13,7 @@ def fill_depressions(dem: np.ndarray) -> np.ndarray:
     rows, cols = dem.shape
     filled = np.copy(dem)
     visited = ~np.isfinite(dem)
-    pq = []
+    pq: list[tuple[float, int, int]] = []
 
     # Push boundary cells into priority queue
     for r in range(rows):
@@ -153,14 +153,14 @@ def hand(dem: np.ndarray, dirs: np.ndarray, drainage_mask: np.ndarray) -> np.nda
         128: (-1, 1),
     }
 
-    drainage_cells = {}
+    drainage_cells: dict[tuple[int, int], tuple[int, int]] = {}
 
     for r in range(rows):
         for c in range(cols):
             if not np.isfinite(dem[r, c]):
                 continue
             curr_r, curr_c = r, c
-            path = []
+            path: list[tuple[int, int]] = []
             visited_in_path = set()
             while True:
                 if (curr_r, curr_c) in drainage_cells:

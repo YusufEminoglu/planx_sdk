@@ -20,8 +20,8 @@ def parse_breaks(text, default=(5.0, 8.0, 12.0)):
     for tok in tokens:
         try:
             vals.append(float(tok))
-        except ValueError:
-            raise ValueError(f"Non-numeric breakpoint: '{tok}'")
+        except ValueError as exc:
+            raise ValueError(f"Non-numeric breakpoint: '{tok}'") from exc
     if not vals:
         return default
     for i in range(len(vals) - 1):
@@ -196,7 +196,7 @@ def combine_components(components, directions, weights=None):
 
     # Let's find array length n
     n = None
-    for name, val in components.items():
+    for val in components.values():
         if val is not None:
             val = np.asarray(val, dtype=np.float64)
             n = len(val)

@@ -48,7 +48,7 @@ def simulate_seismic_debris(
     n = len(areas)
     if len(floors) != n or len(years) != n:
         raise ValueError(
-            "building_areas, building_floors, and building_years " "must have identical length"
+            "building_areas, building_floors, and building_years must have identical length"
         )
 
     # Determine base probability of collapse based on construction year

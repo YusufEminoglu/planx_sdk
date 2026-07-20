@@ -33,8 +33,8 @@ def parse_hierarchy(text):
         size, _, dist = token.partition("=")
         try:
             classes.append((float(size.strip()), float(dist.strip())))
-        except ValueError:
-            raise ValueError(f"hierarchy needs 'min_ha=max_dist': '{token}'")
+        except ValueError as exc:
+            raise ValueError(f"hierarchy needs 'min_ha=max_dist': '{token}'") from exc
     if not classes:
         raise ValueError("no hierarchy classes given")
     return sorted(classes)
