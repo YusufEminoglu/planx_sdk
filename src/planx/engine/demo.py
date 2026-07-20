@@ -41,7 +41,7 @@ def generate_demo_city(
             nodes.append((cx, diag_y))
 
         # Sort nodes by y coordinate and drop duplicates (within tolerance)
-        nodes = sorted(list(set(nodes)), key=lambda p: p[1])
+        nodes = sorted(set(nodes), key=lambda p: p[1])
         # Connect adjacent nodes
         for i in range(len(nodes) - 1):
             p1, p2 = nodes[i], nodes[i + 1]
@@ -59,7 +59,7 @@ def generate_demo_city(
                 nodes.append((diag_x, ry))
 
         # Sort nodes by x coordinate and drop duplicates
-        nodes = sorted(list(set(nodes)), key=lambda p: p[0])
+        nodes = sorted(set(nodes), key=lambda p: p[0])
         # Connect adjacent nodes
         for i in range(len(nodes) - 1):
             p1, p2 = nodes[i], nodes[i + 1]
@@ -75,7 +75,7 @@ def generate_demo_city(
             diag_nodes.append((ry / diag_slope, ry))
 
     # Sort diagonal nodes by x and drop duplicates
-    diag_nodes = sorted(list(set(diag_nodes)), key=lambda p: p[0])
+    diag_nodes = sorted(set(diag_nodes), key=lambda p: p[0])
     for i in range(len(diag_nodes) - 1):
         p1, p2 = diag_nodes[i], diag_nodes[i + 1]
         dist = math.hypot(p2[0] - p1[0], p2[1] - p1[1])

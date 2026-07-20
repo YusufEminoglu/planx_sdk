@@ -4,7 +4,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/planx-sdk.svg)](https://pypi.org/project/planx-sdk/)
 [![Python version support](https://img.shields.io/pypi/pyversions/planx-sdk.svg)](https://pypi.org/project/planx-sdk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub Code Formatting](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-D7FF64.svg)](https://docs.astral.sh/ruff/)
 
 PlanX SDK is the official core library of the PlanX QGIS plugin ecosystem, containing spatial analysis, spatial statistics, network routing, and urban resilience computation engines. It is designed to run headless, independent of the QGIS interface, and is powered entirely by pure Python, NumPy, and SciPy.
 

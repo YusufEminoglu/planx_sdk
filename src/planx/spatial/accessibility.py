@@ -36,7 +36,7 @@ def gravity_accessibility(
         raise ValueError("dists must be a 2D array of shape (M, N)")
     if w.ndim != 1 or w.shape[0] != d.shape[1]:
         raise ValueError(
-            "destinations_weight length must match the number of " f"destinations ({d.shape[1]})."
+            f"destinations_weight length must match the number of destinations ({d.shape[1]})."
         )
 
     # Apply cutoff if specified
@@ -97,7 +97,7 @@ def cumulative_opportunities(
         raise ValueError("dists must be a 2D array of shape (M, N)")
     if w.ndim != 1 or w.shape[0] != d.shape[1]:
         raise ValueError(
-            "destinations_weight length must match the number of " f"destinations ({d.shape[1]})."
+            f"destinations_weight length must match the number of destinations ({d.shape[1]})."
         )
 
     in_range = (d <= cutoff) & np.isfinite(d)
