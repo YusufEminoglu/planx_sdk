@@ -23,6 +23,7 @@ import csv
 import io
 import zipfile
 from datetime import date as _date
+from typing import Any
 
 import numpy as np
 
@@ -90,15 +91,14 @@ def read_gtfs(path):
     try:
         zf = zipfile.ZipFile(path)
     except (OSError, zipfile.BadZipFile) as exc:
-        raise ValueError(f"could not open the GTFS zip: {exc}")
+        raise ValueError(f"could not open the GTFS zip: {exc}") from exc
     names = {n.split("/")[-1]: n for n in zf.namelist() if not n.endswith("/")}
     missing = [f for f in REQUIRED_FILES if f not in names]
     if missing:
         raise ValueError("GTFS zip is missing required file(s): " + ", ".join(missing))
     if "calendar.txt" not in names and "calendar_dates.txt" not in names:
         raise ValueError(
-            "GTFS zip has neither calendar.txt nor "
-            "calendar_dates.txt - cannot resolve service days"
+            "GTFS zip has neither calendar.txt nor calendar_dates.txt - cannot resolve service days"
         )
 
     stop_ids, stop_names, lat, lon = [], [], [], []
@@ -110,8 +110,8 @@ def read_gtfs(path):
         try:
             la = float(row.get("stop_lat", "") or "nan")
             lo = float(row.get("stop_lon", "") or "nan")
-        except ValueError:
-            raise ValueError(f"stop '{sid}' has a non-numeric lat/lon")
+        except ValueError as exc:
+            raise ValueError(f"stop '{sid}' has a non-numeric lat/lon") from exc
         stop_index[sid] = len(stop_ids)
         stop_ids.append(sid)
         stop_names.append(row.get("stop_name", "") or sid)
@@ -157,7 +157,7 @@ def read_gtfs(path):
             arr = parse_time(arr_txt)
             dep = parse_time(dep_txt)
         except ValueError as exc:
-            raise ValueError(f"stop_times for trip '{tid}': {exc}")
+            raise ValueError(f"stop_times for trip '{tid}': {exc}") from exc
         raw_st.setdefault(tid, []).append((seq, arr, dep, stop_index[sid]))
     stop_times = {}
     for tid, rows in raw_st.items():
@@ -207,8 +207,8 @@ def active_services(gtfs, day: str) -> set:
     day = str(day)
     try:
         weekday = _date(int(day[:4]), int(day[4:6]), int(day[6:8])).weekday()
-    except (ValueError, IndexError):
-        raise ValueError(f"not a GTFS date (YYYYMMDD): '{day}'")
+    except (ValueError, IndexError) as exc:
+        raise ValueError(f"not a GTFS date (YYYYMMDD): '{day}'") from exc
     active = set()
     for sid, cal in gtfs["calendar"].items():
         if cal["days"][weekday] and cal["start"] <= day <= cal["end"]:
@@ -265,8 +265,8 @@ def stop_frequencies(gtfs, day: str, window=(6 * 3600, 22 * 3600)):
         raise ValueError("window end must be after window start")
     n = len(gtfs["stop_ids"])
     deps = np.zeros(n, dtype=np.int64)
-    routes_at = [set() for _ in range(n)]
-    route_trips = {}
+    routes_at: list[set[str]] = [set() for _ in range(n)]
+    route_trips: dict[str, int] = {}
     for tid, (rid, sid) in gtfs["trips"].items():
         if sid not in services:
             continue
@@ -274,7 +274,7 @@ def stop_frequencies(gtfs, day: str, window=(6 * 3600, 22 * 3600)):
         if not st:
             continue
         touched = False
-        for i, (arr, dep, pos) in enumerate(st):
+        for i, (_arr, dep, pos) in enumerate(st):
             if i == len(st) - 1:
                 continue
             if lo <= dep < hi:
@@ -305,7 +305,7 @@ def compile_day(gtfs, day: str):
     maps a stop position to a list of (pattern index, position on it).
     """
     services = active_services(gtfs, day)
-    grouped = {}
+    grouped: dict[tuple[str, tuple[int, ...]], list[tuple[int, list[int], list[int]]]] = {}
     for tid, (rid, sid) in gtfs["trips"].items():
         if sid not in services:
             continue
@@ -313,17 +313,19 @@ def compile_day(gtfs, day: str):
         if not st or len(st) < 2:
             continue
         seq = tuple(pos for (_, _, pos) in st)
-        arr = [a for (a, _, _) in st]
-        dep = [d for (_, d, _) in st]
-        grouped.setdefault((rid, seq), []).append((dep[0], arr, dep))
-    patterns = []
-    stop_patterns = {}
+        arrivals = [a for (a, _, _) in st]
+        departures = [d for (_, d, _) in st]
+        grouped.setdefault((rid, seq), []).append((departures[0], arrivals, departures))
+    patterns: list[dict[str, Any]] = []
+    stop_patterns: dict[int, list[tuple[int, int]]] = {}
     for (rid, seq), trips in sorted(grouped.items()):
         trips.sort(key=lambda t: t[0])
-        arr = np.asarray([t[1] for t in trips], dtype=np.float64)
-        dep = np.asarray([t[2] for t in trips], dtype=np.float64)
+        arrival_matrix = np.asarray([t[1] for t in trips], dtype=np.float64)
+        departure_matrix = np.asarray([t[2] for t in trips], dtype=np.float64)
         p_idx = len(patterns)
-        patterns.append({"route": rid, "stops": seq, "arr": arr, "dep": dep})
+        patterns.append(
+            {"route": rid, "stops": seq, "arr": arrival_matrix, "dep": departure_matrix}
+        )
         for pos_on, stop in enumerate(seq):
             stop_patterns.setdefault(stop, []).append((p_idx, pos_on))
     return patterns, stop_patterns

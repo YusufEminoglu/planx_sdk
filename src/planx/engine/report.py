@@ -188,7 +188,7 @@ def report_cards(access=None, balance=None, adequacy=None, density=None) -> list
                 "label": "Accessibility Score",
                 "value": f"{access['mean']:.0f}",
                 "sub": (
-                    f"{access['n']} origins - {access['share_full']:.0f}% " "reach every category"
+                    f"{access['n']} origins - {access['share_full']:.0f}% reach every category"
                 ),
                 "tone": _tone(access["mean"], 75.0, 50.0),
             }
@@ -197,7 +197,7 @@ def report_cards(access=None, balance=None, adequacy=None, density=None) -> list
         pct = balance.get("compliance_pct")
         sub = f"{balance['n_with_standard']} categories with a standard"
         if balance.get("n_deficit"):
-            sub = f"{balance['n_deficit']} deficit(s) - worst: " f"{balance['worst_category']}"
+            sub = f"{balance['n_deficit']} deficit(s) - worst: {balance['worst_category']}"
         cards.append(
             {
                 "label": "Standards Compliance",
@@ -213,8 +213,7 @@ def report_cards(access=None, balance=None, adequacy=None, density=None) -> list
                 "label": "Population Covered",
                 "value": "n/a" if share is None else f"{share:.0f}%",
                 "sub": (
-                    f"{adequacy['n_facilities']} facilities - "
-                    f"{adequacy['n_overloaded']} overloaded"
+                    f"{adequacy['n_facilities']} facilities - {adequacy['n_overloaded']} overloaded"
                 ),
                 "tone": _tone(share, 90.0, 70.0),
             }
@@ -246,7 +245,7 @@ def svg_histogram(values, vmin=0.0, vmax=100.0, bins=10, width=460, height=150):
     pad, base = 4, height - 18
     bw = (width - 2 * pad) / bins
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" ' f'height="{height}" role="img">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" role="img">'
     ]
     for i, c in enumerate(counts):
         h = (base - pad) * c / peak
@@ -261,7 +260,7 @@ def svg_histogram(values, vmin=0.0, vmax=100.0, bins=10, width=460, height=150):
                 f'<text x="{x + bw / 2:.1f}" y="{base - h - 3:.1f}" '
                 f'font-size="9" text-anchor="middle" fill="#555">{c}</text>'
             )
-    parts.append(f'<text x="{pad}" y="{height - 5}" font-size="9" ' f'fill="#777">{vmin:g}</text>')
+    parts.append(f'<text x="{pad}" y="{height - 5}" font-size="9" fill="#777">{vmin:g}</text>')
     parts.append(
         f'<text x="{width - pad}" y="{height - 5}" font-size="9" '
         f'text-anchor="end" fill="#777">{vmax:g}</text>'
@@ -291,8 +290,7 @@ def svg_point_map(points, values, vmin=0.0, vmax=100.0, width=460, height=340, m
     span = (vmax - vmin) or 1.0
     r = max(2.0, min(6.0, 90.0 / (len(pts) ** 0.5)))
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" '
-        f'height="{height}" role="img">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" role="img">',
         f'<rect width="{width}" height="{height}" fill="#f6f8f8" rx="6"/>',
     ]
     for x, y, v in pts:
@@ -317,7 +315,7 @@ def svg_balance_bars(rows, width=560, bar_h=16):
     height = pad * 2 + row_h * len(rows)
     chart_w = width - label_w - 60
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" ' f'height="{height}" role="img">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" role="img">'
     ]
     for i, r in enumerate(rows):
         y = pad + i * row_h
@@ -325,7 +323,7 @@ def svg_balance_bars(rows, width=560, bar_h=16):
         provided = float(r["area_m2"])
         required = float(r["required_m2"])
         color = TONE_COLORS["bad" if r.get("status") == "Deficit" else "good"]
-        parts.append(f'<text x="0" y="{y + bar_h + 2}" font-size="11" ' f'fill="#333">{cat}</text>')
+        parts.append(f'<text x="0" y="{y + bar_h + 2}" font-size="11" fill="#333">{cat}</text>')
         for j, (val, fill) in enumerate(((provided, color), (required, "#b0bec5"))):
             by = y + j * (bar_h + 2)
             bwid = chart_w * val / peak
@@ -336,7 +334,7 @@ def svg_balance_bars(rows, width=560, bar_h=16):
             parts.append(
                 f'<text x="{label_w + bwid + 4:.1f}" y="{by + bar_h - 7}" '
                 f'font-size="9" fill="#666">{val:,.0f} m2'
-                f'{"" if j == 0 else " req."}</text>'
+                f"{'' if j == 0 else ' req.'}</text>"
             )
     parts.append("</svg>")
     return "".join(parts)
@@ -387,8 +385,7 @@ def _badge(status: str) -> str:
         "No standard": "info",
     }.get(status, "info")
     return (
-        f'<span class="badge" style="background:{TONE_COLORS[tone]}">'
-        f"{_html.escape(status)}</span>"
+        f'<span class="badge" style="background:{TONE_COLORS[tone]}">{_html.escape(status)}</span>'
     )
 
 
@@ -458,7 +455,7 @@ def _balance_section(rows, summary) -> str:
             f'<td class="num">{float(r["m2_per_capita"]):.2f}</td>'
             f'<td class="num">{float(r["required_m2"]):,.0f}</td>'
             f'<td class="num">{float(r["balance_m2"]):,.0f}</td>'
-            f'<td>{_badge(str(r["status"]))}</td></tr>'
+            f"<td>{_badge(str(r['status']))}</td></tr>"
         )
     parts.append("</table></section>")
     return "".join(parts)
@@ -486,7 +483,7 @@ def _adequacy_section(facility_rows, summary) -> str:
             f'<td class="num">{float(r.get("capacity", 0.0)):,.0f}</td>'
             f'<td class="num">{float(r.get("assigned", 0.0)):,.0f}</td>'
             f'<td class="num">{float(r.get("utilization", 0.0)):.2f}</td>'
-            f'<td>{_badge(str(r.get("status", "")))}</td></tr>'
+            f"<td>{_badge(str(r.get('status', '')))}</td></tr>"
         )
     parts.append("</table></section>")
     return "".join(parts)
@@ -513,13 +510,12 @@ def svg_pyramid(labels, start, end, width=460, bar_h=16, start_name="now", end_n
     height = pad * 2 + row_h * len(labels) + 16
     chart_w = width - label_w - 70
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" ' f'height="{height}" role="img">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" role="img">'
     ]
     for i, lab in enumerate(labels):
         y = pad + i * row_h
         parts.append(
-            f'<text x="0" y="{y + bar_h - 3}" font-size="11" '
-            f'fill="#333">{_html.escape(lab)}</text>'
+            f'<text x="0" y="{y + bar_h - 3}" font-size="11" fill="#333">{_html.escape(lab)}</text>'
         )
         w_start = chart_w * start[i] / peak
         parts.append(
@@ -709,7 +705,8 @@ def build_rank_html(title, result, weights_note="", generated=""):
     # (1) Scoreboard
     body.append("<section><h2>Scenario Scoreboard</h2>")
     body.append(
-        "<table><tr><th>Rank</th><th>Scenario</th><th>Score</th><th style='width:50%'>Performance</th></tr>"
+        "<table><tr><th>Rank</th><th>Scenario</th><th>Score</th>"
+        "<th style='width:50%'>Performance</th></tr>"
     )
     for sc in result["scenarios"]:
         name_esc = _html.escape(sc["name"])
@@ -724,7 +721,8 @@ def build_rank_html(title, result, weights_note="", generated=""):
             f"<div style='background:#eceff1; border-radius:4px; height:14px; "
             f"width:100%; max-width:300px; display:inline-block; "
             f"vertical-align:middle; overflow:hidden;'>"
-            f"<div style='background:{color}; width:{score:.1f}%; height:100%; border-radius:4px;'></div>"
+            f"<div style='background:{color}; width:{score:.1f}%; height:100%; "
+            f"border-radius:4px;'></div>"
             f"</div>"
             f"</td>"
             f"</tr>"
@@ -773,7 +771,8 @@ def build_rank_html(title, result, weights_note="", generated=""):
     else:
         skipped_str = "none"
     body.append(
-        f"<p style='font-size:11px; color:#7f8c8d; margin-top:12px;'>Skipped metrics: {skipped_str}</p>"
+        f"<p style='font-size:11px; color:#7f8c8d; margin-top:12px;'>"
+        f"Skipped metrics: {skipped_str}</p>"
     )
     body.append("</section>")
 

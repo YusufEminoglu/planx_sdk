@@ -26,8 +26,8 @@ def parse_standards(text: str):
         key = key.strip().lower()
         try:
             per_capita = float(value.strip())
-        except ValueError:
-            raise ValueError(f"Not a number in '{token}'")
+        except ValueError as exc:
+            raise ValueError(f"Not a number in '{token}'") from exc
         if not key or per_capita < 0:
             raise ValueError(f"Invalid standard entry: '{token}'")
         standards.append((key, per_capita))
@@ -55,19 +55,20 @@ def balance_rows(category_areas: dict, population: float, standards):
     for category in sorted(category_areas):
         area = float(category_areas[category])
         key, per_capita = match_standard(category, standards)
+        required = (per_capita * population) if per_capita is not None else 0.0
+        balance = area - required if per_capita is not None else 0.0
+        status = (
+            "No standard" if per_capita is None else "Meets standard" if balance >= 0 else "Deficit"
+        )
         row = {
             "category": str(category),
             "area_m2": area,
             "m2_per_capita": area / population if population > 0 else 0.0,
             "standard_key": key or "",
             "std_m2_capita": per_capita if per_capita is not None else 0.0,
-            "required_m2": (per_capita * population) if per_capita is not None else 0.0,
+            "required_m2": required,
+            "balance_m2": balance,
+            "status": status,
         }
-        if per_capita is None:
-            row["balance_m2"] = 0.0
-            row["status"] = "No standard"
-        else:
-            row["balance_m2"] = area - row["required_m2"]
-            row["status"] = "Meets standard" if row["balance_m2"] >= 0 else "Deficit"
         rows.append(row)
     return rows
