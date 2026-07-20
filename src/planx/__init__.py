@@ -7,7 +7,7 @@ Core spatial analytics, statistics, and urban resilience engines.
 
 from planx import engine, geostats, resilience, spatial, suitability
 
-__version__ = "0.3.3"
+__version__ = "0.4.0"
 __author__ = "Yusuf Eminoğlu"
 
 __all__ = ["spatial", "geostats", "suitability", "resilience", "engine"]

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-07-20
+### Changed
+- feat: harden engine validation and release quality
+- feat: add 3D Solar Envelope Analyst model
+
+---
+
 ## [0.3.3] - 2026-07-12
 ### Changed
 - feat: add Sky View Factor (SVF) and Local Climate Zone (LCZ) models
