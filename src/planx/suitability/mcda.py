@@ -638,4 +638,82 @@ def mcda_sensitivity_monte_carlo(
     }
 
 
+def marcos_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    directions: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Ranks alternatives using the MARCOS method.
+
+    MARCOS = Measurement of Alternatives and Ranking according to COmpromise Solution.
+
+    Args:
+        decision_matrix: 2D NumPy array of shape (M, N) for M alternatives and N criteria.
+        weights: 1D NumPy array of shape (N,) containing criteria weights.
+        directions: 1D array indicating benefit (1) or cost (-1) criteria.
+
+    Returns:
+        A tuple of:
+          - utility_scores: 1D NumPy array of shape (M,) containing final utility values f(K_i).
+          - rank_order: 1D NumPy array of shape (M,) containing alternative ranks (1 = best).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    m, n = X.shape
+
+    if len(w) != n:
+        raise ValueError("weights length must match number of columns in decision_matrix.")
+
+    if directions is None:
+        dirs = np.ones(n, dtype=np.float64)
+    else:
+        dirs = np.asarray(directions, dtype=np.float64)
+
+    # Ideal (AAI) and Anti-Ideal (AI) solutions
+    ai = np.where(dirs >= 0, np.min(X, axis=0), np.max(X, axis=0))
+    aai = np.where(dirs >= 0, np.max(X, axis=0), np.min(X, axis=0))
+
+    # Extended decision matrix X_ext of shape (M + 2, N)
+    X_ext = np.vstack([ai[None, :], X, aai[None, :]])
+
+    # Normalization
+    N_mat = np.zeros_like(X_ext)
+    for j in range(n):
+        if dirs[j] >= 0:
+            N_mat[:, j] = X_ext[:, j] / max(1e-9, aai[j])
+        else:
+            N_mat[:, j] = aai[j] / np.maximum(1e-9, X_ext[:, j])
+
+    # Weighted normalized matrix V
+    V = N_mat * w
+
+    # Utility degrees K_i^- and K_i^+
+    S = np.sum(V, axis=1)
+    S_ai = S[0]
+    S_aai = S[-1]
+
+    S_alt = S[1:-1]
+    K_minus = S_alt / max(1e-9, S_ai)
+    K_plus = S_alt / max(1e-9, S_aai)
+
+    # Utility functions f(K_i^-) and f(K_i^+)
+    f_k_minus = K_plus / np.maximum(1e-9, K_plus + K_minus)
+    f_k_plus = K_minus / np.maximum(1e-9, K_plus + K_minus)
+
+    # Overall utility score f(K_i)
+    denom_f_k = (
+        1.0
+        + (1.0 - f_k_plus) / np.maximum(1e-9, f_k_plus)
+        + (1.0 - f_k_minus) / np.maximum(1e-9, f_k_minus)
+    )
+    f_k = (K_plus + K_minus) / denom_f_k
+
+    ranks = np.argsort(-f_k)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, m + 1)
+
+    return f_k, rank_order
+
+
+
 
