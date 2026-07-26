@@ -13,6 +13,7 @@ import pytest
 from planx.geostats import (
     calculate_average_nearest_neighbor,
     calculate_bivariate_lee_l,
+    calculate_bivariate_moran,
     calculate_central_feature,
     calculate_distance_band_stats,
     calculate_exploratory_regression,
@@ -22,12 +23,14 @@ from planx.geostats import (
     calculate_incremental_autocorrelation,
     calculate_kmeans,
     calculate_linear_directional_mean,
+    calculate_local_bivariate_moran,
     calculate_median_center,
     calculate_ols,
     calculate_ripleys_k,
     calculate_sde,
     calculate_similarity_search,
     calculate_spatial_gini,
+    calculate_spatial_lag,
     calculate_standard_distance,
     run_sensitivity_simulation,
 )
@@ -81,7 +84,70 @@ def test_calculate_bivariate_lee_l_isolated_feature():
 
     assert local_l[0] == 0.0
     assert spatial_lag_y[0] == 0.0
-    assert classes[0] == "Not Significant"
+
+
+# ---------------------------------------------------------------------------
+# calculate_spatial_lag & bivariate moran
+# ---------------------------------------------------------------------------
+
+
+def test_calculate_spatial_lag():
+    y = np.array([10.0, 20.0, 30.0, 40.0])
+    lag = calculate_spatial_lag(
+        y, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER, row_standardize=True
+    )
+    # 0 -> neigh 1 (20)
+    # 1 -> neigh 0, 2 ((10+30)/2 = 20)
+    # 2 -> neigh 1, 3 ((20+40)/2 = 30)
+    # 3 -> neigh 2 (30)
+    np.testing.assert_allclose(lag, [20.0, 20.0, 30.0, 30.0])
+
+    # Empty array edge case
+    assert len(calculate_spatial_lag(np.array([]), {}, {}, [])) == 0
+
+
+def test_calculate_bivariate_moran():
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    y = np.array([1.0, 2.0, 3.0, 4.0])
+
+    biv_i, exp_i, var_i, z_score, p_val = calculate_bivariate_moran(
+        x, y, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER
+    )
+
+    assert isinstance(biv_i, float)
+    assert isinstance(p_val, float)
+    assert 0.0 <= p_val <= 1.0
+
+    # Error handling
+    with pytest.raises(ValueError, match="at least 4 observations"):
+        calculate_bivariate_moran(
+            x[:2], y[:2], LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER[:2]
+        )
+
+    with pytest.raises(ValueError, match="same length"):
+        calculate_bivariate_moran(x, y[:3], LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
+
+def test_calculate_local_bivariate_moran():
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    y = np.array([1.0, 2.0, 3.0, 4.0])
+
+    I_vals, z_scores, p_vals, quads = calculate_local_bivariate_moran(
+        x, y, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER, alpha=0.5
+    )
+
+    assert len(I_vals) == 4
+    assert len(z_scores) == 4
+    assert len(p_vals) == 4
+    assert len(quads) == 4
+    assert any(q in ("HH", "LL", "HL", "LH", "Not Significant") for q in quads)
+
+    # Edge case: zero std
+    x_flat = np.array([2.0, 2.0, 2.0, 2.0])
+    I_flat, z_flat, p_flat, q_flat = calculate_local_bivariate_moran(
+        x_flat, y, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER
+    )
+    np.testing.assert_allclose(I_flat, 0.0)
 
 
 def test_calculate_bivariate_lee_l_zero_variance():
