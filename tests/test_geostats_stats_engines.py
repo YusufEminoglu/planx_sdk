@@ -32,6 +32,8 @@ from planx.geostats import (
     calculate_spatial_gini,
     calculate_spatial_lag,
     calculate_standard_distance,
+    fit_spatial_error_model,
+    fit_spatial_lag_model,
     run_sensitivity_simulation,
 )
 
@@ -148,6 +150,48 @@ def test_calculate_local_bivariate_moran():
         x_flat, y, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER
     )
     np.testing.assert_allclose(I_flat, 0.0)
+
+
+def test_fit_spatial_lag_model():
+    y = np.array([10.0, 15.0, 20.0, 25.0])
+    X = np.array([[1.0, 2.0], [1.0, 3.0], [1.0, 4.0], [1.0, 5.0]])
+
+    res = fit_spatial_lag_model(y, X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
+    assert "rho" in res
+    assert "beta" in res
+    assert len(res["beta"]) == 2
+    assert len(res["fitted"]) == 4
+    assert len(res["residuals"]) == 4
+    assert isinstance(res["r2"], float)
+
+    # Validation errors
+    with pytest.raises(ValueError, match="Length of y must match"):
+        fit_spatial_lag_model(y[:2], X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
+    with pytest.raises(ValueError, match="greater than number of predictors"):
+        fit_spatial_lag_model(y[:2], X[:2], LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER[:2])
+
+
+def test_fit_spatial_error_model():
+    y = np.array([10.0, 15.0, 20.0, 25.0])
+    X = np.array([[1.0, 2.0], [1.0, 3.0], [1.0, 4.0], [1.0, 5.0]])
+
+    res = fit_spatial_error_model(y, X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
+    assert "lambda_param" in res
+    assert "beta" in res
+    assert len(res["beta"]) == 2
+    assert len(res["fitted"]) == 4
+    assert len(res["residuals"]) == 4
+    assert isinstance(res["r2"], float)
+
+    # Validation errors
+    with pytest.raises(ValueError, match="Length of y must match"):
+        fit_spatial_error_model(y[:2], X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
+    with pytest.raises(ValueError, match="greater than number of predictors"):
+        fit_spatial_error_model(y[:1], X[:1], LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER[:1])
 
 
 def test_calculate_bivariate_lee_l_zero_variance():

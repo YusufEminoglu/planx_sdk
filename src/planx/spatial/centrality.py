@@ -13,6 +13,7 @@ distance-matrix part.
 from __future__ import annotations
 
 import heapq
+import math
 
 import numpy as np
 
@@ -461,3 +462,115 @@ def pagerank_centrality(
             break
 
     return x
+
+
+def angular_segment_centrality(
+    segment_coords: list[tuple[tuple[float, float], tuple[float, float]]],
+    radius: float = 800.0,
+    radius_type: str = "angular",
+) -> dict[str, np.ndarray]:
+    """Calculates Space Syntax Angular Integration (NAIn) and Angular Choice (NACh) metrics.
+
+    Args:
+        segment_coords: List of line segment endpoints [((x1, y1), (x2, y2)), ...].
+        radius: Cutoff radius threshold float.
+        radius_type: "angular" (turn angle steps) or "metric" (Euclidean meter distance).
+
+    Returns:
+        Dict containing 1D NumPy arrays of segment metrics:
+          - angular_integration: Mean depth inverse integration.
+          - angular_choice: Betweenness choice count.
+          - nain: Normalised Angular Integration.
+          - nach: Normalised Angular Choice.
+    """
+    m = len(segment_coords)
+    if m == 0:
+        return {
+            "angular_integration": np.zeros(0, dtype=np.float64),
+            "angular_choice": np.zeros(0, dtype=np.float64),
+            "nain": np.zeros(0, dtype=np.float64),
+            "nach": np.zeros(0, dtype=np.float64),
+        }
+
+    vecs = []
+    midpoints = []
+    endpoint_map: dict[tuple[float, float], list[int]] = {}
+
+    for idx, ((x1, y1), (x2, y2)) in enumerate(segment_coords):
+        dx, dy = x2 - x1, y2 - y1
+        length = math.sqrt(dx**2 + dy**2)
+        if length > 0:
+            vecs.append((dx / length, dy / length))
+        else:
+            vecs.append((1.0, 0.0))
+
+        midpoints.append(((x1 + x2) / 2.0, (y1 + y2) / 2.0))
+
+        pt1 = (round(x1, 6), round(y1, 6))
+        pt2 = (round(x2, 6), round(y2, 6))
+        endpoint_map.setdefault(pt1, []).append(idx)
+        endpoint_map.setdefault(pt2, []).append(idx)
+
+    adj_matrix = np.full((m, m), float("inf"), dtype=np.float64)
+    np.fill_diagonal(adj_matrix, 0.0)
+
+    for seg_list in endpoint_map.values():
+        if len(seg_list) > 1:
+            for i in range(len(seg_list)):
+                for k in range(i + 1, len(seg_list)):
+                    u, v = seg_list[i], seg_list[k]
+                    dot = max(-1.0, min(1.0, vecs[u][0] * vecs[v][0] + vecs[u][1] * vecs[v][1]))
+                    angle_deg = math.degrees(math.acos(abs(dot)))
+                    weight = angle_deg / 90.0
+                    adj_matrix[u, v] = min(adj_matrix[u, v], weight)
+                    adj_matrix[v, u] = min(adj_matrix[v, u], weight)
+
+    from scipy.sparse.csgraph import dijkstra
+
+    dist_matrix = dijkstra(csgraph=adj_matrix, directed=False)
+
+    m_coords = np.array(midpoints)
+
+    integration = np.zeros(m, dtype=np.float64)
+    choice = np.zeros(m, dtype=np.float64)
+    nain = np.zeros(m, dtype=np.float64)
+    nach = np.zeros(m, dtype=np.float64)
+
+    for i in range(m):
+        if radius_type == "metric":
+            eucl_dists = np.sqrt(np.sum((m_coords - m_coords[i]) ** 2, axis=1))
+            valid = (eucl_dists <= radius) & np.isfinite(dist_matrix[i])
+        else:
+            valid = (dist_matrix[i] <= radius) & np.isfinite(dist_matrix[i])
+
+        nc = np.sum(valid)
+        td = np.sum(dist_matrix[i, valid])
+
+        if nc > 1:
+            mean_depth = td / (nc - 1)
+            integration[i] = 1.0 / max(1e-9, mean_depth)
+            nain[i] = (nc**1.2) / (td + 2.0)
+        else:
+            integration[i] = 0.0
+            nain[i] = 0.0
+
+    for s in range(m):
+        for t in range(s + 1, m):
+            d_st = dist_matrix[s, t]
+            if not np.isinf(d_st) and d_st > 0:
+                for v in range(m):
+                    if v != s and v != t:
+                        if np.isclose(dist_matrix[s, v] + dist_matrix[v, t], d_st):
+                            choice[v] += 1.0
+
+    for i in range(m):
+        td = np.sum(dist_matrix[i, np.isfinite(dist_matrix[i])])
+        nach[i] = math.log(choice[i] + 1.0) / math.log(td + 3.0)
+
+    return {
+        "angular_integration": integration,
+        "angular_choice": choice,
+        "nain": nain,
+        "nach": nach,
+    }
+

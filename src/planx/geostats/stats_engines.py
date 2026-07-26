@@ -2149,3 +2149,199 @@ def calculate_local_bivariate_moran(
 
     return I_values, z_scores, p_values, quadrants
 
+
+def fit_spatial_lag_model(
+    y: np.ndarray,
+    X: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
+    method: str = "2sls",
+) -> dict:
+    """Fits a Spatial Lag Model (SLM / SAR): y = rho * W * y + X * beta + e.
+
+    Args:
+        y: 1D array of dependent variable values of shape (N,).
+        X: 2D array of independent variables of shape (N, K).
+        neighbors: Dict mapping feature ID to list of neighbor feature IDs.
+        weights: Dict mapping feature ID to list of numeric weights.
+        id_order: List of feature IDs.
+        method: Estimation method ("2sls" for Two-Stage Least Squares).
+
+    Returns:
+        Dict containing model parameters:
+          - rho: Estimated spatial autoregressive coefficient float.
+          - beta: Estimated covariate coefficient array of shape (K,).
+          - std_errors: Standard errors for [rho, beta] of shape (K + 1,).
+          - z_statistics: Z-statistics for [rho, beta].
+          - p_values: P-values for [rho, beta].
+          - r2: Pseudo R-squared score.
+          - log_likelihood: Model log-likelihood float.
+          - aic: Akaike Information Criterion float.
+          - fitted: Fitted values array of shape (N,).
+          - residuals: Residual values array of shape (N,).
+    """
+    y_arr = np.asarray(y, dtype=np.float64)
+    X_arr = np.asarray(X, dtype=np.float64)
+    if X_arr.ndim == 1:
+        X_arr = X_arr.reshape(-1, 1)
+
+    n, k = X_arr.shape
+    if len(y_arr) != n:
+        raise ValueError("Length of y must match number of rows in X.")
+    if n <= k + 1:
+        raise ValueError("Number of observations must be greater than number of predictors + 1.")
+
+    wy = calculate_spatial_lag(y_arr, neighbors, weights, id_order, row_standardize=True)
+
+    WX = np.zeros_like(X_arr)
+    for col in range(k):
+        WX[:, col] = calculate_spatial_lag(
+            X_arr[:, col], neighbors, weights, id_order, row_standardize=True
+        )
+
+    Z = np.hstack([X_arr, WX])
+    X_lag = np.hstack([wy.reshape(-1, 1), X_arr])
+
+    ztz_pinv = np.linalg.pinv(Z.T @ Z)
+    P_z = Z @ ztz_pinv @ Z.T
+    X_lag_hat = P_z @ X_lag
+
+    params = np.linalg.pinv(X_lag_hat.T @ X_lag_hat) @ (X_lag_hat.T @ y_arr)
+
+    rho = float(params[0])
+    beta = params[1:]
+
+    fitted = rho * wy + X_arr @ beta
+    residuals = y_arr - fitted
+    sse = float(np.sum(residuals**2))
+    df_e = max(1, n - k - 1)
+    s2 = sse / df_e
+
+    cov_matrix = s2 * np.linalg.pinv(X_lag.T @ P_z @ X_lag)
+    std_errors = np.sqrt(np.maximum(0.0, np.diagonal(cov_matrix)))
+    z_stats = np.divide(params, std_errors, out=np.zeros_like(params), where=std_errors > 0)
+    p_vals = 2.0 * (
+        1.0 - 0.5 * (1.0 + np.vectorize(math.erf)(np.abs(z_stats) / math.sqrt(2.0)))
+    )
+
+    sst = float(np.sum((y_arr - np.mean(y_arr)) ** 2))
+    r2 = float(1.0 - (sse / sst)) if sst > 0 else 0.0
+
+    sigma2_ml = sse / n
+    log_likelihood = float(
+        -0.5 * n * (math.log(2.0 * math.pi) + math.log(max(1e-9, sigma2_ml)) + 1.0)
+    )
+    aic = float(-2.0 * log_likelihood + 2.0 * (k + 2))
+
+    return {
+        "rho": rho,
+        "beta": beta,
+        "std_errors": std_errors,
+        "z_statistics": z_stats,
+        "p_values": p_vals,
+        "r2": r2,
+        "log_likelihood": log_likelihood,
+        "aic": aic,
+        "fitted": fitted,
+        "residuals": residuals,
+    }
+
+
+def fit_spatial_error_model(
+    y: np.ndarray,
+    X: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
+) -> dict:
+    """Fits a Spatial Error Model (SEM): y = X * beta + u, u = lambda * W * u + e.
+
+    Args:
+        y: 1D array of dependent variable values of shape (N,).
+        X: 2D array of independent variables of shape (N, K).
+        neighbors: Dict mapping feature ID to list of neighbor feature IDs.
+        weights: Dict mapping feature ID to list of numeric weights.
+        id_order: List of feature IDs.
+
+    Returns:
+        Dict containing model parameters:
+          - lambda_param: Estimated spatial error coefficient float.
+          - beta: Estimated covariate coefficient array of shape (K,).
+          - std_errors: Standard errors for beta of shape (K,).
+          - z_statistics: Z-statistics for beta.
+          - p_values: P-values for beta.
+          - r2: Pseudo R-squared score.
+          - log_likelihood: Model log-likelihood float.
+          - aic: Akaike Information Criterion float.
+          - fitted: Fitted values array of shape (N,).
+          - residuals: Residual values array of shape (N,).
+    """
+    y_arr = np.asarray(y, dtype=np.float64)
+    X_arr = np.asarray(X, dtype=np.float64)
+    if X_arr.ndim == 1:
+        X_arr = X_arr.reshape(-1, 1)
+
+    n, k = X_arr.shape
+    if len(y_arr) != n:
+        raise ValueError("Length of y must match number of rows in X.")
+    if n <= k:
+        raise ValueError("Number of observations must be greater than number of predictors.")
+
+    beta_ols = np.linalg.pinv(X_arr.T @ X_arr) @ (X_arr.T @ y_arr)
+    e_ols = y_arr - X_arr @ beta_ols
+
+    we_ols = calculate_spatial_lag(e_ols, neighbors, weights, id_order, row_standardize=True)
+    we_sq = float(np.sum(we_ols**2))
+    lambda_param = float(np.sum(e_ols * we_ols) / we_sq) if we_sq > 0 else 0.0
+    lambda_param = max(-0.99, min(0.99, lambda_param))
+
+    wy = calculate_spatial_lag(y_arr, neighbors, weights, id_order, row_standardize=True)
+    y_trans = y_arr - lambda_param * wy
+
+    X_trans = np.zeros_like(X_arr)
+    for col in range(k):
+        wx_col = calculate_spatial_lag(
+            X_arr[:, col], neighbors, weights, id_order, row_standardize=True
+        )
+        X_trans[:, col] = X_arr[:, col] - lambda_param * wx_col
+
+    cov_x_trans = np.linalg.pinv(X_trans.T @ X_trans)
+    beta = cov_x_trans @ (X_trans.T @ y_trans)
+
+    fitted = X_arr @ beta
+    residuals = y_arr - fitted
+    sse = float(np.sum(residuals**2))
+    df_e = max(1, n - k)
+    s2 = sse / df_e
+
+    cov_matrix = s2 * cov_x_trans
+    std_errors = np.sqrt(np.maximum(0.0, np.diagonal(cov_matrix)))
+    z_stats = np.divide(beta, std_errors, out=np.zeros_like(beta), where=std_errors > 0)
+    p_vals = 2.0 * (
+        1.0 - 0.5 * (1.0 + np.vectorize(math.erf)(np.abs(z_stats) / math.sqrt(2.0)))
+    )
+
+    sst = float(np.sum((y_arr - np.mean(y_arr)) ** 2))
+    r2 = float(1.0 - (sse / sst)) if sst > 0 else 0.0
+
+    sigma2_ml = sse / n
+    log_likelihood = float(
+        -0.5 * n * (math.log(2.0 * math.pi) + math.log(max(1e-9, sigma2_ml)) + 1.0)
+    )
+    aic = float(-2.0 * log_likelihood + 2.0 * (k + 1))
+
+    return {
+        "lambda_param": lambda_param,
+        "beta": beta,
+        "std_errors": std_errors,
+        "z_statistics": z_stats,
+        "p_values": p_vals,
+        "r2": r2,
+        "log_likelihood": log_likelihood,
+        "aic": aic,
+        "fitted": fitted,
+        "residuals": residuals,
+    }
+
+

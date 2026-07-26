@@ -6,6 +6,7 @@ import pytest
 
 from planx.spatial import (
     active_mobility_permeability,
+    angular_segment_centrality,
     brandes_betweenness,
     calculate_15m_city_score,
     calculate_average_route_circuity,
@@ -1513,3 +1514,25 @@ def test_profile_intersection_density_closeness():
     # 3. Radius validation check
     with pytest.raises(ValueError, match="radius must be greater"):
         profile_intersection_density_closeness(indptr, adj, weights, radius=0.0)
+
+
+def test_angular_segment_centrality():
+    segments = [
+        ((0.0, 0.0), (10.0, 0.0)),
+        ((10.0, 0.0), (20.0, 0.0)),
+        ((10.0, 0.0), (10.0, 10.0)),
+    ]
+
+    res = angular_segment_centrality(segments, radius=10.0, radius_type="angular")
+
+    assert len(res["angular_integration"]) == 3
+    assert len(res["angular_choice"]) == 3
+    assert len(res["nain"]) == 3
+    assert len(res["nach"]) == 3
+
+    res_metric = angular_segment_centrality(segments, radius=500.0, radius_type="metric")
+    assert len(res_metric["nain"]) == 3
+
+    res_empty = angular_segment_centrality([])
+    assert len(res_empty["nain"]) == 0
+
