@@ -562,3 +562,80 @@ def electre_iii_method(
     return S, rank_order
 
 
+def mcda_sensitivity_monte_carlo(
+    decision_matrix: np.ndarray,
+    base_weights: np.ndarray,
+    directions: Optional[np.ndarray] = None,
+    noise_level: float = 0.1,
+    n_simulations: int = 1000,
+    seed: int = 42,
+) -> dict:
+    """Performs Monte Carlo criteria weight sensitivity analysis on MCDA suitability rankings.
+
+    Args:
+        decision_matrix: (M, N) NumPy array of alternatives and criteria.
+        base_weights: (N,) NumPy array of baseline criterion weights.
+        directions: (N,) optional array indicating benefit (1) or cost (-1) criteria.
+        noise_level: Standard deviation of Gaussian noise added to weights float.
+        n_simulations: Number of Monte Carlo simulation iterations.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        Dict containing sensitivity statistics:
+          - mean_ranks: (M,) average rank of each alternative across simulations.
+          - std_ranks: (M,) standard deviation of ranks for each alternative.
+          - rank_first_probability: (M,) empirical probability of finishing 1st.
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w_base = np.asarray(base_weights, dtype=np.float64)
+    m, n = X.shape
+
+    if len(w_base) != n:
+        raise ValueError("base_weights length must match number of columns in decision_matrix.")
+
+    if directions is None:
+        dirs = np.ones(n, dtype=np.float64)
+    else:
+        dirs = np.asarray(directions, dtype=np.float64)
+
+    # Normalize decision matrix
+    X_norm = np.zeros_like(X)
+    mins, maxs = np.min(X, axis=0), np.max(X, axis=0)
+    denom = np.where(maxs - mins <= 1e-12, 1.0, maxs - mins)
+
+    for j in range(n):
+        if dirs[j] >= 0:
+            X_norm[:, j] = (X[:, j] - mins[j]) / denom[j]
+        else:
+            X_norm[:, j] = (maxs[j] - X[:, j]) / denom[j]
+
+    rank_records = np.zeros((n_simulations, m), dtype=np.float64)
+    np.random.seed(seed)
+
+    for sim in range(n_simulations):
+        noise = np.random.normal(0.0, noise_level, size=n)
+        w_sim = np.maximum(0.0, w_base + noise)
+        w_sum = np.sum(w_sim)
+        if w_sum > 0:
+            w_sim = w_sim / w_sum
+        else:
+            w_sim = np.ones(n, dtype=np.float64) / n
+
+        scores = X_norm @ w_sim
+        ranks = np.argsort(-scores)
+        sim_ranks = np.empty_like(ranks, dtype=np.float64)
+        sim_ranks[ranks] = np.arange(1, m + 1, dtype=np.float64)
+        rank_records[sim] = sim_ranks
+
+    mean_r = np.mean(rank_records, axis=0)
+    std_r = np.std(rank_records, axis=0)
+    p_first = np.mean(rank_records == 1.0, axis=0)
+
+    return {
+        "mean_ranks": mean_r,
+        "std_ranks": std_r,
+        "rank_first_probability": p_first,
+    }
+
+
+

@@ -13,9 +13,11 @@ from planx.suitability import (
     electre_i_method,
     electre_iii_method,
     entropy_weights,
+    fuzzy_ahp_weights,
     greedy_lscp,
     greedy_mclp,
     greedy_p_median,
+    mcda_sensitivity_monte_carlo,
     mclp_distance_decay,
     normalize_array,
     pareto_facility_location,
@@ -416,6 +418,35 @@ def test_pareto_facility_location():
     assert len(pareto_list) > 0
     assert "total_coverage" in pareto_list[0]
     assert "avg_distance" in pareto_list[0]
+
+
+def test_fuzzy_ahp_weights():
+    mat = np.array([
+        [[1.0, 1.0, 1.0], [2.0, 3.0, 4.0]],
+        [[1 / 4.0, 1 / 3.0, 1 / 2.0], [1.0, 1.0, 1.0]],
+    ])
+
+    w, ci = fuzzy_ahp_weights(mat)
+
+    assert len(w) == 2
+    assert np.isclose(np.sum(w), 1.0)
+    assert w[0] > w[1]
+
+    with pytest.raises(ValueError, match="shape"):
+        fuzzy_ahp_weights(np.zeros((2, 2)))
+
+
+def test_mcda_sensitivity_monte_carlo():
+    X = np.array([[10.0, 2.0], [5.0, 8.0], [1.0, 10.0]])
+    w_base = np.array([0.6, 0.4])
+
+    res = mcda_sensitivity_monte_carlo(X, w_base, noise_level=0.05, n_simulations=100)
+
+    assert "mean_ranks" in res
+    assert "std_ranks" in res
+    assert len(res["mean_ranks"]) == 3
+    assert np.isclose(np.sum(res["rank_first_probability"]), 1.0)
+
 
 
 

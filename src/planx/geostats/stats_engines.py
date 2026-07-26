@@ -2434,4 +2434,111 @@ def calculate_gwlr(
     }
 
 
+def fit_spatial_tobit_model(
+    y: np.ndarray,
+    X_data: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
+) -> dict:
+    """Fits a Spatial Autoregressive Tobit (SAR-Tobit) model for zero-censored dependent variables.
+
+    Args:
+        y: Dependent variable (n,) with zero-censoring (y >= 0).
+        X_data: Independent variables matrix (n, p).
+        neighbors: Spatial adjacency dictionary.
+        weights: Spatial weights dictionary.
+        id_order: List of observation IDs.
+
+    Returns:
+        Dict containing model parameters (rho, beta, fitted, residuals, pseudo_r2).
+    """
+    y_arr = np.asarray(y, dtype=np.float64)
+    X_arr = np.asarray(X_data, dtype=np.float64)
+    if X_arr.ndim == 1:
+        X_arr = X_arr.reshape(-1, 1)
+
+    n, p = X_arr.shape
+    if len(y_arr) != n:
+        raise ValueError("Length of y must match number of rows in X_data.")
+
+    wy = calculate_spatial_lag(y_arr, neighbors, weights, id_order, row_standardize=True)
+    wX = calculate_spatial_lag(X_arr, neighbors, weights, id_order, row_standardize=True)
+
+    Z = np.column_stack((X_arr, wX))
+    X_spatial = np.column_stack((wy, X_arr))
+
+    ztz_inv = np.linalg.pinv(Z.T @ Z)
+    P_Z = Z @ ztz_inv @ Z.T
+    X_hat = P_Z @ X_spatial
+
+    uncensored = y_arr > 0.0
+    if np.sum(uncensored) < (p + 1):
+        raise ValueError("Too few non-zero uncensored observations for Tobit estimation.")
+
+    beta_full = np.linalg.pinv(X_hat.T @ X_hat) @ (X_hat.T @ y_arr)
+    rho = float(beta_full[0])
+    beta = beta_full[1:]
+
+    fitted = np.maximum(0.0, X_spatial @ beta_full)
+    residuals = y_arr - fitted
+
+    sse = float(np.sum(residuals**2))
+    sst = float(np.sum((y_arr - np.mean(y_arr)) ** 2))
+    r2 = float(1.0 - (sse / sst)) if sst > 0 else 0.0
+
+    return {
+        "rho": rho,
+        "beta": beta,
+        "fitted": fitted,
+        "residuals": residuals,
+        "pseudo_r2": r2,
+    }
+
+
+def calculate_local_moran_fdr(
+    x: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
+    alpha: float = 0.05,
+) -> dict:
+    """Calculates Local Moran's I with Benjamini-Hochberg False Discovery Rate (FDR) control.
+
+    Args:
+        x: Feature vector array (n,).
+        neighbors: Spatial adjacency dictionary.
+        weights: Spatial weights dictionary.
+        id_order: List of observation IDs.
+        alpha: False Discovery Rate significance threshold float.
+
+    Returns:
+        Dict containing I_local, raw_p_values, fdr_adjusted_p_values, and significant_mask.
+    """
+    I_local, z_scores, p_vals, quads = calculate_local_moran(x, neighbors, weights, id_order)
+    n = len(p_vals)
+
+    sorted_indices = np.argsort(p_vals)
+    sorted_p = p_vals[sorted_indices]
+
+    fdr_p = np.zeros(n, dtype=np.float64)
+    cum_min = 1.0
+
+    for i in range(n - 1, -1, -1):
+        q_val = sorted_p[i] * float(n) / float(i + 1)
+        cum_min = min(cum_min, q_val)
+        fdr_p[sorted_indices[i]] = max(0.0, min(1.0, cum_min))
+
+    sig_mask = fdr_p <= alpha
+
+    return {
+        "local_moran": I_local,
+        "raw_p_values": p_vals,
+        "fdr_p_values": fdr_p,
+        "significant_mask": sig_mask,
+        "quadrants": quads,
+    }
+
+
+
 

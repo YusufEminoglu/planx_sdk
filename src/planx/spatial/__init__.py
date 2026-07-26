@@ -18,6 +18,7 @@ from .accessibility import (
 )
 from .centrality import (
     angular_segment_centrality,
+    axial_to_segment_conversion,
     brandes_betweenness,
     closeness_straightness,
     eigenvector,
@@ -49,6 +50,7 @@ __all__ = [
     "eigenvector",
     "brandes_betweenness",
     "angular_segment_centrality",
+    "axial_to_segment_conversion",
     "network_criticality",
     "gravity_accessibility",
     "cumulative_opportunities",

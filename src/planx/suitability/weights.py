@@ -384,3 +384,65 @@ def bwm_weights(
     weights = raw_weights / np.sum(raw_weights)
     return weights, 1.0
 
+
+def fuzzy_ahp_weights(fuzzy_matrix: np.ndarray) -> tuple[np.ndarray, float]:
+    """Calculates MCDA criterion weights using Fuzzy AHP (Chang's extent analysis method).
+
+    Args:
+        fuzzy_matrix: 3D NumPy array of shape (N, N, 3) where fuzzy_matrix[i, j] = (l, m, u)
+                      representing triangular fuzzy preference of criterion i over criterion j.
+
+    Returns:
+        A tuple of:
+          - weights: 1D NumPy array of shape (N,) containing normalized crisp criteria weights.
+          - consistency_index: Consistency index float (0 = consistent).
+    """
+    mat = np.asarray(fuzzy_matrix, dtype=np.float64)
+    if mat.ndim != 3 or mat.shape[2] != 3 or mat.shape[0] != mat.shape[1]:
+        raise ValueError("fuzzy_matrix must be of shape (N, N, 3).")
+
+    n = mat.shape[0]
+    if n == 0:
+        return np.zeros(0, dtype=np.float64), 0.0
+
+    # Calculate fuzzy synthetic extent for each criterion i:
+    # S_i = sum_j(M_ij) (+) [sum_i sum_j M_ij]^-1
+    row_sums = np.sum(mat, axis=1)  # (N, 3) -> (l_i, m_i, u_i)
+    total_sum = np.sum(row_sums, axis=0)  # (3,) -> (l_tot, m_tot, u_tot)
+
+    inv_total = np.array([1.0 / total_sum[2], 1.0 / total_sum[1], 1.0 / total_sum[0]])
+
+    synthetic_extents = row_sums * inv_total  # (N, 3) -> (l_S, m_S, u_S)
+
+    # Degree of possibility V(M2 >= M1)
+    def possibility(m2: np.ndarray, m1: np.ndarray) -> float:
+        l1, m1_val, u1 = m1
+        l2, m2_val, u2 = m2
+        if m2_val >= m1_val:
+            return 1.0
+        elif l1 >= u2:
+            return 0.0
+        else:
+            return float((l1 - u2) / ((m2_val - u2) - (m1_val - l1)))
+
+    d_min = np.zeros(n, dtype=np.float64)
+    for i in range(n):
+        possibilities = []
+        for k in range(n):
+            if i != k:
+                possibilities.append(possibility(synthetic_extents[i], synthetic_extents[k]))
+        d_min[i] = min(possibilities) if possibilities else 1.0
+
+    d_sum = np.sum(d_min)
+    if d_sum > 0:
+        weights = d_min / d_sum
+    else:
+        weights = np.ones(n, dtype=np.float64) / n
+
+    # Consistency indicator from middle crisp matrix
+    crisp_m = mat[:, :, 1]
+    _, ci = ahp_weights(crisp_m)
+
+    return weights, ci
+
+
