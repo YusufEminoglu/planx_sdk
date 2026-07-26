@@ -38,6 +38,7 @@ from .walkability import (
     profile_intersection_density_closeness,
     reach_centrality_una,
     simulate_thermal_comfort_pet,
+    street_network_morphometry,
     thermal_comfort_routing,
 )
 
@@ -72,4 +73,5 @@ __all__ = [
     "street_orientation_entropy",
     "calculate_average_route_circuity",
     "profile_intersection_density_closeness",
+    "street_network_morphometry",
 ]

@@ -997,3 +997,64 @@ def profile_intersection_density_closeness(
         scores = (scores / max_score) * 100.0
 
     return density, avg_dist, scores
+
+
+def street_network_morphometry(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    node_xy: np.ndarray,
+) -> dict:
+    """Calculates street network morphometric parameters and urban grain indicators.
+
+    Args:
+        indptr: CSR graph index pointer array (n + 1,).
+        adj: CSR graph adjacency column indices array.
+        weights: CSR edge weight/length array.
+        node_xy: 2D NumPy array of node coordinates (n, 2).
+
+    Returns:
+        Dict containing morphometric indicators:
+          - node_degrees: 1D NumPy array of nodal degrees (n,).
+          - avg_link_length: Mean street segment length float.
+          - meshedness_coefficient: Planar network meshedness alpha float [0, 1].
+          - connectivity_index: Ratio of 3+-way intersections to total nodes float.
+          - total_network_length: Sum of edge lengths float.
+    """
+    indptr_arr = np.asarray(indptr, dtype=np.int64)
+    adj_arr = np.asarray(adj, dtype=np.int64)
+    w_arr = np.asarray(weights, dtype=np.float64)
+    n = len(indptr_arr) - 1
+
+    if n <= 0:
+        return {
+            "node_degrees": np.zeros(0, dtype=np.int64),
+            "avg_link_length": 0.0,
+            "meshedness_coefficient": 0.0,
+            "connectivity_index": 0.0,
+            "total_network_length": 0.0,
+        }
+
+    degrees = np.diff(indptr_arr)
+    num_edges = len(adj_arr) // 2
+
+    tot_len = float(np.sum(w_arr) / 2.0)
+    avg_len = float(tot_len / max(1, num_edges))
+
+    if n > 2:
+        max_faces = 2 * n - 5
+        meshedness = max(0.0, min(1.0, (num_edges - n + 1) / max(1, max_faces)))
+    else:
+        meshedness = 0.0
+
+    intersections = int(np.sum(degrees >= 3))
+    conn_idx = float(intersections / n)
+
+    return {
+        "node_degrees": degrees,
+        "avg_link_length": avg_len,
+        "meshedness_coefficient": float(meshedness),
+        "connectivity_index": conn_idx,
+        "total_network_length": tot_len,
+    }
+

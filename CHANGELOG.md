@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2026-07-27
+### Added
+- **Geographically Weighted Logistic Regression (GWLR)** (`calculate_gwlr`) in `planx.geostats` for spatially varying binary outcome models using Iteratively Reweighted Least Squares (IRLS).
+- **Best-Worst Method (BWM)** (`bwm_weights`) in `planx.suitability.weights` for min-max linear programming MCDA criterion weight optimization.
+- **Pareto Multi-Objective Facility Location** (`pareto_facility_location`) in `planx.suitability.facility` evaluating trade-offs between population coverage, travel distance, and Gini equity.
+- **Interdependent Infrastructure Cascading Failure Simulation** (`simulate_interdependent_infrastructure_cascade`) in `planx.resilience.infrastructure` for coupled power-water failure propagation.
+- **Street Network Morphometry & Grain Profiler** (`street_network_morphometry`) in `planx.spatial.walkability` computing nodal degree distribution, link lengths, planar meshedness $\alpha$, and connectivity.
+
+---
+
 ## [0.5.0] - 2026-07-27
 ### Added
 - **Spatial Econometrics Engine** (`fit_spatial_lag_model`, `fit_spatial_error_model`) in `planx.geostats` for 2SLS Spatial Autoregressive (SLM/SAR) and Generalized Cochrane-Orcutt Spatial Error (SEM) regression modeling.

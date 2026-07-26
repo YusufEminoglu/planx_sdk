@@ -6,6 +6,7 @@ import pytest
 
 from planx.suitability import (
     ahp_weights,
+    bwm_weights,
     capacitated_location_allocation,
     critic_weights,
     decision_matrix_from_layers,
@@ -17,6 +18,7 @@ from planx.suitability import (
     greedy_p_median,
     mclp_distance_decay,
     normalize_array,
+    pareto_facility_location,
     pca_weights,
     promethee_ii_method,
     topsis_method,
@@ -386,6 +388,35 @@ def test_mclp_distance_decay():
         mclp_distance_decay(
             candidates, demands, pop, max_distance=15.0, k=2, decay_method="invalid"
         )
+
+
+def test_bwm_weights():
+    best_to_others = np.array([1.0, 3.0, 9.0])
+    others_to_worst = np.array([9.0, 3.0, 1.0])
+
+    w, xi = bwm_weights(best_to_others, others_to_worst)
+
+    assert len(w) == 3
+    assert np.isclose(np.sum(w), 1.0)
+    assert w[0] > w[1] > w[2]
+    assert xi >= 0.0
+
+    with pytest.raises(ValueError, match="equal length"):
+        bwm_weights(best_to_others, others_to_worst[:-1])
+
+
+def test_pareto_facility_location():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+    pop = np.array([100.0, 200.0, 500.0])
+
+    pareto_list = pareto_facility_location(candidates, demands, pop, k=2)
+
+    assert isinstance(pareto_list, list)
+    assert len(pareto_list) > 0
+    assert "total_coverage" in pareto_list[0]
+    assert "avg_distance" in pareto_list[0]
+
 
 
 

@@ -19,6 +19,7 @@ from planx.geostats import (
     calculate_exploratory_regression,
     calculate_general_g,
     calculate_glr,
+    calculate_gwlr,
     calculate_gwr,
     calculate_incremental_autocorrelation,
     calculate_kmeans,
@@ -192,6 +193,27 @@ def test_fit_spatial_error_model():
 
     with pytest.raises(ValueError, match="greater than number of predictors"):
         fit_spatial_error_model(y[:1], X[:1], LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER[:1])
+
+
+def test_calculate_gwlr():
+    y = np.array([0.0, 0.0, 1.0, 1.0])
+    X = np.array([[1.0], [2.0], [3.0], [4.0]])
+    coords = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]])
+
+    res = calculate_gwlr(y, X, coords, bandwidth=2.0, kernel_type="fixed_gaussian")
+
+    assert "coefficients" in res
+    assert "std_errors" in res
+    assert "probabilities" in res
+    assert len(res["probabilities"]) == 4
+    assert np.all(res["probabilities"] >= 0.0) & np.all(res["probabilities"] <= 1.0)
+
+    with pytest.raises(ValueError, match="Length of y must match"):
+        calculate_gwlr(y[:2], X, coords, bandwidth=2.0)
+
+    with pytest.raises(ValueError, match="binary dependent variable"):
+        calculate_gwlr(np.array([0.0, 1.0, 2.0, 3.0]), X, coords, bandwidth=2.0)
+
 
 
 def test_calculate_bivariate_lee_l_zero_variance():

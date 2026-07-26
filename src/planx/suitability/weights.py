@@ -299,3 +299,88 @@ def pca_weights(decision_matrix: np.ndarray) -> np.ndarray:
         return np.ones(n_crit, dtype=np.float64) / n_crit
 
     return scores / scores_sum
+
+
+def bwm_weights(
+    best_to_others: np.ndarray,
+    others_to_worst: np.ndarray,
+) -> tuple[np.ndarray, float]:
+    """Calculates MCDA criterion weights using the Best-Worst Method (BWM).
+
+    Args:
+        best_to_others: 1D array A_B of preference scores of Best criterion over others (1..9).
+        others_to_worst: 1D array A_W of preference scores of others over Worst criterion (1..9).
+
+    Returns:
+        A tuple of:
+          - weights: 1D NumPy array of shape (N,) containing normalized criteria weights.
+          - consistency_index: Float indicating consistency score xi (0 = perfectly consistent).
+    """
+    a_B = np.asarray(best_to_others, dtype=np.float64)
+    a_W = np.asarray(others_to_worst, dtype=np.float64)
+    n = len(a_B)
+
+    if len(a_W) != n:
+        raise ValueError("best_to_others and others_to_worst must have equal length.")
+    if np.any(a_B < 1.0) or np.any(a_W < 1.0):
+        raise ValueError("Preference scores in BWM must be greater than or equal to 1.0.")
+
+    from scipy.optimize import linprog
+
+    c = np.zeros(n + 1)
+    c[-1] = 1.0
+
+    A_ub = []
+    b_ub = []
+
+    best_idx = int(np.argmin(a_B))
+    worst_idx = int(np.argmin(a_W))
+
+    for j in range(n):
+        row1 = np.zeros(n + 1)
+        row1[best_idx] = 1.0
+        row1[j] = -a_B[j]
+        row1[-1] = -1.0
+        A_ub.append(row1)
+        b_ub.append(0.0)
+
+        row2 = np.zeros(n + 1)
+        row2[best_idx] = -1.0
+        row2[j] = a_B[j]
+        row2[-1] = -1.0
+        A_ub.append(row2)
+        b_ub.append(0.0)
+
+        row3 = np.zeros(n + 1)
+        row3[j] = 1.0
+        row3[worst_idx] = -a_W[j]
+        row3[-1] = -1.0
+        A_ub.append(row3)
+        b_ub.append(0.0)
+
+        row4 = np.zeros(n + 1)
+        row4[j] = -1.0
+        row4[worst_idx] = a_W[j]
+        row4[-1] = -1.0
+        A_ub.append(row4)
+        b_ub.append(0.0)
+
+    A_eq = [np.append(np.ones(n), 0.0)]
+    b_eq = [1.0]
+
+    bounds = [(0.0, 1.0) for _ in range(n)] + [(0.0, None)]
+
+    res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method="highs")
+
+    if res.success:
+        weights = res.x[:n]
+        weights = np.maximum(0.0, weights)
+        w_sum = np.sum(weights)
+        if w_sum > 0:
+            weights = weights / w_sum
+        return weights, float(res.x[-1])
+
+    raw_weights = 1.0 / (a_B + 1e-9)
+    weights = raw_weights / np.sum(raw_weights)
+    return weights, 1.0
+

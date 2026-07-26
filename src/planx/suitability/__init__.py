@@ -12,6 +12,7 @@ from .facility import (
     greedy_mclp,
     greedy_p_median,
     mclp_distance_decay,
+    pareto_facility_location,
 )
 from .mcda import (
     electre_i_method,
@@ -24,6 +25,7 @@ from .mcda import (
 )
 from .weights import (
     ahp_weights,
+    bwm_weights,
     critic_weights,
     decision_matrix_from_layers,
     entropy_weights,
@@ -40,10 +42,12 @@ __all__ = [
     "electre_iii_method",
     "greedy_mclp",
     "mclp_distance_decay",
+    "pareto_facility_location",
     "greedy_p_median",
     "greedy_lscp",
     "capacitated_location_allocation",
     "ahp_weights",
+    "bwm_weights",
     "decision_matrix_from_layers",
     "entropy_weights",
     "critic_weights",

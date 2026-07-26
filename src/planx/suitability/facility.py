@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 
@@ -493,4 +493,107 @@ def mclp_distance_decay(
         cum_cov.append(float(np.sum(current_best_coverage * weights)))
 
     return selected, np.array(added_cov, dtype=np.float64), np.array(cum_cov, dtype=np.float64)
+
+
+def pareto_facility_location(
+    candidate_coords: np.ndarray,
+    demand_coords: np.ndarray,
+    demand_weights: np.ndarray,
+    k: int,
+    num_samples: int = 20,
+) -> list[dict]:
+    """Computes Pareto-optimal facility location configurations for coverage and travel equity.
+
+    Evaluates trade-offs between Total Covered Demand (max) and Average Travel Distance (min).
+
+    Args:
+        candidate_coords: (C, 2) NumPy array of candidate facility coordinates.
+        demand_coords: (D, 2) NumPy array of demand coordinates.
+        demand_weights: (D,) NumPy array of population/demand weights.
+        k: Number of facilities to select int.
+        num_samples: Number of random multi-objective sampling configurations.
+
+    Returns:
+        List of dicts representing Pareto-optimal facility configurations:
+          - selected_indices: List of candidate facility indices.
+          - total_coverage: Total demand population covered.
+          - avg_distance: Average demand travel distance.
+          - gini_inequality: Gini coefficient of travel distances across demand points.
+    """
+    candidates = np.asarray(candidate_coords, dtype=np.float64)
+    demands = np.asarray(demand_coords, dtype=np.float64)
+    weights = np.asarray(demand_weights, dtype=np.float64)
+
+    c_count = len(candidates)
+    d_count = len(demands)
+    if c_count == 0 or d_count == 0 or k <= 0:
+        return []
+
+    k_sel = min(k, c_count)
+
+    diffs = demands[:, None, :] - candidates[None, :, :]
+    dists = np.sqrt(np.sum(diffs**2, axis=2))  # (D, C)
+
+    configs = []
+    # Include greedy MCLP baseline configuration
+    greedy_mclp_sel, _, _ = greedy_mclp(
+        candidates, demands, weights, max_distance=float(np.max(dists)), k=k_sel
+    )
+    if greedy_mclp_sel:
+        configs.append(tuple(sorted(greedy_mclp_sel)))
+
+    # Sample random subset configurations
+    import itertools
+
+    if c_count <= 10:
+        for combo in itertools.combinations(range(c_count), k_sel):
+            configs.append(combo)
+    else:
+        np.random.seed(42)
+        for _ in range(num_samples):
+            combo = tuple(sorted(np.random.choice(c_count, size=k_sel, replace=False)))
+            configs.append(combo)
+
+    unique_configs = list(set(configs))
+    evaluations = []
+
+    for cfg in unique_configs:
+        cfg_dists = dists[:, list(cfg)]
+        min_dists = np.min(cfg_dists, axis=1)
+
+        tot_cov = float(np.sum(weights[min_dists < np.inf]))
+        avg_d = float(np.sum(min_dists * weights) / max(1e-9, np.sum(weights)))
+
+        # Gini calculation
+        sorted_d = np.sort(min_dists)
+        cum_w = np.cumsum(weights[np.argsort(min_dists)])
+        cum_w_norm = cum_w / cum_w[-1]
+        sum_sd = max(1e-9, float(np.sum(sorted_d)))
+        gini = float(1.0 - 2.0 * float(np.sum(sorted_d * (1.0 - cum_w_norm))) / sum_sd)
+
+        evaluations.append({
+            "selected_indices": list(cfg),
+            "total_coverage": tot_cov,
+            "avg_distance": avg_d,
+            "gini_inequality": max(0.0, min(1.0, gini)),
+        })
+
+    # Filter non-dominated Pareto front (Maximize coverage, Minimize avg_distance)
+    pareto_front = []
+    for i, eval_i in enumerate(evaluations):
+        cov_i = cast(float, eval_i["total_coverage"])
+        dist_i = cast(float, eval_i["avg_distance"])
+        dominated = False
+        for k_idx, eval_k in enumerate(evaluations):
+            if i != k_idx:
+                cov_k = cast(float, eval_k["total_coverage"])
+                dist_k = cast(float, eval_k["avg_distance"])
+                if cov_k >= cov_i and dist_k <= dist_i and (cov_k > cov_i or dist_k < dist_i):
+                    dominated = True
+                    break
+        if not dominated:
+            pareto_front.append(eval_i)
+
+    return pareto_front
+
 

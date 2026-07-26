@@ -21,6 +21,7 @@ from planx.resilience import (
     optimize_canopy_placement,
     pluvial_flood_susceptibility,
     prioritize_debris_clearance,
+    simulate_interdependent_infrastructure_cascade,
     simulate_network_disruption,
     simulate_seismic_debris,
     social_vulnerability_index,
@@ -1287,4 +1288,25 @@ def test_coastal_surge_inundation():
 
     with pytest.raises(ValueError, match="sea_mask shape must match"):
         coastal_surge_inundation(dem, 2.5, sea[:2, :2])
+
+
+def test_simulate_interdependent_infrastructure_cascade():
+    p_adj = np.array([[0, 1], [1, 0]])
+    w_adj = np.array([[0, 1], [1, 0]])
+    dep = np.array([[1, 0], [0, 0]])
+
+    res = simulate_interdependent_infrastructure_cascade(
+        p_adj, w_adj, dep, initial_failed_power=[0]
+    )
+
+    assert 0 in res["failed_power_nodes"]
+    assert 0 in res["failed_water_nodes"]
+    assert res["cascade_iterations"] > 0
+    assert 0.0 <= res["power_operability_ratio"] <= 1.0
+
+    with pytest.raises(ValueError, match="shape must be"):
+        simulate_interdependent_infrastructure_cascade(
+            p_adj, w_adj, dep[:1, :], initial_failed_power=[0]
+        )
+
 

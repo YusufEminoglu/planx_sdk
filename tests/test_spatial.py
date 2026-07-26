@@ -32,6 +32,7 @@ from planx.spatial import (
     service_area_coverage,
     simulate_thermal_comfort_pet,
     spatial_equity_gini,
+    street_network_morphometry,
     street_orientation_entropy,
     thermal_comfort_routing,
     three_step_2sfca,
@@ -1535,4 +1536,23 @@ def test_angular_segment_centrality():
 
     res_empty = angular_segment_centrality([])
     assert len(res_empty["nain"]) == 0
+
+
+def test_street_network_morphometry():
+    indptr = np.array([0, 2, 4, 6, 8], dtype=np.int64)
+    adj = np.array([1, 2, 0, 3, 0, 3, 1, 2], dtype=np.int64)
+    weights = np.array([10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0], dtype=np.float64)
+    xy = np.array([[0.0, 0.0], [10.0, 0.0], [0.0, 10.0], [10.0, 10.0]])
+
+    res = street_network_morphometry(indptr, adj, weights, xy)
+
+    assert len(res["node_degrees"]) == 4
+    assert res["avg_link_length"] == 10.0
+    assert 0.0 <= res["meshedness_coefficient"] <= 1.0
+
+    res_empty = street_network_morphometry(
+        np.array([0]), np.array([]), np.array([]), np.zeros((0, 2))
+    )
+    assert res_empty["avg_link_length"] == 0.0
+
 
