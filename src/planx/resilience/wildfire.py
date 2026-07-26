@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 
@@ -135,3 +137,94 @@ def wildfire_risk_index(
         risk_classes.append(row_classes)
 
     return scores, risk_classes
+
+
+def wildfire_evacuation_encroachment(
+    fire_origin: tuple[int, int],
+    wind_vector: tuple[float, float],
+    slope_grid: np.ndarray,
+    fuel_grid: np.ndarray,
+    cell_size: float = 30.0,
+    time_steps: int = 10,
+) -> dict:
+    """Simulates Rothermel wildfire front expansion velocity and safe evacuation buffer.
+
+    Args:
+        fire_origin: Grid cell coordinate (row, col) of fire ignition.
+        wind_vector: Wind velocity vector (u, v) in m/s.
+        slope_grid: 2D array of terrain slope angles in degrees.
+        fuel_grid: 2D array of fuel load density [0.0, 1.0].
+        cell_size: Grid cell spatial resolution float (m).
+        time_steps: Number of simulation propagation minutes.
+
+    Returns:
+        Dict containing simulation results:
+          - burn_arrival_time: 2D NumPy array of min arrival time for each cell (inf for unburned).
+          - flame_encroachment_mask: 2D boolean NumPy array of burned cells at time_steps.
+          - safe_evacuation_buffer_m: 1D array of safe evacuation distance (m) per time step.
+    """
+    slope = np.asarray(slope_grid, dtype=np.float64)
+    fuel = np.asarray(fuel_grid, dtype=np.float64)
+    rows, cols = slope.shape
+
+    if fuel.shape != (rows, cols):
+        raise ValueError("fuel_grid shape must match slope_grid shape.")
+
+    import heapq
+
+    arrival_time = np.full((rows, cols), np.inf, dtype=np.float64)
+    r_orig, c_orig = fire_origin
+
+    if not (0 <= r_orig < rows and 0 <= c_orig < cols):
+        raise ValueError("fire_origin is outside grid boundaries.")
+
+    arrival_time[r_orig, c_orig] = 0.0
+
+    pq = [(0.0, r_orig, c_orig)]
+
+    wu, wv = wind_vector
+    wind_speed = math.sqrt(wu**2 + wv**2)
+
+    dr = [-1, -1, -1, 0, 0, 1, 1, 1]
+    dc = [-1, 0, 1, -1, 1, -1, 0, 1]
+    dists = [math.sqrt(2.0), 1.0, math.sqrt(2.0), 1.0, 1.0, math.sqrt(2.0), 1.0, math.sqrt(2.0)]
+
+    while pq:
+        t_curr, r, c = heapq.heappop(pq)
+        if t_curr > arrival_time[r, c]:
+            continue
+
+        fuel_val = fuel[r, c]
+        if fuel_val <= 0.0:
+            continue
+
+        slope_deg = slope[r, c]
+        slope_factor = 0.02 * math.tan(math.radians(slope_deg))
+        base_ros = 2.0 * (0.5 + fuel_val) * (1.0 + 0.05 * wind_speed + slope_factor)
+
+        for i in range(8):
+            nr, nc = r + dr[i], c + dc[i]
+            if 0 <= nr < rows and 0 <= nc < cols:
+                d_m = dists[i] * cell_size
+                t_travel = d_m / max(0.1, base_ros)
+                t_next = t_curr + t_travel / 60.0  # minutes
+
+                if t_next < arrival_time[nr, nc]:
+                    arrival_time[nr, nc] = t_next
+                    heapq.heappush(pq, (t_next, nr, nc))
+
+    mask = arrival_time <= float(time_steps)
+
+    # Dynamic safe evacuation buffer (m)
+    buffer_m = np.zeros(time_steps, dtype=np.float64)
+    for step in range(1, time_steps + 1):
+        burned_count = np.sum(arrival_time <= step)
+        effective_radius = math.sqrt(burned_count * (cell_size**2) / math.pi)
+        buffer_m[step - 1] = effective_radius + 100.0  # 100m safety margin
+
+    return {
+        "burn_arrival_time": arrival_time,
+        "flame_encroachment_mask": mask,
+        "safe_evacuation_buffer_m": buffer_m,
+    }
+

@@ -1058,3 +1058,59 @@ def street_network_morphometry(
         "total_network_length": tot_len,
     }
 
+
+def calculate_wind_comfort_lawson(
+    building_heights: np.ndarray,
+    street_widths: np.ndarray,
+    ambient_wind_speed: float,
+) -> dict:
+    """Calculates Lawson pedestrian wind comfort and street canyon wind amplification.
+
+    Args:
+        building_heights: 1D array of average building heights H (m) along street segments.
+        street_widths: 1D array of street canyon widths W (m) along street segments.
+        ambient_wind_speed: Free stream wind speed at 10m reference height float (m/s).
+
+    Returns:
+        Dict containing wind comfort statistics:
+          - wind_amplification_factor: 1D array of local wind speed ratios U_local/U_ambient.
+          - local_wind_speed: 1D NumPy array of estimated street wind speeds (m/s).
+          - lawson_class: List of Lawson comfort category strings.
+    """
+    h_arr = np.asarray(building_heights, dtype=np.float64)
+    w_arr = np.asarray(street_widths, dtype=np.float64)
+    n = len(h_arr)
+
+    if len(w_arr) != n:
+        raise ValueError("building_heights and street_widths must have equal length.")
+
+    # Aspect ratio H/W
+    aspect_ratio = h_arr / np.maximum(1e-9, w_arr)
+
+    # Canyon wind speed amplification factor gamma
+    amp_deep = 1.2 + 0.2 * np.minimum(aspect_ratio, 3.0)
+    amp_shallow = 0.8 + 0.2 * aspect_ratio
+    amp_factor = np.where(aspect_ratio > 1.5, amp_deep, amp_shallow)
+
+    u_local = amp_factor * float(ambient_wind_speed)
+
+    lawson_categories = []
+    for u in u_local:
+        if u < 1.8:
+            lawson_categories.append("Sitting")
+        elif u < 3.6:
+            lawson_categories.append("Standing")
+        elif u < 5.3:
+            lawson_categories.append("Strolling")
+        elif u < 7.6:
+            lawson_categories.append("Business Walking")
+        else:
+            lawson_categories.append("Uncomfortable")
+
+    return {
+        "wind_amplification_factor": amp_factor,
+        "local_wind_speed": u_local,
+        "lawson_class": lawson_categories,
+    }
+
+

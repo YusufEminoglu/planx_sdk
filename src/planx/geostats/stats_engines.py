@@ -2540,5 +2540,79 @@ def calculate_local_moran_fdr(
     }
 
 
+def calculate_gwss(
+    data: np.ndarray,
+    coords: np.ndarray,
+    bandwidth: float,
+    kernel_type: str = "fixed_gaussian",
+) -> dict:
+    """Calculates Geographically Weighted Summary Statistics (GWSS).
+
+    Args:
+        data: Feature data matrix (n, p) or vector (n,).
+        coords: Centroid coordinates array (n, 2).
+        bandwidth: Kernel bandwidth distance float.
+        kernel_type: "fixed_gaussian" or "fixed_bisquare".
+
+    Returns:
+        Dict containing 2D NumPy arrays of shape (n, p):
+          - local_mean: Local weighted mean.
+          - local_std: Local weighted standard deviation.
+          - local_skewness: Local weighted skewness.
+    """
+    X = np.asarray(data, dtype=np.float64)
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+
+    pts = np.asarray(coords, dtype=np.float64)
+    n, p = X.shape
+
+    if len(pts) != n:
+        raise ValueError("Length of coords must match number of rows in data.")
+
+    local_mean = np.zeros((n, p), dtype=np.float64)
+    local_std = np.zeros((n, p), dtype=np.float64)
+    local_skew = np.zeros((n, p), dtype=np.float64)
+
+    dists_matrix = np.sqrt(((pts[:, None, :] - pts[None, :, :]) ** 2).sum(-1))
+
+    for i in range(n):
+        dists = dists_matrix[i]
+        if kernel_type == "fixed_bisquare":
+            w = np.where(dists <= bandwidth, (1.0 - (dists / max(1e-9, bandwidth)) ** 2) ** 2, 0.0)
+        else:
+            w = np.exp(-0.5 * (dists / max(1e-9, bandwidth)) ** 2)
+
+        w_sum = float(np.sum(w))
+        if w_sum <= 1e-12:
+            w = np.ones(n, dtype=np.float64) / n
+            w_sum = 1.0
+
+        w_norm = w / w_sum
+
+        for j in range(p):
+            col = X[:, j]
+            mu = float(np.sum(col * w_norm))
+            local_mean[i, j] = mu
+
+            diff = col - mu
+            var = float(np.sum((diff**2) * w_norm))
+            sd = math.sqrt(max(0.0, var))
+            local_std[i, j] = sd
+
+            if sd > 1e-9:
+                m3 = float(np.sum((diff**3) * w_norm))
+                local_skew[i, j] = m3 / (sd**3)
+            else:
+                local_skew[i, j] = 0.0
+
+    return {
+        "local_mean": local_mean,
+        "local_std": local_std,
+        "local_skewness": local_skew,
+    }
+
+
+
 
 

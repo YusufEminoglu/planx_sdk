@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.0] - 2026-07-27
+### Added
+- **Geographically Weighted Summary Statistics (GWSS)** (`calculate_gwss`) in `planx.geostats` for local weighted mean, standard deviation, and skewness statistics.
+- **MARCOS MCDA Method** (`marcos_method`) in `planx.suitability.mcda` for Measurement of Alternatives and Ranking according to COmpromise Solution.
+- **FUCOM MCDA Weights** (`fucom_weights`) in `planx.suitability.weights` for Full Consistency Method linear programming criterion weighting.
+- **Lawson Pedestrian Wind Comfort Index** (`calculate_wind_comfort_lawson`) in `planx.spatial.walkability` for street canyon wind speed amplification and comfort classification.
+- **Wildfire Evacuation Encroachment Engine** (`wildfire_evacuation_encroachment`) in `planx.resilience.wildfire` for Rothermel-style fire front propagation velocity and dynamic safe evacuation buffer zones.
+
+---
+
 ## [0.7.0] - 2026-07-27
 ### Added
 - **Spatial Tobit Regression (SAR-Tobit)** (`fit_spatial_tobit_model`) in `planx.geostats` for 2SLS zero-censored spatial autoregressive modeling.

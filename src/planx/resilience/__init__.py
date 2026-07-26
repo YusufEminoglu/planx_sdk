@@ -42,7 +42,7 @@ from .landslide import landslide_susceptibility
 from .seismic import simulate_seismic_debris
 from .social import social_vulnerability_index
 from .synthesis import equity_adjusted_priority, multi_hazard_composite
-from .wildfire import wildfire_risk_index
+from .wildfire import wildfire_evacuation_encroachment, wildfire_risk_index
 
 __all__ = [
     "simulate_seismic_debris",
@@ -52,6 +52,7 @@ __all__ = [
     "socio_economic_flood_risk",
     "landslide_susceptibility",
     "wildfire_risk_index",
+    "wildfire_evacuation_encroachment",
     "social_vulnerability_index",
     "urban_heat_comfort_risk",
     "urban_heat_island_intensity",

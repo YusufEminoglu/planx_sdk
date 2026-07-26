@@ -17,6 +17,7 @@ from .facility import (
 from .mcda import (
     electre_i_method,
     electre_iii_method,
+    marcos_method,
     mcda_sensitivity_monte_carlo,
     normalize_array,
     promethee_ii_method,
@@ -30,6 +31,7 @@ from .weights import (
     critic_weights,
     decision_matrix_from_layers,
     entropy_weights,
+    fucom_weights,
     fuzzy_ahp_weights,
     pca_weights,
 )
@@ -42,6 +44,7 @@ __all__ = [
     "promethee_ii_method",
     "electre_i_method",
     "electre_iii_method",
+    "marcos_method",
     "mcda_sensitivity_monte_carlo",
     "greedy_mclp",
     "mclp_distance_decay",
@@ -52,6 +55,7 @@ __all__ = [
     "ahp_weights",
     "bwm_weights",
     "fuzzy_ahp_weights",
+    "fucom_weights",
     "decision_matrix_from_layers",
     "entropy_weights",
     "critic_weights",

@@ -13,10 +13,12 @@ from planx.suitability import (
     electre_i_method,
     electre_iii_method,
     entropy_weights,
+    fucom_weights,
     fuzzy_ahp_weights,
     greedy_lscp,
     greedy_mclp,
     greedy_p_median,
+    marcos_method,
     mcda_sensitivity_monte_carlo,
     mclp_distance_decay,
     normalize_array,
@@ -446,6 +448,36 @@ def test_mcda_sensitivity_monte_carlo():
     assert "std_ranks" in res
     assert len(res["mean_ranks"]) == 3
     assert np.isclose(np.sum(res["rank_first_probability"]), 1.0)
+
+
+def test_marcos_method():
+    X = np.array([[10.0, 2.0], [5.0, 8.0], [1.0, 10.0]])
+    w = np.array([0.6, 0.4])
+
+    scores, ranks = marcos_method(X, w)
+
+    assert len(scores) == 3
+    assert len(ranks) == 3
+    assert ranks[0] == 1
+
+    with pytest.raises(ValueError, match="weights length"):
+        marcos_method(X, w[:1])
+
+
+def test_fucom_weights():
+    phi = np.array([2.0, 1.5])
+    ranks = np.array([0, 1, 2])
+
+    w, chi = fucom_weights(phi, ranks)
+
+    assert len(w) == 3
+    assert np.isclose(np.sum(w), 1.0)
+    assert w[0] > w[1] > w[2]
+    assert chi >= 0.0
+
+    with pytest.raises(ValueError, match="N-1"):
+        fucom_weights(phi[:1], ranks)
+
 
 
 

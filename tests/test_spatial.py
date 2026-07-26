@@ -13,6 +13,7 @@ from planx.spatial import (
     calculate_average_route_circuity,
     calculate_pedestrian_route_directness,
     calculate_walk_score,
+    calculate_wind_comfort_lawson,
     choice_centrality_una,
     classify_level_of_traffic_stress,
     closeness_straightness,
@@ -1569,6 +1570,22 @@ def test_axial_to_segment_conversion():
 
     empty_segs = axial_to_segment_conversion([])
     assert len(empty_segs) == 0
+
+
+def test_calculate_wind_comfort_lawson():
+    h = np.array([5.0, 30.0])
+    w = np.array([20.0, 10.0])
+
+    res = calculate_wind_comfort_lawson(h, w, ambient_wind_speed=2.5)
+
+    assert "wind_amplification_factor" in res
+    assert "local_wind_speed" in res
+    valid_cats = ("Sitting", "Standing", "Strolling", "Business Walking", "Uncomfortable")
+    assert res["lawson_class"][0] in valid_cats
+
+    with pytest.raises(ValueError, match="equal length"):
+        calculate_wind_comfort_lawson(h[:1], w, 2.5)
+
 
 
 

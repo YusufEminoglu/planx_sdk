@@ -446,3 +446,98 @@ def fuzzy_ahp_weights(fuzzy_matrix: np.ndarray) -> tuple[np.ndarray, float]:
     return weights, ci
 
 
+def fucom_weights(
+    comparative_priorities: np.ndarray,
+    comparative_ranks: np.ndarray,
+) -> tuple[np.ndarray, float]:
+    """Calculates MCDA criterion weights using the Full Consistency Method (FUCOM).
+
+    FUCOM determines criterion weights with N-1 comparative steps and minimal deviation chi.
+
+    Args:
+        comparative_priorities: 1D array of shape (N-1,) of comparative priority ratios.
+        comparative_ranks: 1D array of shape (N,) indicating ranking index order of criteria.
+
+    Returns:
+        A tuple of:
+          - weights: 1D NumPy array of shape (N,) containing normalized criteria weights.
+          - chi_deviation: Float indicating deviation score chi (0 = fully consistent).
+    """
+    phi = np.asarray(comparative_priorities, dtype=np.float64)
+    ranks = np.asarray(comparative_ranks, dtype=np.int64)
+    n = len(ranks)
+
+    if len(phi) != n - 1:
+        raise ValueError("comparative_priorities length must be N-1.")
+
+    from scipy.optimize import linprog
+
+    c = np.zeros(n + 1)
+    c[-1] = 1.0  # Minimize chi
+
+    A_ub = []
+    b_ub = []
+
+    # Condition 1: |w_{k} / w_{k+1} - phi_k| <= chi
+    # Condition 2: |w_{k} / w_{k+2} - (phi_k * phi_{k+1})| <= chi
+    for k in range(n - 1):
+        idx_k = ranks[k]
+        idx_k1 = ranks[k + 1]
+
+        # w_k - phi_k * w_{k+1} - chi <= 0
+        row1 = np.zeros(n + 1)
+        row1[idx_k] = 1.0
+        row1[idx_k1] = -phi[k]
+        row1[-1] = -1.0
+        A_ub.append(row1)
+        b_ub.append(0.0)
+
+        # -w_k + phi_k * w_{k+1} - chi <= 0
+        row2 = np.zeros(n + 1)
+        row2[idx_k] = -1.0
+        row2[idx_k1] = phi[k]
+        row2[-1] = -1.0
+        A_ub.append(row2)
+        b_ub.append(0.0)
+
+        if k < n - 2:
+            idx_k2 = ranks[k + 2]
+            phi_trans = phi[k] * phi[k + 1]
+
+            row3 = np.zeros(n + 1)
+            row3[idx_k] = 1.0
+            row3[idx_k2] = -phi_trans
+            row3[-1] = -1.0
+            A_ub.append(row3)
+            b_ub.append(0.0)
+
+            row4 = np.zeros(n + 1)
+            row4[idx_k] = -1.0
+            row4[idx_k2] = phi_trans
+            row4[-1] = -1.0
+            A_ub.append(row4)
+            b_ub.append(0.0)
+
+    A_eq = [np.append(np.ones(n), 0.0)]
+    b_eq = [1.0]
+
+    bounds = [(0.0, 1.0) for _ in range(n)] + [(0.0, None)]
+
+    res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method="highs")
+
+    if res.success:
+        weights = np.maximum(0.0, res.x[:n])
+        w_sum = np.sum(weights)
+        if w_sum > 0:
+            weights = weights / w_sum
+        return weights, float(res.x[-1])
+
+    # Fallback to direct cumulative product
+    w_unnorm = np.ones(n, dtype=np.float64)
+    for k in range(n - 1):
+        w_unnorm[ranks[k + 1]] = w_unnorm[ranks[k]] / max(1e-9, phi[k])
+    weights = w_unnorm / np.sum(w_unnorm)
+    return weights, 0.0
+
+
+

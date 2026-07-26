@@ -21,6 +21,7 @@ from planx.geostats import (
     calculate_glr,
     calculate_gwlr,
     calculate_gwr,
+    calculate_gwss,
     calculate_incremental_autocorrelation,
     calculate_kmeans,
     calculate_linear_directional_mean,
@@ -240,6 +241,22 @@ def test_calculate_local_moran_fdr():
     assert "fdr_p_values" in res
     assert len(res["fdr_p_values"]) == 4
     assert np.all((res["fdr_p_values"] >= 0.0) & (res["fdr_p_values"] <= 1.0))
+
+
+def test_calculate_gwss():
+    X = np.array([[10.0], [20.0], [30.0], [40.0]])
+    coords = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]])
+
+    res = calculate_gwss(X, coords, bandwidth=2.0, kernel_type="fixed_gaussian")
+
+    assert "local_mean" in res
+    assert "local_std" in res
+    assert "local_skewness" in res
+    assert res["local_mean"].shape == (4, 1)
+
+    with pytest.raises(ValueError, match="Length of coords must match"):
+        calculate_gwss(X[:2], coords, bandwidth=2.0)
+
 
 
 
