@@ -466,3 +466,83 @@ def debris_clearance_routing(
         remaining_indices.remove(best_rem_idx)
 
     return np.array(clearance_order, dtype=np.int64), float(total_distance)
+
+
+def simulate_interdependent_infrastructure_cascade(
+    power_adj: np.ndarray,
+    water_adj: np.ndarray,
+    dependency_matrix: np.ndarray,
+    initial_failed_power: list[int],
+) -> dict:
+    """Simulates cascading failures across interdependent power and water infrastructure networks.
+
+    Args:
+        power_adj: (Np, Np) adjacency matrix for power network (0 for no edge, >0 for edge).
+        water_adj: (Nw, Nw) adjacency matrix for water network (0 for no edge, >0 for edge).
+        dependency_matrix: (Np, Nw) binary matrix where D[i, j] = 1 means water node j
+            depends on power node i.
+        initial_failed_power: List of initially failed power node indices.
+
+    Returns:
+        Dict containing simulation results:
+          - failed_power_nodes: Final list of failed power nodes.
+          - failed_water_nodes: Final list of failed water nodes.
+          - cascade_iterations: Number of cascade steps until equilibrium.
+          - power_operability_ratio: Ratio of functional power nodes float [0, 1].
+          - water_operability_ratio: Ratio of functional water nodes float [0, 1].
+    """
+    p_adj = np.asarray(power_adj, dtype=np.float64)
+    w_adj = np.asarray(water_adj, dtype=np.float64)
+    dep = np.asarray(dependency_matrix, dtype=np.float64)
+
+    np_nodes = p_adj.shape[0]
+    nw_nodes = w_adj.shape[0]
+
+    if dep.shape != (np_nodes, nw_nodes):
+        raise ValueError("dependency_matrix shape must be (Np, Nw).")
+
+    failed_p = set(initial_failed_power)
+    failed_w: set[int] = set()
+
+    iterations = 0
+
+    while True:
+        iterations += 1
+        new_failed_p_count = len(failed_p)
+        new_failed_w_count = len(failed_w)
+
+        for p_idx in list(failed_p):
+            dependent_w_nodes = np.where(dep[p_idx, :] > 0)[0]
+            for w_idx in dependent_w_nodes:
+                failed_w.add(int(w_idx))
+
+        for w_idx in range(nw_nodes):
+            if w_idx not in failed_w:
+                active_neighbors = [
+                    k for k in range(nw_nodes) if w_adj[w_idx, k] > 0 and k not in failed_w
+                ]
+                if not active_neighbors and np.sum(w_adj[w_idx, :]) > 0:
+                    failed_w.add(w_idx)
+
+        for p_idx in range(np_nodes):
+            if p_idx not in failed_p:
+                active_neighbors = [
+                    k for k in range(np_nodes) if p_adj[p_idx, k] > 0 and k not in failed_p
+                ]
+                if not active_neighbors and np.sum(p_adj[p_idx, :]) > 0:
+                    failed_p.add(p_idx)
+
+        if len(failed_p) == new_failed_p_count and len(failed_w) == new_failed_w_count:
+            break
+
+    p_operable = (np_nodes - len(failed_p)) / max(1, np_nodes)
+    w_operable = (nw_nodes - len(failed_w)) / max(1, nw_nodes)
+
+    return {
+        "failed_power_nodes": sorted(failed_p),
+        "failed_water_nodes": sorted(failed_w),
+        "cascade_iterations": iterations,
+        "power_operability_ratio": float(p_operable),
+        "water_operability_ratio": float(w_operable),
+    }
+
