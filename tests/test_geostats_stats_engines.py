@@ -41,6 +41,7 @@ from planx.geostats import (
     fit_spatial_lag_model,
     fit_spatial_tobit_model,
     run_sensitivity_simulation,
+    skater_spatial_clustering,
 )
 
 # Shared line-graph fixture used across several tests: 0 - 1 - 2 - 3
@@ -283,6 +284,15 @@ def test_calculate_ripleys_cross_k():
 
     assert len(k_vals) == 2
     assert k_vals[0] > 0.0
+
+
+def test_skater_spatial_clustering():
+    X = np.array([[0.0], [0.1], [10.0], [10.1]])
+    labels = skater_spatial_clustering(X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, n_clusters=2)
+
+    assert len(labels) == 4
+    assert len(np.unique(labels)) == 2
+
 
 
 

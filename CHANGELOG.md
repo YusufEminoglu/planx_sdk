@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.0] - 2026-07-27
+### Added
+- **Spatially Constrained Regionalization (SKATER)** (`skater_spatial_clustering`) in `planx.geostats` for Minimum Spanning Tree (MST) edge-cutting spatially contiguous regional clustering.
+- **ARAS MCDA Method** (`aras_method`) in `planx.suitability.mcda` for Additive Ratio Assessment with optimal reference alternative $S_0$ and utility degree $K_i$.
+- **Street Network Rose Spectrum & Directional Anisotropy Index** (`street_orientation_rose_spectrum`) in `planx.spatial.walkability` for polar angle binning distribution and directional anisotropy index.
+- **Urban Stormwater Peak Runoff Engine** (`urban_stormwater_peak_runoff`) in `planx.resilience.flood` for Rational Method peak discharge $Q = 0.00278 \cdot C \cdot I \cdot A$ ($m^3/s$) and runoff volume modeling.
+
+---
+
 ## [0.9.0] - 2026-07-27
 ### Added
 - **Weighted 2D Kernel Density Estimation (Weighted KDE)** (`calculate_weighted_kde`) in `planx.geostats` for magnitude-weighted 2D spatial event density mapping.

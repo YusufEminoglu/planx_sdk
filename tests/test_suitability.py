@@ -6,6 +6,7 @@ import pytest
 
 from planx.suitability import (
     ahp_weights,
+    aras_method,
     bwm_weights,
     capacitated_location_allocation,
     critic_weights,
@@ -1083,3 +1084,17 @@ def test_capacitated_location_allocation_empty_facilities_or_demands():
     assert allocations2 == {}
     assert list(unassigned2) == []
     np.testing.assert_allclose(usage2, [0.0, 0.0])
+
+
+def test_aras_method():
+    X = np.array([[10.0, 2.0], [5.0, 8.0], [1.0, 10.0]])
+    w = np.array([0.6, 0.4])
+
+    k, ranks = aras_method(X, w)
+
+    assert len(k) == 3
+    assert len(ranks) == 3
+
+    with pytest.raises(ValueError, match="weights length"):
+        aras_method(X, w[:1])
+

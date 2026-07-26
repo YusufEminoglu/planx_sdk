@@ -37,6 +37,7 @@ from planx.spatial import (
     spatial_equity_gini,
     street_network_morphometry,
     street_orientation_entropy,
+    street_orientation_rose_spectrum,
     thermal_comfort_routing,
     three_step_2sfca,
 )
@@ -1598,6 +1599,24 @@ def test_cul_de_sac_isolation_index():
     assert len(res["cul_de_sac_nodes"]) == 2
     assert res["total_dead_ends"] == 2
     assert res["cul_de_sac_ratio"] == pytest.approx(2.0 / 3.0)
+
+
+def test_street_orientation_rose_spectrum():
+    coords = [
+        ((0.0, 0.0), (10.0, 0.0)),
+        ((0.0, 0.0), (0.0, 10.0)),
+    ]
+
+    res = street_orientation_rose_spectrum(coords, n_bins=36)
+
+    assert "bin_edges_deg" in res
+    assert "orientation_counts" in res
+    assert len(res["orientation_counts"]) == 36
+    assert 0.0 <= res["anisotropy_index"] <= 1.0
+
+    empty_res = street_orientation_rose_spectrum([])
+    assert empty_res["anisotropy_index"] == 0.0
+
 
 
 

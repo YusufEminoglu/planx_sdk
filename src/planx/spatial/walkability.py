@@ -8,6 +8,7 @@ Laboratory (Singapore/TU Delft/ETH), and the Transport Studies Unit (Oxford).
 from __future__ import annotations
 
 import heapq
+import math
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -1145,6 +1146,77 @@ def cul_de_sac_isolation_index(indptr: np.ndarray, adj: np.ndarray) -> dict:
         "cul_de_sac_ratio": ratio,
         "total_dead_ends": total_dead,
     }
+
+
+def street_orientation_rose_spectrum(
+    segment_coords: list[tuple[tuple[float, float], tuple[float, float]]],
+    n_bins: int = 36,
+) -> dict:
+    """Calculates street network orientation polar distribution and directional anisotropy index.
+
+    Args:
+        segment_coords: List of line endpoints [((x1, y1), (x2, y2)), ...].
+        n_bins: Number of angular histogram bins int (default 36 for 10-degree intervals).
+
+    Returns:
+        Dict containing polar distribution statistics:
+          - bin_edges_deg: 1D NumPy array of bin edges in degrees [0, 360].
+          - orientation_counts: 1D NumPy array of segment counts per orientation bin.
+          - orientation_lengths: 1D NumPy array of total length (m) per orientation bin.
+          - anisotropy_index: Float orientation anisotropy score in [0, 1].
+          - dominant_heading_deg: Float angle in degrees of dominant street grid orientation.
+    """
+    if len(segment_coords) == 0:
+        bin_edges = np.linspace(0.0, 360.0, n_bins + 1)
+        return {
+            "bin_edges_deg": bin_edges,
+            "orientation_counts": np.zeros(n_bins, dtype=np.int64),
+            "orientation_lengths": np.zeros(n_bins, dtype=np.float64),
+            "anisotropy_index": 0.0,
+            "dominant_heading_deg": 0.0,
+        }
+
+    angles = []
+    lengths = []
+    for (x1, y1), (x2, y2) in segment_coords:
+        dx, dy = x2 - x1, y2 - y1
+        length = math.sqrt(dx**2 + dy**2)
+        if length > 1e-9:
+            angle_deg = math.degrees(math.atan2(dy, dx)) % 180.0
+            angles.append(angle_deg)
+            lengths.append(length)
+            # Undirected line symmetry: add 180 deg opposite
+            angles.append((angle_deg + 180.0) % 360.0)
+            lengths.append(length)
+
+    ang_arr = np.array(angles)
+    len_arr = np.array(lengths)
+
+    bin_edges = np.linspace(0.0, 360.0, n_bins + 1)
+    counts, _ = np.histogram(ang_arr, bins=bin_edges)
+    hist_lengths, _ = np.histogram(ang_arr, bins=bin_edges, weights=len_arr)
+
+    dom_idx = int(np.argmax(hist_lengths))
+    dom_heading = float((bin_edges[dom_idx] + bin_edges[dom_idx + 1]) / 2.0)
+
+    total_len = np.sum(len_arr)
+    if total_len > 0:
+        p = hist_lengths / total_len
+        p_clean = p[p > 0]
+        entropy = -np.sum(p_clean * np.log(p_clean))
+        max_entropy = np.log(n_bins)
+        anisotropy = float(1.0 - (entropy / max(1e-9, max_entropy)))
+    else:
+        anisotropy = 0.0
+
+    return {
+        "bin_edges_deg": bin_edges,
+        "orientation_counts": counts,
+        "orientation_lengths": hist_lengths,
+        "anisotropy_index": max(0.0, min(1.0, anisotropy)),
+        "dominant_heading_deg": dom_heading,
+    }
+
 
 
 
