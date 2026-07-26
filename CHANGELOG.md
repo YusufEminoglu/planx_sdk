@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - 2026-07-27
+### Added
+- **Spatial Tobit Regression (SAR-Tobit)** (`fit_spatial_tobit_model`) in `planx.geostats` for 2SLS zero-censored spatial autoregressive modeling.
+- **Local Moran's I with Benjamini-Hochberg FDR** (`calculate_local_moran_fdr`) in `planx.geostats` for False Discovery Rate multiple testing control under spatial autocorrelation.
+- **Fuzzy AHP MCDA Weights** (`fuzzy_ahp_weights`) in `planx.suitability.weights` using Triangular Fuzzy Numbers $(l, m, u)$ and Chang's extent analysis.
+- **Spatial MCDA Monte Carlo Sensitivity Engine** (`mcda_sensitivity_monte_carlo`) in `planx.suitability.mcda` evaluating alternative rank stability under criteria weight noise.
+- **Space Syntax Axial-to-Segment Line Conversion** (`axial_to_segment_conversion`) in `planx.spatial.centrality` for splitting continuous axial lines at all topological intersections.
+- **Tree Canopy Microclimate Cooling Model** (`tree_canopy_microclimate_cooling`) in `planx.resilience.heat` calculating air temperature reduction $\Delta T_{cool} (^\circ C)$ based on LAI and canopy distance decay.
+
+---
+
 ## [0.6.0] - 2026-07-27
 ### Added
 - **Geographically Weighted Logistic Regression (GWLR)** (`calculate_gwlr`) in `planx.geostats` for spatially varying binary outcome models using Iteratively Reweighted Least Squares (IRLS).

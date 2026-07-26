@@ -25,6 +25,7 @@ from planx.geostats import (
     calculate_kmeans,
     calculate_linear_directional_mean,
     calculate_local_bivariate_moran,
+    calculate_local_moran_fdr,
     calculate_median_center,
     calculate_ols,
     calculate_ripleys_k,
@@ -35,6 +36,7 @@ from planx.geostats import (
     calculate_standard_distance,
     fit_spatial_error_model,
     fit_spatial_lag_model,
+    fit_spatial_tobit_model,
     run_sensitivity_simulation,
 )
 
@@ -213,6 +215,32 @@ def test_calculate_gwlr():
 
     with pytest.raises(ValueError, match="binary dependent variable"):
         calculate_gwlr(np.array([0.0, 1.0, 2.0, 3.0]), X, coords, bandwidth=2.0)
+
+
+def test_fit_spatial_tobit_model():
+    y = np.array([0.0, 5.0, 10.0, 15.0])
+    X = np.array([[1.0, 2.0], [1.0, 3.0], [1.0, 4.0], [1.0, 5.0]])
+
+    res = fit_spatial_tobit_model(y, X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
+    assert "rho" in res
+    assert "beta" in res
+    assert len(res["fitted"]) == 4
+    assert np.all(res["fitted"] >= 0.0)
+
+    with pytest.raises(ValueError, match="Length of y must match"):
+        fit_spatial_tobit_model(y[:2], X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
+
+def test_calculate_local_moran_fdr():
+    x = np.array([10.0, 20.0, 30.0, 40.0])
+    res = calculate_local_moran_fdr(x, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER, alpha=0.1)
+
+    assert "local_moran" in res
+    assert "fdr_p_values" in res
+    assert len(res["fdr_p_values"]) == 4
+    assert np.all((res["fdr_p_values"] >= 0.0) & (res["fdr_p_values"] <= 1.0))
+
 
 
 
