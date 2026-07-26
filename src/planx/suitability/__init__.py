@@ -23,6 +23,7 @@ from .mcda import (
     promethee_ii_method,
     topsis_method,
     vikor_method,
+    waspas_method,
     weighted_linear_combination,
 )
 from .weights import (
@@ -30,6 +31,7 @@ from .weights import (
     bwm_weights,
     critic_weights,
     decision_matrix_from_layers,
+    dematel_method,
     entropy_weights,
     fucom_weights,
     fuzzy_ahp_weights,
@@ -45,6 +47,7 @@ __all__ = [
     "electre_i_method",
     "electre_iii_method",
     "marcos_method",
+    "waspas_method",
     "mcda_sensitivity_monte_carlo",
     "greedy_mclp",
     "mclp_distance_decay",
@@ -56,6 +59,7 @@ __all__ = [
     "bwm_weights",
     "fuzzy_ahp_weights",
     "fucom_weights",
+    "dematel_method",
     "decision_matrix_from_layers",
     "entropy_weights",
     "critic_weights",
