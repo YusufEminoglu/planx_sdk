@@ -13,7 +13,13 @@ from .active_travel import (
     job_housing_spatial_mismatch,
     transport_mismatch_index,
 )
-from .flood import coastal_flood_inundation, pluvial_flood_susceptibility, socio_economic_flood_risk
+from .evacuation import evacuation_route_optimization
+from .flood import (
+    coastal_flood_inundation,
+    coastal_surge_inundation,
+    pluvial_flood_susceptibility,
+    socio_economic_flood_risk,
+)
 from .heat import (
     calculate_grid_sky_view_factor,
     calculate_solar_access,
@@ -40,6 +46,7 @@ __all__ = [
     "simulate_seismic_debris",
     "pluvial_flood_susceptibility",
     "coastal_flood_inundation",
+    "coastal_surge_inundation",
     "socio_economic_flood_risk",
     "landslide_susceptibility",
     "wildfire_risk_index",
@@ -54,6 +61,7 @@ __all__ = [
     "prioritize_debris_clearance",
     "network_criticality_index",
     "debris_clearance_routing",
+    "evacuation_route_optimization",
     "job_housing_spatial_mismatch",
     "active_travel_equity_gini",
     "transport_mismatch_index",

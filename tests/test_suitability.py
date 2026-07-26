@@ -9,10 +9,13 @@ from planx.suitability import (
     capacitated_location_allocation,
     critic_weights,
     decision_matrix_from_layers,
+    electre_i_method,
+    electre_iii_method,
     entropy_weights,
     greedy_lscp,
     greedy_mclp,
     greedy_p_median,
+    mclp_distance_decay,
     normalize_array,
     pca_weights,
     promethee_ii_method,
@@ -326,6 +329,64 @@ def test_promethee_ii_method():
         promethee_ii_method(
             decision_matrix, weights, benefit_criteria, preference_thresholds=p_thresh[:-1]
         )
+
+
+def test_electre_i_method():
+    dm = np.array([[10.0, 100.0], [5.0, 50.0], [1.0, 10.0]])
+    weights = np.array([0.5, 0.5])
+    benefit = np.array([True, True])
+
+    C, D, non_dom = electre_i_method(
+        dm, weights, benefit, concordance_threshold=0.5, discordance_threshold=0.5
+    )
+
+    assert C.shape == (3, 3)
+    assert D.shape == (3, 3)
+    assert 0 in non_dom  # Alt 0 is non-dominated
+
+    # Validation errors
+    with pytest.raises(ValueError):
+        electre_i_method(dm, weights[:-1], benefit)
+
+
+def test_electre_iii_method():
+    dm = np.array([[10.0, 100.0], [5.0, 50.0], [1.0, 10.0]])
+    weights = np.array([0.5, 0.5])
+    benefit = np.array([True, True])
+    q = np.array([1.0, 5.0])
+    p = np.array([3.0, 15.0])
+    v = np.array([8.0, 40.0])
+
+    S, ranks = electre_iii_method(dm, weights, benefit, q, p, v)
+
+    assert S.shape == (3, 3)
+    assert len(ranks) == 3
+    assert ranks[0] == 1
+
+    # Validation errors
+    with pytest.raises(ValueError):
+        electre_iii_method(dm, weights[:-1], benefit, q, p, v)
+
+
+def test_mclp_distance_decay():
+    candidates = np.array([[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]])
+    demands = np.array([[1.0, 1.0], [11.0, 11.0], [25.0, 25.0]])
+    pop = np.array([100.0, 200.0, 500.0])
+
+    selected, added, cum = mclp_distance_decay(
+        candidates, demands, pop, max_distance=15.0, k=2, decay_method="exponential", beta=0.05
+    )
+
+    assert len(selected) <= 2
+    assert len(added) == len(selected)
+    assert len(cum) == len(selected)
+
+    # Validation error
+    with pytest.raises(ValueError, match="Unsupported decay_method"):
+        mclp_distance_decay(
+            candidates, demands, pop, max_distance=15.0, k=2, decay_method="invalid"
+        )
+
 
 
 

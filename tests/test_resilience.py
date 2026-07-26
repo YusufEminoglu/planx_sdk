@@ -9,8 +9,10 @@ from planx.resilience import (
     calculate_solar_access,
     classify_local_climate_zones,
     coastal_flood_inundation,
+    coastal_surge_inundation,
     debris_clearance_routing,
     equity_adjusted_priority,
+    evacuation_route_optimization,
     identify_critical_bottlenecks,
     infrastructure_service_loss,
     landslide_susceptibility,
@@ -1248,3 +1250,41 @@ def test_calculate_solar_access():
 
     with pytest.raises(ValueError, match="identical length"):
         calculate_solar_access(flat_grid, 1.0, np.array([45.0]), np.array([180.0, 90.0]))
+
+
+def test_evacuation_route_optimization():
+    adj = np.array([[0.0, 10.0, 0.0], [0.0, 0.0, 10.0], [0.0, 0.0, 0.0]])
+    cap = np.array([[0.0, 50.0, 0.0], [0.0, 0.0, 50.0], [0.0, 0.0, 0.0]])
+    demands = {0: 100.0}
+    depots = [2]
+
+    res = evacuation_route_optimization(adj, cap, demands, depots, vehicle_speed=40.0)
+
+    assert res["assigned_flows"][0, 1] == 100.0
+    assert res["assigned_flows"][1, 2] == 100.0
+    assert len(res["bottleneck_edges"]) == 2
+    assert res["clearance_time_hours"] > 0.0
+
+    with pytest.raises(ValueError, match="square 2D arrays"):
+        evacuation_route_optimization(adj[:2, :2], cap, demands, depots)
+
+    with pytest.raises(ValueError, match="depot node must be specified"):
+        evacuation_route_optimization(adj, cap, demands, [])
+
+
+def test_coastal_surge_inundation():
+    dem = np.array([[0.0, 1.0, 3.0], [0.5, 2.0, 5.0], [1.5, 4.0, 6.0]])
+    sea = np.array([[True, False, False], [False, False, False], [False, False, False]])
+
+    depth, flooded = coastal_surge_inundation(dem, surge_height=2.5, sea_mask=sea, cell_size=10.0)
+
+    assert flooded[0, 0] == 1
+    assert flooded[0, 1] == 1
+    assert depth[0, 1] == 1.5
+
+    with pytest.raises(ValueError, match="2D array"):
+        coastal_surge_inundation(np.zeros(3), 2.5, sea)
+
+    with pytest.raises(ValueError, match="sea_mask shape must match"):
+        coastal_surge_inundation(dem, 2.5, sea[:2, :2])
+

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-07-27
+### Added
+- **Spatial Econometrics Engine** (`fit_spatial_lag_model`, `fit_spatial_error_model`) in `planx.geostats` for 2SLS Spatial Autoregressive (SLM/SAR) and Generalized Cochrane-Orcutt Spatial Error (SEM) regression modeling.
+- **Outranking MCDA Methods** (`electre_i_method`, `electre_iii_method`) in `planx.suitability.mcda` supporting concordance/discordance matrices and pseudo-criteria threshold outranking relations.
+- **Continuous Kernel Facility Location** (`mclp_distance_decay`) in `planx.suitability.facility` for exponential, Gaussian, and linear distance-attenuated maximal coverage optimization.
+- **Disaster Evacuation Route Optimization** (`evacuation_route_optimization`) in `planx.resilience.evacuation` for capacity-constrained network routing, clearance time estimation, and bottleneck identification.
+- **Coastal Storm Surge Inundation Model** (`coastal_surge_inundation`) in `planx.resilience.flood` using 8-neighbor hydrologic connectivity flood-fill with coastal distance decay.
+- **Space Syntax Angular Segment Centrality** (`angular_segment_centrality`) in `planx.spatial.centrality` for turn-angle deflection shortest paths, NAIn, and NACh normalization metrics.
+
+---
+
 ## [0.4.1] - 2026-07-27
 ### Added
 - **PROMETHEE II Method** (`promethee_ii_method`) in `planx.suitability.mcda` for outranking-based MCDA decision analysis.

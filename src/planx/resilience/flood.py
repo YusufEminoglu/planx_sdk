@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import math
+from collections import deque
 from typing import Optional
 
 import numpy as np
@@ -295,3 +297,78 @@ def socio_economic_flood_risk(
         risk_classes.append(row_classes)
 
     return scores, risk_classes
+
+
+def coastal_surge_inundation(
+    dem: np.ndarray,
+    surge_height: float,
+    sea_mask: np.ndarray,
+    cell_size: float = 10.0,
+    wave_runup: float = 0.0,
+    distance_decay: float = 0.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculates hydrologically connected coastal storm surge inundation.
+
+    Args:
+        dem: 2D NumPy elevation array (m).
+        surge_height: Storm surge water surface elevation (m).
+        sea_mask: 2D boolean NumPy array where True indicates sea boundary cells.
+        cell_size: Grid cell size in meters (default 10.0).
+        wave_runup: Additional wave runup height (m).
+        distance_decay: Optional decay rate per kilometer from sea coast (default 0.0).
+
+    Returns:
+        A tuple of:
+          - inundation_depth: 2D NumPy float array of flooded water depth (m).
+          - flooded_mask: 2D NumPy boolean array indicating flooded cells.
+    """
+    dem_arr = np.asarray(dem, dtype=np.float64)
+    sea_arr = np.asarray(sea_mask, dtype=bool)
+
+    if dem_arr.ndim != 2:
+        raise ValueError("dem must be a 2D array")
+    if sea_arr.shape != dem_arr.shape:
+        raise ValueError("sea_mask shape must match dem shape")
+
+    rows, cols = dem_arr.shape
+    eff_surge = surge_height + wave_runup
+
+    flooded = np.zeros((rows, cols), dtype=bool)
+    depth = np.zeros((rows, cols), dtype=np.float64)
+
+    queue: deque[tuple[int, int, float]] = deque()
+
+    sea_indices = np.argwhere(sea_arr)
+    for r, c in sea_indices:
+        flooded[r, c] = True
+        depth[r, c] = max(0.0, eff_surge - dem_arr[r, c])
+        queue.append((int(r), int(c), 0.0))
+
+    neighbors = [
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ]
+
+    while queue:
+        r, c, dist_km = queue.popleft()
+
+        for dr, dc in neighbors:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols:
+                if not flooded[nr, nc] and np.isfinite(dem_arr[nr, nc]):
+                    step_km = (math.sqrt(dr**2 + dc**2) * cell_size) / 1000.0
+                    next_dist = dist_km + step_km
+                    surge_decayed = max(0.0, eff_surge - next_dist * distance_decay)
+                    if dem_arr[nr, nc] <= surge_decayed:
+                        flooded[nr, nc] = True
+                        depth[nr, nc] = surge_decayed - dem_arr[nr, nc]
+                        queue.append((nr, nc, next_dist))
+
+    return depth, flooded
+

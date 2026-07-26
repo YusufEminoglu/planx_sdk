@@ -410,3 +410,87 @@ def capacitated_location_allocation(
             unassigned.append(int(d_idx))
 
     return allocations, np.array(unassigned, dtype=np.int64), usage
+
+
+def mclp_distance_decay(
+    candidate_coords: np.ndarray,
+    demand_coords: np.ndarray,
+    demand_weights: np.ndarray,
+    max_distance: float,
+    k: int,
+    decay_method: str = "exponential",
+    beta: float = 0.002,
+) -> tuple[list[int], np.ndarray, np.ndarray]:
+    """Solves Maximal Covering Location Problem with continuous distance decay.
+
+    Args:
+        candidate_coords: (C, 2) NumPy array of candidate facility coordinates.
+        demand_coords: (D, 2) NumPy array of demand point coordinates.
+        demand_weights: (D,) NumPy array of population/demand weights.
+        max_distance: Service cutoff distance threshold float.
+        k: Maximum number of facilities to select int.
+        decay_method: Distance decay kernel ("exponential", "gaussian", or "linear").
+        beta: Decay parameter float.
+
+    Returns:
+        A tuple of:
+          - selected_indices: List of selected candidate facility indices.
+          - added_coverage: NumPy array of effective population added by each facility.
+          - cumulative_coverage: NumPy array of cumulative effective population covered.
+    """
+    candidates = np.asarray(candidate_coords, dtype=np.float64)
+    demands = np.asarray(demand_coords, dtype=np.float64)
+    weights = np.asarray(demand_weights, dtype=np.float64)
+
+    c_count = len(candidates)
+    d_count = len(demands)
+    if c_count == 0 or d_count == 0 or k <= 0:
+        return [], np.array([], dtype=np.float64), np.array([], dtype=np.float64)
+
+    diffs = demands[:, None, :] - candidates[None, :, :]
+    dists = np.sqrt(np.sum(diffs**2, axis=2))
+
+    if decay_method == "exponential":
+        decay_factors = np.exp(-beta * dists)
+    elif decay_method == "gaussian":
+        decay_factors = np.exp(-0.5 * (dists / max(1e-9, max_distance / 2.0)) ** 2)
+    elif decay_method == "linear":
+        decay_factors = np.maximum(0.0, 1.0 - (dists / max(1e-9, max_distance)))
+    else:
+        raise ValueError("Unsupported decay_method. Use exponential, gaussian, or linear.")
+
+    decay_factors = np.where(dists <= max_distance, decay_factors, 0.0)
+
+    selected: list[int] = []
+    added_cov: list[float] = []
+    cum_cov: list[float] = []
+    current_best_coverage = np.zeros(d_count, dtype=np.float64)
+
+    available = set(range(c_count))
+
+    for _ in range(min(k, c_count)):
+        best_candidate = -1
+        best_added = -1.0
+
+        for c_idx in available:
+            candidate_cov = decay_factors[:, c_idx]
+            new_cov = np.maximum(current_best_coverage, candidate_cov)
+            added = float(np.sum((new_cov - current_best_coverage) * weights))
+            if added > best_added:
+                best_added = added
+                best_candidate = c_idx
+
+        if best_candidate == -1 or best_added <= 0:
+            break
+
+        selected.append(best_candidate)
+        available.remove(best_candidate)
+
+        current_best_coverage = np.maximum(
+            current_best_coverage, decay_factors[:, best_candidate]
+        )
+        added_cov.append(best_added)
+        cum_cov.append(float(np.sum(current_best_coverage * weights)))
+
+    return selected, np.array(added_cov, dtype=np.float64), np.array(cum_cov, dtype=np.float64)
+

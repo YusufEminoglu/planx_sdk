@@ -35,6 +35,8 @@ from .stats_engines import (
     calculate_spatial_gini,
     calculate_spatial_lag,
     calculate_standard_distance,
+    fit_spatial_error_model,
+    fit_spatial_lag_model,
     run_sensitivity_simulation,
 )
 from .weights import create_distance_band_weights, create_knn_weights
@@ -45,6 +47,8 @@ __all__ = [
     "calculate_bivariate_moran",
     "calculate_local_bivariate_moran",
     "calculate_spatial_lag",
+    "fit_spatial_lag_model",
+    "fit_spatial_error_model",
     "calculate_mean_center",
     "calculate_central_feature",
     "calculate_sde",

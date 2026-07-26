@@ -17,6 +17,7 @@ from .accessibility import (
     three_step_2sfca,
 )
 from .centrality import (
+    angular_segment_centrality,
     brandes_betweenness,
     closeness_straightness,
     eigenvector,
@@ -46,6 +47,7 @@ __all__ = [
     "closeness_straightness",
     "eigenvector",
     "brandes_betweenness",
+    "angular_segment_centrality",
     "network_criticality",
     "gravity_accessibility",
     "cumulative_opportunities",

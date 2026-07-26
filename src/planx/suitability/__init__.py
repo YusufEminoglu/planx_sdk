@@ -11,8 +11,11 @@ from .facility import (
     greedy_lscp,
     greedy_mclp,
     greedy_p_median,
+    mclp_distance_decay,
 )
 from .mcda import (
+    electre_i_method,
+    electre_iii_method,
     normalize_array,
     promethee_ii_method,
     topsis_method,
@@ -33,7 +36,10 @@ __all__ = [
     "topsis_method",
     "vikor_method",
     "promethee_ii_method",
+    "electre_i_method",
+    "electre_iii_method",
     "greedy_mclp",
+    "mclp_distance_decay",
     "greedy_p_median",
     "greedy_lscp",
     "capacitated_location_allocation",

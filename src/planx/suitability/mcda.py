@@ -389,3 +389,176 @@ def promethee_ii_method(
 
     return net_flow, rank_order
 
+
+def electre_i_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    benefit_criteria: np.ndarray,
+    concordance_threshold: float = 0.7,
+    discordance_threshold: float = 0.3,
+) -> tuple[np.ndarray, np.ndarray, list[int]]:
+    """Calculates outranking relation using the ELECTRE I method.
+
+    ELECTRE I evaluates concordance and discordance matrices to find a kernel subset
+    of non-dominated alternatives.
+
+    Args:
+        decision_matrix: NumPy array of shape (M, N) for M alternatives and N criteria.
+        weights: 1D array of shape (N,) representing importance of each criterion.
+        benefit_criteria: 1D boolean array of shape (N,) for criterion optimization direction.
+        concordance_threshold: Minimum concordance required for outranking (default 0.7).
+        discordance_threshold: Maximum discordance allowed for outranking (default 0.3).
+
+    Returns:
+        A tuple of:
+          - concordance_matrix: (M, M) NumPy array of pairwise concordance indices C(a, b).
+          - discordance_matrix: (M, M) NumPy array of pairwise discordance indices D(a, b).
+          - non_dominated_kernel: List of alternative indices belonging to the non-dominated kernel.
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    is_benefit = np.asarray(benefit_criteria, dtype=bool)
+
+    m, n = X.shape
+    if m == 0:
+        return np.zeros((0, 0)), np.zeros((0, 0)), []
+    if w.shape != (n,):
+        raise ValueError(f"weights length ({w.shape[0]}) must match criteria count ({n})")
+    if is_benefit.shape != (n,):
+        raise ValueError(
+            f"benefit_criteria length ({is_benefit.shape[0]}) must match criteria ({n})"
+        )
+
+    w_sum = np.sum(w)
+    if w_sum > 0:
+        w = w / w_sum
+
+    ranges = np.max(X, axis=0) - np.min(X, axis=0)
+    ranges = np.where(ranges > 0, ranges, 1.0)
+
+    C = np.zeros((m, m), dtype=np.float64)
+    D = np.zeros((m, m), dtype=np.float64)
+
+    for i in range(m):
+        for k in range(m):
+            if i == k:
+                continue
+            c_weight = 0.0
+            max_disc = 0.0
+            for j in range(n):
+                diff = (X[i, j] - X[k, j]) if is_benefit[j] else (X[k, j] - X[i, j])
+                if diff >= 0:
+                    c_weight += w[j]
+                else:
+                    disc_val = abs(diff) / ranges[j]
+                    if disc_val > max_disc:
+                        max_disc = disc_val
+            C[i, k] = c_weight
+            D[i, k] = max_disc
+
+    outranks = (C >= concordance_threshold) & (D <= discordance_threshold)
+    np.fill_diagonal(outranks, False)
+
+    dominated = set()
+    for i in range(m):
+        for k in range(m):
+            if i != k and outranks[i, k]:
+                dominated.add(k)
+
+    non_dominated = [idx for idx in range(m) if idx not in dominated]
+    return C, D, non_dominated
+
+
+def electre_iii_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    benefit_criteria: np.ndarray,
+    q_thresholds: np.ndarray,
+    p_thresholds: np.ndarray,
+    v_thresholds: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculates outranking ranking using the ELECTRE III method with pseudo-criteria thresholds.
+
+    Args:
+        decision_matrix: NumPy array of shape (M, N) for M alternatives and N criteria.
+        weights: 1D array of shape (N,) representing importance of each criterion.
+        benefit_criteria: 1D boolean array of shape (N,).
+        q_thresholds: 1D array of shape (N,) representing indifference thresholds q_j.
+        p_thresholds: 1D array of shape (N,) representing preference thresholds p_j.
+        v_thresholds: 1D array of shape (N,) representing veto thresholds v_j.
+
+    Returns:
+        A tuple of:
+          - credibility_matrix: (M, M) NumPy array of fuzzy credibility outranking indices S(a, b).
+          - ranks: 1D NumPy array of shape (M,) containing integer ranks (1 = best, M = worst).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    is_benefit = np.asarray(benefit_criteria, dtype=bool)
+    q = np.asarray(q_thresholds, dtype=np.float64)
+    p = np.asarray(p_thresholds, dtype=np.float64)
+    v = np.asarray(v_thresholds, dtype=np.float64)
+
+    m, n = X.shape
+    if m < 2:
+        return np.ones((m, m), dtype=np.float64), np.ones(m, dtype=int)
+    if (
+        w.shape != (n,)
+        or is_benefit.shape != (n,)
+        or q.shape != (n,)
+        or p.shape != (n,)
+        or v.shape != (n,)
+    ):
+        raise ValueError(
+            "All threshold vectors and weights must have length equal to criteria count."
+        )
+
+    w_sum = np.sum(w)
+    if w_sum > 0:
+        w = w / w_sum
+
+    C = np.zeros((m, m), dtype=np.float64)
+    S = np.zeros((m, m), dtype=np.float64)
+
+    for i in range(m):
+        for k in range(m):
+            if i == k:
+                C[i, k] = 1.0
+                S[i, k] = 1.0
+                continue
+
+            c_sum = 0.0
+            d_factors = []
+            for j in range(n):
+                diff = (X[k, j] - X[i, j]) if is_benefit[j] else (X[i, j] - X[k, j])
+                if diff <= q[j]:
+                    c_j = 1.0
+                elif diff >= p[j]:
+                    c_j = 0.0
+                else:
+                    c_j = (p[j] - diff) / max(1e-9, p[j] - q[j])
+                c_sum += w[j] * c_j
+
+                if diff <= p[j]:
+                    d_j = 0.0
+                elif diff >= v[j]:
+                    d_j = 1.0
+                else:
+                    d_j = (diff - p[j]) / max(1e-9, v[j] - p[j])
+                d_factors.append(d_j)
+
+            C[i, k] = c_sum
+            cred = c_sum
+            for d_j in d_factors:
+                if d_j > c_sum:
+                    cred *= (1.0 - d_j) / max(1e-9, 1.0 - c_sum)
+            S[i, k] = cred
+
+    scores = np.sum(S, axis=1) - np.sum(S, axis=0)
+    ranks = np.argsort(-scores)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, m + 1)
+
+    return S, rank_order
+
+
