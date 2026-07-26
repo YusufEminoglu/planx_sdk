@@ -11,6 +11,7 @@ from planx.resilience import (
     coastal_flood_inundation,
     coastal_surge_inundation,
     debris_clearance_routing,
+    earthquake_building_collapse_casualty,
     equity_adjusted_priority,
     evacuation_route_optimization,
     identify_critical_bottlenecks,
@@ -1346,6 +1347,23 @@ def test_wildfire_evacuation_encroachment():
 
     with pytest.raises(ValueError, match="fuel_grid shape must match"):
         wildfire_evacuation_encroachment((2, 2), (5.0, 0.0), slope, fuel[:3, :3])
+
+
+def test_earthquake_building_collapse_casualty():
+    btypes = ["RC", "Masonry", "Steel"]
+    stories = np.array([5, 3, 10])
+    occ = np.array([50, 20, 200])
+
+    res = earthquake_building_collapse_casualty(btypes, stories, occ, pga_g=0.45)
+
+    assert "collapse_probability" in res
+    assert "expected_collapsed_buildings" in res
+    assert len(res["collapse_probability"]) == 3
+    assert res["estimated_fatalities"] >= 0.0
+
+    with pytest.raises(ValueError, match="equal length"):
+        earthquake_building_collapse_casualty(btypes[:1], stories, occ, 0.45)
+
 
 
 

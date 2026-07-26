@@ -29,12 +29,14 @@ from planx.geostats import (
     calculate_local_moran_fdr,
     calculate_median_center,
     calculate_ols,
+    calculate_ripleys_cross_k,
     calculate_ripleys_k,
     calculate_sde,
     calculate_similarity_search,
     calculate_spatial_gini,
     calculate_spatial_lag,
     calculate_standard_distance,
+    calculate_weighted_kde,
     fit_spatial_error_model,
     fit_spatial_lag_model,
     fit_spatial_tobit_model,
@@ -256,6 +258,32 @@ def test_calculate_gwss():
 
     with pytest.raises(ValueError, match="Length of coords must match"):
         calculate_gwss(X[:2], coords, bandwidth=2.0)
+
+
+def test_calculate_weighted_kde():
+    events = np.array([[0.0, 0.0], [10.0, 0.0]])
+    weights = np.array([1.0, 5.0])
+    grid = np.array([[0.0, 0.0], [5.0, 0.0], [10.0, 0.0]])
+
+    dens = calculate_weighted_kde(events, weights, grid, bandwidth=15.0, kernel_type="quartic")
+
+    assert len(dens) == 3
+    assert dens[2] > dens[0]
+
+    with pytest.raises(ValueError, match="event_weights length"):
+        calculate_weighted_kde(events, weights[:1], grid, 15.0)
+
+
+def test_calculate_ripleys_cross_k():
+    pts_a = np.array([[0.0, 0.0], [10.0, 10.0]])
+    pts_b = np.array([[1.0, 1.0], [100.0, 100.0]])
+    radii = np.array([5.0, 20.0])
+
+    k_vals = calculate_ripleys_cross_k(pts_a, pts_b, radii, area=10000.0)
+
+    assert len(k_vals) == 2
+    assert k_vals[0] > 0.0
+
 
 
 

@@ -39,13 +39,14 @@ from .infrastructure import (
     simulate_network_disruption,
 )
 from .landslide import landslide_susceptibility
-from .seismic import simulate_seismic_debris
+from .seismic import earthquake_building_collapse_casualty, simulate_seismic_debris
 from .social import social_vulnerability_index
 from .synthesis import equity_adjusted_priority, multi_hazard_composite
 from .wildfire import wildfire_evacuation_encroachment, wildfire_risk_index
 
 __all__ = [
     "simulate_seismic_debris",
+    "earthquake_building_collapse_casualty",
     "pluvial_flood_susceptibility",
     "coastal_flood_inundation",
     "coastal_surge_inundation",
