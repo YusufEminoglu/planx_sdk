@@ -19,6 +19,7 @@ from .flood import (
     coastal_surge_inundation,
     pluvial_flood_susceptibility,
     socio_economic_flood_risk,
+    urban_stormwater_peak_runoff,
 )
 from .heat import (
     calculate_grid_sky_view_factor,
@@ -51,6 +52,7 @@ __all__ = [
     "coastal_flood_inundation",
     "coastal_surge_inundation",
     "socio_economic_flood_risk",
+    "urban_stormwater_peak_runoff",
     "landslide_susceptibility",
     "wildfire_risk_index",
     "wildfire_evacuation_encroachment",

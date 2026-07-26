@@ -44,6 +44,7 @@ from .stats_engines import (
     fit_spatial_lag_model,
     fit_spatial_tobit_model,
     run_sensitivity_simulation,
+    skater_spatial_clustering,
 )
 from .weights import create_distance_band_weights, create_knn_weights
 
@@ -82,6 +83,7 @@ __all__ = [
     "calculate_ripleys_k",
     "calculate_ripleys_cross_k",
     "calculate_weighted_kde",
+    "skater_spatial_clustering",
     "calculate_exploratory_regression",
     "calculate_glr",
     "idw_to_points",

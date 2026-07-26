@@ -372,3 +372,57 @@ def coastal_surge_inundation(
 
     return depth, flooded
 
+
+def urban_stormwater_peak_runoff(
+    catchment_area_ha: float,
+    land_use_ratios: dict[str, float],
+    rainfall_intensity_mm_hr: float,
+) -> dict:
+    """Calculates peak stormwater runoff discharge Q (m^3/s) using Rational Method.
+
+    Args:
+        catchment_area_ha: Total catchment area in hectares float.
+        land_use_ratios: Dict mapping land use types ("roofs", "pavement") to fractions.
+        rainfall_intensity_mm_hr: Design storm rainfall intensity in mm/hr float.
+
+    Returns:
+        Dict containing stormwater discharge results:
+          - composite_runoff_coefficient: Composite runoff coefficient C in [0.05, 0.95].
+          - peak_discharge_m3_s: Peak discharge rate Q in m^3/s.
+          - total_runoff_volume_m3: Total runoff volume assuming 1-hour storm (m^3).
+    """
+    if catchment_area_ha <= 0 or rainfall_intensity_mm_hr <= 0:
+        raise ValueError("catchment_area_ha and rainfall_intensity_mm_hr must be positive.")
+
+    c_table = {
+        "roofs": 0.90,
+        "pavement": 0.85,
+        "commercial": 0.80,
+        "residential": 0.50,
+        "lawns": 0.20,
+        "forest": 0.10,
+        "parks": 0.15,
+    }
+
+    c_weighted = 0.0
+    weight_sum = 0.0
+    for ltype, ratio in land_use_ratios.items():
+        c_val = c_table.get(ltype.lower(), 0.50)
+        c_weighted += c_val * ratio
+        weight_sum += ratio
+
+    if weight_sum > 0:
+        c_comp = float(c_weighted / weight_sum)
+    else:
+        c_comp = 0.50
+
+    q_peak = 0.00278 * c_comp * float(rainfall_intensity_mm_hr) * float(catchment_area_ha)
+    vol_m3 = q_peak * 3600.0
+
+    return {
+        "composite_runoff_coefficient": c_comp,
+        "peak_discharge_m3_s": q_peak,
+        "total_runoff_volume_m3": vol_m3,
+    }
+
+

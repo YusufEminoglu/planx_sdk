@@ -30,6 +30,7 @@ from planx.resilience import (
     tree_canopy_microclimate_cooling,
     urban_heat_comfort_risk,
     urban_heat_island_intensity,
+    urban_stormwater_peak_runoff,
     wildfire_evacuation_encroachment,
     wildfire_risk_index,
 )
@@ -1363,6 +1364,22 @@ def test_earthquake_building_collapse_casualty():
 
     with pytest.raises(ValueError, match="equal length"):
         earthquake_building_collapse_casualty(btypes[:1], stories, occ, 0.45)
+
+
+def test_urban_stormwater_peak_runoff():
+    luse = {"roofs": 0.4, "pavement": 0.4, "lawns": 0.2}
+    res = urban_stormwater_peak_runoff(
+        catchment_area_ha=10.0, land_use_ratios=luse, rainfall_intensity_mm_hr=50.0
+    )
+
+    assert "composite_runoff_coefficient" in res
+    assert "peak_discharge_m3_s" in res
+    assert res["composite_runoff_coefficient"] > 0.5
+    assert res["peak_discharge_m3_s"] > 0.0
+
+    with pytest.raises(ValueError, match="positive"):
+        urban_stormwater_peak_runoff(0.0, luse, 50.0)
+
 
 
 

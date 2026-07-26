@@ -777,6 +777,72 @@ def waspas_method(
     return Q, rank_order
 
 
+def aras_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    directions: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Ranks alternatives using the ARAS method.
+
+    ARAS = Additive Ratio Assessment.
+
+    Args:
+        decision_matrix: 2D NumPy array of shape (M, N) for M alternatives and N criteria.
+        weights: 1D NumPy array of shape (N,) containing criteria weights.
+        directions: 1D array indicating benefit (1) or cost (-1) criteria.
+
+    Returns:
+        A tuple of:
+          - K_scores: 1D NumPy array of shape (M,) containing utility degree K_i.
+          - rank_order: 1D NumPy array of shape (M,) containing alternative ranks (1 = best).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    m, n = X.shape
+
+    if len(w) != n:
+        raise ValueError("weights length must match number of columns in decision_matrix.")
+
+    if directions is None:
+        dirs = np.ones(n, dtype=np.float64)
+    else:
+        dirs = np.asarray(directions, dtype=np.float64)
+
+    # 1. Optimal alternative X_0
+    x0 = np.where(dirs >= 0, np.max(X, axis=0), np.min(X, axis=0))
+
+    # Extended matrix X_ext
+    X_ext = np.vstack([x0[None, :], X])
+
+    # 2. Normalization
+    N_mat = np.zeros_like(X_ext)
+    for j in range(n):
+        if dirs[j] >= 0:
+            sum_col = max(1e-9, np.sum(X_ext[:, j]))
+            N_mat[:, j] = X_ext[:, j] / sum_col
+        else:
+            reciprocal = 1.0 / np.maximum(1e-9, X_ext[:, j])
+            sum_recip = max(1e-9, np.sum(reciprocal))
+            N_mat[:, j] = reciprocal / sum_recip
+
+    # 3. Weighted matrix V
+    V = N_mat * w
+
+    # 4. Optimality function S_i and utility degree K_i
+    S = np.sum(V, axis=1)
+    S0 = S[0]
+    S_alt = S[1:]
+
+    K = S_alt / max(1e-9, S0)
+
+    ranks = np.argsort(-K)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, m + 1)
+
+    return K, rank_order
+
+
+
 
 
 
