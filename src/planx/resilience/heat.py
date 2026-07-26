@@ -590,3 +590,101 @@ def tree_canopy_microclimate_cooling(
 
     return delta_t
 
+
+def calculate_building_solar_radiation(
+    roof_areas: np.ndarray,
+    svf: np.ndarray,
+    solar_irradiance_kwh_m2: float = 1200.0,
+    pv_efficiency: float = 0.18,
+) -> dict:
+    """Calculates 3D building rooftop solar radiation potential and photovoltaic energy output.
+
+    Args:
+        roof_areas: 1D array of building roof surface areas in m^2.
+        svf: 1D array of local Sky View Factor (SVF) values in [0, 1].
+        solar_irradiance_kwh_m2: Annual horizontal solar irradiance in kWh/m^2.
+        pv_efficiency: Solar PV panel conversion efficiency float (default 0.18 for 18%).
+
+    Returns:
+        Dict containing solar potential statistics:
+          - annual_radiation_kwh: 1D NumPy array of incident solar energy per building (kWh/yr).
+          - annual_pv_generation_kwh: 1D array of estimated PV electricity generation (kWh/yr).
+          - total_pv_generation_mwh: Float total portfolio PV generation (MWh/yr).
+    """
+    areas = np.asarray(roof_areas, dtype=np.float64)
+    svf_arr = np.asarray(svf, dtype=np.float64)
+    n = len(areas)
+
+    if len(svf_arr) != n:
+        raise ValueError("roof_areas and svf must have identical length.")
+
+    radiation_kwh = areas * svf_arr * float(solar_irradiance_kwh_m2)
+    pv_gen_kwh = radiation_kwh * float(pv_efficiency)
+    total_mwh = float(np.sum(pv_gen_kwh) / 1000.0)
+
+    return {
+        "annual_radiation_kwh": radiation_kwh,
+        "annual_pv_generation_kwh": pv_gen_kwh,
+        "total_pv_generation_mwh": total_mwh,
+    }
+
+
+def urban_heat_vulnerability_index(
+    uhi_intensity: np.ndarray,
+    sensitivity_density: np.ndarray,
+    canopy_cover_ratio: np.ndarray,
+) -> dict:
+    """Synthesizes the composite Urban Heat Vulnerability Index (HVI) across spatial units.
+
+    Args:
+        uhi_intensity: Array of Urban Heat Island temperature anomaly (°C).
+        sensitivity_density: Array of vulnerable population density (elderly + infants / km^2).
+        canopy_cover_ratio: Array of tree canopy cover fraction [0.0, 1.0].
+
+    Returns:
+        Dict containing HVI assessment:
+          - hvi_score: Array of normalized HVI scores in [0, 100].
+          - vulnerability_category: List of strings ("Low", "Moderate", "High", "Very High").
+    """
+    uhi = np.asarray(uhi_intensity, dtype=np.float64)
+    sens = np.asarray(sensitivity_density, dtype=np.float64)
+    canopy = np.asarray(canopy_cover_ratio, dtype=np.float64)
+
+    if uhi.shape != sens.shape or uhi.shape != canopy.shape:
+        raise ValueError("uhi_intensity, sensitivity_density, and canopy_cover_ratio must match.")
+
+    def min_max(arr: np.ndarray) -> np.ndarray:
+        min_v, max_v = np.min(arr), np.max(arr)
+        if max_v > min_v:
+            return (arr - min_v) / (max_v - min_v)
+        return np.zeros_like(arr)
+
+    e_norm = min_max(uhi)
+    s_norm = min_max(sens)
+    ac_norm = min_max(canopy)
+
+    hvi_raw = 0.4 * e_norm + 0.4 * s_norm - 0.2 * ac_norm
+    min_h, max_h = np.min(hvi_raw), np.max(hvi_raw)
+
+    if max_h > min_h:
+        hvi_score = (hvi_raw - min_h) / (max_h - min_h) * 100.0
+    else:
+        hvi_score = np.zeros_like(hvi_raw)
+
+    cats = []
+    for val in hvi_score.flat:
+        if val >= 75.0:
+            cats.append("Very High")
+        elif val >= 50.0:
+            cats.append("High")
+        elif val >= 25.0:
+            cats.append("Moderate")
+        else:
+            cats.append("Low")
+
+    return {
+        "hvi_score": hvi_score,
+        "vulnerability_category": cats,
+    }
+
+

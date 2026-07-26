@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from planx.resilience import (
+    calculate_building_solar_radiation,
     calculate_grid_sky_view_factor,
     calculate_solar_access,
     classify_local_climate_zones,
@@ -30,6 +31,7 @@ from planx.resilience import (
     tree_canopy_microclimate_cooling,
     urban_heat_comfort_risk,
     urban_heat_island_intensity,
+    urban_heat_vulnerability_index,
     urban_stormwater_peak_runoff,
     wildfire_evacuation_encroachment,
     wildfire_risk_index,
@@ -1379,6 +1381,33 @@ def test_urban_stormwater_peak_runoff():
 
     with pytest.raises(ValueError, match="positive"):
         urban_stormwater_peak_runoff(0.0, luse, 50.0)
+
+
+def test_calculate_building_solar_radiation():
+    areas = np.array([100.0, 200.0])
+    svf = np.array([0.8, 0.5])
+
+    res = calculate_building_solar_radiation(areas, svf, solar_irradiance_kwh_m2=1200.0)
+
+    assert "annual_radiation_kwh" in res
+    assert "annual_pv_generation_kwh" in res
+    assert res["total_pv_generation_mwh"] > 0.0
+
+    with pytest.raises(ValueError, match="identical length"):
+        calculate_building_solar_radiation(areas[:1], svf)
+
+
+def test_urban_heat_vulnerability_index():
+    uhi = np.array([2.0, 5.0, 1.0])
+    sens = np.array([500.0, 1200.0, 200.0])
+    canopy = np.array([0.4, 0.1, 0.6])
+
+    res = urban_heat_vulnerability_index(uhi, sens, canopy)
+
+    assert "hvi_score" in res
+    assert "vulnerability_category" in res
+    assert len(res["vulnerability_category"]) == 3
+
 
 
 

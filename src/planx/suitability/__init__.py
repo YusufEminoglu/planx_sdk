@@ -16,6 +16,7 @@ from .facility import (
 )
 from .mcda import (
     aras_method,
+    copras_method,
     electre_i_method,
     electre_iii_method,
     marcos_method,
@@ -48,6 +49,7 @@ __all__ = [
     "electre_i_method",
     "electre_iii_method",
     "aras_method",
+    "copras_method",
     "marcos_method",
     "waspas_method",
     "mcda_sensitivity_monte_carlo",

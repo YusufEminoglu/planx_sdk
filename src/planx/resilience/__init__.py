@@ -22,6 +22,7 @@ from .flood import (
     urban_stormwater_peak_runoff,
 )
 from .heat import (
+    calculate_building_solar_radiation,
     calculate_grid_sky_view_factor,
     calculate_solar_access,
     classify_local_climate_zones,
@@ -29,6 +30,7 @@ from .heat import (
     tree_canopy_microclimate_cooling,
     urban_heat_comfort_risk,
     urban_heat_island_intensity,
+    urban_heat_vulnerability_index,
 )
 from .infrastructure import (
     debris_clearance_routing,
@@ -79,4 +81,6 @@ __all__ = [
     "classify_local_climate_zones",
     "calculate_solar_access",
     "tree_canopy_microclimate_cooling",
+    "calculate_building_solar_radiation",
+    "urban_heat_vulnerability_index",
 ]

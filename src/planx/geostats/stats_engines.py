@@ -2790,6 +2790,62 @@ def skater_spatial_clustering(
     return labels
 
 
+def fit_spatial_sarma_model(
+    y: np.ndarray,
+    X: np.ndarray,
+    neighbors: dict,
+    weights: dict,
+    id_order: list,
+) -> dict:
+    """Fits Spatial Autoregressive Moving Average (SARMA) combining spatial lag and error.
+
+    Args:
+        y: 1D NumPy array of dependent variable values of shape (N,).
+        X: 2D NumPy array of independent explanatory features of shape (N, K).
+        neighbors: Adjacency dictionary mapping node_id -> list of neighbor node_ids.
+        weights: Spatial weights dictionary mapping node_id -> list of weight floats.
+        id_order: List of node_ids defining array row ordering.
+
+    Returns:
+        Dict containing model fit parameters:
+          - rho: Float estimated spatial lag autoregressive parameter.
+          - lambda_err: Float estimated spatial error autoregressive parameter.
+          - beta: 1D NumPy array of estimated regression coefficients (K,).
+          - fitted: 1D NumPy array of fitted values (N,).
+          - residuals: 1D NumPy array of residual errors (N,).
+    """
+    y_arr = np.asarray(y, dtype=np.float64)
+    X_mat = np.asarray(X, dtype=np.float64)
+    n = len(y_arr)
+
+    if len(X_mat) != n:
+        raise ValueError("Length of y must match number of rows in X.")
+
+    W_lag = calculate_spatial_lag(y_arr, neighbors, weights, id_order)
+
+    # 2SLS estimation for SARMA
+    X_stage1 = np.column_stack([X_mat, W_lag])
+    beta_stage1, _, _, _ = np.linalg.lstsq(X_stage1, y_arr, rcond=None)
+
+    rho = float(beta_stage1[-1])
+    beta = beta_stage1[:-1]
+
+    fitted = X_stage1 @ beta_stage1
+    residuals = y_arr - fitted
+
+    u_lag = calculate_spatial_lag(residuals, neighbors, weights, id_order)
+    lambda_err = float(np.sum(residuals * u_lag) / max(1e-9, np.sum(u_lag**2)))
+
+    return {
+        "rho": rho,
+        "lambda_err": lambda_err,
+        "beta": beta,
+        "fitted": fitted,
+        "residuals": residuals,
+    }
+
+
+
 
 
 

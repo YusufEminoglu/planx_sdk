@@ -39,6 +39,7 @@ from planx.geostats import (
     calculate_weighted_kde,
     fit_spatial_error_model,
     fit_spatial_lag_model,
+    fit_spatial_sarma_model,
     fit_spatial_tobit_model,
     run_sensitivity_simulation,
     skater_spatial_clustering,
@@ -292,6 +293,21 @@ def test_skater_spatial_clustering():
 
     assert len(labels) == 4
     assert len(np.unique(labels)) == 2
+
+
+def test_fit_spatial_sarma_model():
+    y = np.array([10.0, 20.0, 30.0, 40.0])
+    X = np.array([[1.0, 2.0], [1.0, 3.0], [1.0, 4.0], [1.0, 5.0]])
+
+    res = fit_spatial_sarma_model(y, X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
+    assert "rho" in res
+    assert "lambda_err" in res
+    assert len(res["beta"]) == 2
+
+    with pytest.raises(ValueError, match="Length of y must match"):
+        fit_spatial_sarma_model(y[:2], X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
 
 
 

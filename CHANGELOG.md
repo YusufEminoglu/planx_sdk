@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-07-27
+### Added
+- **SARMA Spatial Model (Spatial Autoregressive Moving Average)** (`fit_spatial_sarma_model`) in `planx.geostats` for 2SLS joint Spatial Lag + Spatial Error regression modeling.
+- **COPRAS MCDA Method** (`copras_method`) in `planx.suitability.mcda` for Complex Proportional Assessment under benefit and cost criteria.
+- **3D Building Solar Radiation Potential** (`calculate_building_solar_radiation`) in `planx.resilience.heat` for Sky View Factor (SVF) weighted rooftop solar irradiance and PV electricity generation (kWh/yr).
+- **Urban Heat Vulnerability Index (HVI)** (`urban_heat_vulnerability_index`) in `planx.resilience.heat` for multi-component heat risk index synthesizing exposure, sensitivity, and adaptive capacity.
+
+---
+
 ## [1.0.0] - 2026-07-27
 ### Added
 - **Spatially Constrained Regionalization (SKATER)** (`skater_spatial_clustering`) in `planx.geostats` for Minimum Spanning Tree (MST) edge-cutting spatially contiguous regional clustering.
