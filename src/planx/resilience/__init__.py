@@ -34,6 +34,7 @@ from .infrastructure import (
     infrastructure_service_loss,
     network_criticality_index,
     prioritize_debris_clearance,
+    simulate_interdependent_infrastructure_cascade,
     simulate_network_disruption,
 )
 from .landslide import landslide_susceptibility
@@ -62,6 +63,7 @@ __all__ = [
     "network_criticality_index",
     "debris_clearance_routing",
     "evacuation_route_optimization",
+    "simulate_interdependent_infrastructure_cascade",
     "job_housing_spatial_mismatch",
     "active_travel_equity_gini",
     "transport_mismatch_index",

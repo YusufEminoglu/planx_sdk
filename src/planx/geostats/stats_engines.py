@@ -2345,3 +2345,93 @@ def fit_spatial_error_model(
     }
 
 
+def calculate_gwlr(
+    y: np.ndarray,
+    X_data: np.ndarray,
+    coords: np.ndarray,
+    bandwidth: float,
+    kernel_type: str = "fixed_gaussian",
+    max_iter: int = 50,
+    tol: float = 1e-5,
+) -> dict:
+    """Performs Geographically Weighted Logistic Regression (GWLR) analysis for binary outcomes.
+
+    Args:
+        y: Binary dependent variable (n,) with values in {0, 1}.
+        X_data: Independent variables (n, p).
+        coords: Centroid coordinates (n, 2).
+        bandwidth: Kernel bandwidth distance float.
+        kernel_type: "fixed_gaussian" or "fixed_bisquare".
+        max_iter: Maximum IRLS iterations per location.
+        tol: Convergence tolerance.
+
+    Returns:
+        A dictionary containing GWLR coefficients, standard errors, probabilities, and statistics.
+    """
+    y_arr = np.asarray(y, dtype=np.float64)
+    X_arr = np.asarray(X_data, dtype=np.float64)
+    if X_arr.ndim == 1:
+        X_arr = X_arr.reshape(-1, 1)
+
+    n, p = X_arr.shape
+    if len(y_arr) != n:
+        raise ValueError("Length of y must match number of rows in X_data.")
+    if not np.all(np.isin(y_arr, [0.0, 1.0])):
+        raise ValueError("GWLR requires binary dependent variable with values in {0, 1}.")
+
+    X = np.column_stack((np.ones(n), X_arr))
+    k = p + 1
+
+    local_beta = np.zeros((n, k), dtype=np.float64)
+    local_se = np.zeros((n, k), dtype=np.float64)
+    y_prob = np.zeros(n, dtype=np.float64)
+
+    dists_matrix = np.sqrt(((coords[:, None, :] - coords[None, :, :]) ** 2).sum(-1))
+
+    for i in range(n):
+        dists = dists_matrix[i]
+        if kernel_type == "fixed_bisquare":
+            w = np.where(dists <= bandwidth, (1.0 - (dists / max(1e-9, bandwidth)) ** 2) ** 2, 0.0)
+        else:
+            w = np.exp(-0.5 * (dists / max(1e-9, bandwidth)) ** 2)
+
+        beta = np.zeros(k, dtype=np.float64)
+        for _ in range(max_iter):
+            eta = np.clip(X @ beta, -30.0, 30.0)
+            pi = np.clip(1.0 / (1.0 + np.exp(-eta)), 1e-9, 1.0 - 1e-9)
+            v = w * pi * (1.0 - pi)
+            z = eta + (y_arr - pi) / (pi * (1.0 - pi))
+
+            xtv = X.T * v
+            cov = np.linalg.pinv(xtv @ X)
+            beta_new = cov @ xtv @ z
+
+            if np.max(np.abs(beta_new - beta)) < tol:
+                beta = beta_new
+                break
+            beta = beta_new
+
+        local_beta[i] = beta
+        eta_i = float(np.clip(X[i] @ beta, -30.0, 30.0))
+        y_prob[i] = 1.0 / (1.0 + math.exp(-eta_i))
+
+        pi_loc = np.clip(1.0 / (1.0 + np.exp(-np.clip(X @ beta, -30.0, 30.0))), 1e-9, 1.0 - 1e-9)
+        v_loc = w * pi_loc * (1.0 - pi_loc)
+        cov_loc = np.linalg.pinv((X.T * v_loc) @ X)
+        local_se[i] = np.sqrt(np.maximum(0.0, np.diagonal(cov_loc)))
+
+    residuals = y_arr - y_prob
+    sse = float(np.sum(residuals**2))
+    sst = float(np.sum((y_arr - np.mean(y_arr)) ** 2))
+    r2 = float(1.0 - (sse / sst)) if sst > 0 else 0.0
+
+    return {
+        "coefficients": local_beta,
+        "std_errors": local_se,
+        "probabilities": y_prob,
+        "residuals": residuals,
+        "pseudo_r2": r2,
+    }
+
+
+
