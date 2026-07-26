@@ -32,6 +32,7 @@ from .walkability import (
     calculate_average_route_circuity,
     calculate_pedestrian_route_directness,
     calculate_walk_score,
+    calculate_wind_comfort_lawson,
     choice_centrality_una,
     classify_level_of_traffic_stress,
     gravity_centrality_una,
@@ -76,4 +77,5 @@ __all__ = [
     "calculate_average_route_circuity",
     "profile_intersection_density_closeness",
     "street_network_morphometry",
+    "calculate_wind_comfort_lawson",
 ]

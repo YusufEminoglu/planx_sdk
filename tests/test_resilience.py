@@ -29,6 +29,7 @@ from planx.resilience import (
     tree_canopy_microclimate_cooling,
     urban_heat_comfort_risk,
     urban_heat_island_intensity,
+    wildfire_evacuation_encroachment,
     wildfire_risk_index,
 )
 
@@ -1323,6 +1324,29 @@ def test_tree_canopy_microclimate_cooling():
     assert dt[0] == pytest.approx(0.6 * 3.5)
     assert dt[0] > dt[1] > dt[2]
     assert dt[2] == 0.0
+
+
+def test_wildfire_evacuation_encroachment():
+    slope = np.zeros((5, 5))
+    fuel = np.ones((5, 5)) * 0.8
+
+    res = wildfire_evacuation_encroachment(
+        fire_origin=(2, 2),
+        wind_vector=(5.0, 0.0),
+        slope_grid=slope,
+        fuel_grid=fuel,
+        cell_size=30.0,
+        time_steps=5,
+    )
+
+    assert "burn_arrival_time" in res
+    assert "flame_encroachment_mask" in res
+    assert len(res["safe_evacuation_buffer_m"]) == 5
+    assert res["burn_arrival_time"][2, 2] == 0.0
+
+    with pytest.raises(ValueError, match="fuel_grid shape must match"):
+        wildfire_evacuation_encroachment((2, 2), (5.0, 0.0), slope, fuel[:3, :3])
+
 
 
 
