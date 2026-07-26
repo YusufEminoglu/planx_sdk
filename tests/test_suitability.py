@@ -9,6 +9,7 @@ from planx.suitability import (
     aras_method,
     bwm_weights,
     capacitated_location_allocation,
+    copras_method,
     critic_weights,
     decision_matrix_from_layers,
     dematel_method,
@@ -1097,4 +1098,19 @@ def test_aras_method():
 
     with pytest.raises(ValueError, match="weights length"):
         aras_method(X, w[:1])
+
+
+def test_copras_method():
+    X = np.array([[10.0, 2.0], [5.0, 8.0], [1.0, 10.0]])
+    w = np.array([0.6, 0.4])
+
+    n_ut, ranks = copras_method(X, w)
+
+    assert len(n_ut) == 3
+    assert len(ranks) == 3
+    assert np.max(n_ut) == pytest.approx(100.0)
+
+    with pytest.raises(ValueError, match="weights length"):
+        copras_method(X, w[:1])
+
 

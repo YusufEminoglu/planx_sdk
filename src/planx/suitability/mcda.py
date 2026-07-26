@@ -842,6 +842,77 @@ def aras_method(
     return K, rank_order
 
 
+def copras_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    directions: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Ranks alternatives using the COPRAS method.
+
+    COPRAS = Complex Proportional Assessment.
+
+    Args:
+        decision_matrix: 2D NumPy array of shape (M, N) for M alternatives and N criteria.
+        weights: 1D NumPy array of shape (N,) containing criteria weights.
+        directions: 1D array indicating benefit (1) or cost (-1) criteria.
+
+    Returns:
+        A tuple of:
+          - N_utility_degrees: 1D NumPy array of shape (M,) containing percentage utility values.
+          - rank_order: 1D NumPy array of shape (M,) containing alternative ranks (1 = best).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    m, n = X.shape
+
+    if len(w) != n:
+        raise ValueError("weights length must match number of columns in decision_matrix.")
+
+    if directions is None:
+        dirs = np.ones(n, dtype=np.float64)
+    else:
+        dirs = np.asarray(directions, dtype=np.float64)
+
+    # 1. Linear Sum Normalization d_ij
+    sum_cols = np.maximum(1e-9, np.sum(X, axis=0))
+    D_mat = X / sum_cols[None, :]
+
+    # 2. Weighted normalized matrix D_w
+    D_w = D_mat * w[None, :]
+
+    # 3. Sum of beneficial S_{+i} and non-beneficial S_{-i} criteria
+    benefit_mask = dirs >= 0
+    cost_mask = dirs < 0
+
+    if np.any(benefit_mask):
+        S_plus = np.sum(D_w[:, benefit_mask], axis=1)
+    else:
+        S_plus = np.zeros(m, dtype=np.float64)
+
+    if np.any(cost_mask):
+        S_minus = np.sum(D_w[:, cost_mask], axis=1)
+    else:
+        S_minus = np.zeros(m, dtype=np.float64)
+
+    # 4. Relative significance Q_i
+    if np.any(cost_mask):
+        sum_recip_cost = float(np.sum(1.0 / np.maximum(1e-9, S_minus)))
+        Q = S_plus + (np.sum(S_minus) / (S_minus * sum_recip_cost + 1e-12))
+    else:
+        Q = S_plus
+
+    # 5. Utility degree N_i (%)
+    max_Q = max(1e-9, np.max(Q))
+    N_utility = (Q / max_Q) * 100.0
+
+    ranks = np.argsort(-N_utility)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, m + 1)
+
+    return N_utility, rank_order
+
+
+
 
 
 
