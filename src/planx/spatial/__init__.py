@@ -42,6 +42,7 @@ from .walkability import (
     reach_centrality_una,
     simulate_thermal_comfort_pet,
     street_network_morphometry,
+    street_orientation_rose_spectrum,
     thermal_comfort_routing,
 )
 
@@ -80,4 +81,5 @@ __all__ = [
     "street_network_morphometry",
     "calculate_wind_comfort_lawson",
     "cul_de_sac_isolation_index",
+    "street_orientation_rose_spectrum",
 ]

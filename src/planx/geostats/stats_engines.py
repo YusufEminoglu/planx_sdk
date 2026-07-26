@@ -2697,6 +2697,100 @@ def calculate_ripleys_cross_k(
     return k_results
 
 
+def skater_spatial_clustering(
+    attr_matrix: np.ndarray,
+    neighbors: dict | np.ndarray,
+    weights_or_adj: dict | np.ndarray | None = None,
+    n_clusters: int = 2,
+) -> np.ndarray:
+    """Spatially Constrained Regionalization using Minimum Spanning Tree (SKATER algorithm).
+
+    Args:
+        attr_matrix: 2D NumPy array of shape (N, P) containing spatial unit attribute features.
+        neighbors: Neighbors dict {node: [nbrs]} OR CSR indptr 1D array.
+        weights_or_adj: Weights dict OR CSR adj 1D array.
+        n_clusters: Target number of contiguous spatial regions int.
+
+    Returns:
+        1D NumPy array of shape (N,) containing cluster assignment labels.
+    """
+    X = np.asarray(attr_matrix, dtype=np.float64)
+
+    edges = []
+    if isinstance(neighbors, dict):
+        n = len(X)
+        for u, nbs in neighbors.items():
+            for v in nbs:
+                if u < v:
+                    dist = float(np.linalg.norm(X[u] - X[v]))
+                    edges.append((dist, int(u), int(v)))
+    else:
+        indptr = np.asarray(neighbors, dtype=np.int32)
+        adj_arr = np.asarray(weights_or_adj, dtype=np.int32)
+        n = len(indptr) - 1
+        for u in range(n):
+            for v in adj_arr[indptr[u] : indptr[u + 1]]:
+                if u < v:
+                    dist = float(np.linalg.norm(X[u] - X[v]))
+                    edges.append((dist, int(u), int(v)))
+
+    if n <= 0 or n_clusters <= 0:
+        return np.zeros(n, dtype=np.int64)
+
+    if n_clusters >= n:
+        return np.arange(n, dtype=np.int64)
+
+    edges.sort(key=lambda x: x[0])
+
+    # Disjoint Set Union (DSU) for MST construction
+    parent = list(range(n))
+
+    def find(i: int) -> int:
+        path = []
+        curr = i
+        while parent[curr] != curr:
+            path.append(curr)
+            curr = parent[curr]
+        for node in path:
+            parent[node] = curr
+        return curr
+
+    mst_edges = []
+    for dist, u, v in edges:
+        root_u, root_v = find(u), find(v)
+        if root_u != root_v:
+            parent[root_u] = root_v
+            mst_edges.append((dist, u, v))
+
+    # 2. Prune n_clusters - 1 edges with largest attribute dissimilarity
+    mst_edges.sort(key=lambda x: x[0], reverse=True)
+    retained_edges = mst_edges[max(0, n_clusters - 1) :]
+
+    # 3. Connected component labeling on retained MST edges
+    graph: dict[int, list[int]] = {i: [] for i in range(n)}
+    for _, u, v in retained_edges:
+        graph[u].append(v)
+        graph[v].append(u)
+
+    labels = np.full(n, -1, dtype=np.int64)
+    curr_label = 0
+
+    for i in range(n):
+        if labels[i] == -1:
+            queue = [i]
+            labels[i] = curr_label
+            while queue:
+                curr = queue.pop(0)
+                for nxt in graph[curr]:
+                    if labels[nxt] == -1:
+                        labels[nxt] = curr_label
+                        queue.append(nxt)
+            curr_label += 1
+
+    return labels
+
+
+
 
 
 

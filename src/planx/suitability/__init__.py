@@ -15,6 +15,7 @@ from .facility import (
     pareto_facility_location,
 )
 from .mcda import (
+    aras_method,
     electre_i_method,
     electre_iii_method,
     marcos_method,
@@ -46,6 +47,7 @@ __all__ = [
     "promethee_ii_method",
     "electre_i_method",
     "electre_iii_method",
+    "aras_method",
     "marcos_method",
     "waspas_method",
     "mcda_sensitivity_monte_carlo",
