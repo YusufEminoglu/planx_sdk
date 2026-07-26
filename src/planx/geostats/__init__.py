@@ -10,6 +10,7 @@ from .interpolation import idw_to_grid, idw_to_points, kriging_to_grid, kriging_
 from .stats_engines import (
     calculate_average_nearest_neighbor,
     calculate_bivariate_lee_l,
+    calculate_bivariate_moran,
     calculate_central_feature,
     calculate_distance_band_stats,
     calculate_exploratory_regression,
@@ -22,6 +23,7 @@ from .stats_engines import (
     calculate_incremental_autocorrelation,
     calculate_kmeans,
     calculate_linear_directional_mean,
+    calculate_local_bivariate_moran,
     calculate_local_geary,
     calculate_local_moran,
     calculate_mean_center,
@@ -31,6 +33,7 @@ from .stats_engines import (
     calculate_sde,
     calculate_similarity_search,
     calculate_spatial_gini,
+    calculate_spatial_lag,
     calculate_standard_distance,
     run_sensitivity_simulation,
 )
@@ -39,6 +42,9 @@ from .weights import create_distance_band_weights, create_knn_weights
 __all__ = [
     "calculate_getis_ord",
     "calculate_bivariate_lee_l",
+    "calculate_bivariate_moran",
+    "calculate_local_bivariate_moran",
+    "calculate_spatial_lag",
     "calculate_mean_center",
     "calculate_central_feature",
     "calculate_sde",

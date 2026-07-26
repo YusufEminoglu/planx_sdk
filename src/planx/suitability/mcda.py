@@ -309,3 +309,83 @@ def vikor_method(
     rank_order[ranks] = np.arange(1, m + 1)
 
     return Q, rank_order
+
+
+def promethee_ii_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    benefit_criteria: np.ndarray,
+    preference_thresholds: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculates suitability ranking scores using the PROMETHEE II method.
+
+    PROMETHEE II (Preference Ranking Organization METHod for Enrichment Evaluations)
+    ranks alternatives based on net outranking flows (leaving flow minus entering flow).
+
+    Args:
+        decision_matrix: NumPy array of shape (M, N) for M alternatives and N criteria.
+        weights: 1D array of shape (N,) representing importance of each criterion.
+        benefit_criteria: 1D boolean array of shape (N,) where True represents a benefit
+            criterion and False represents a cost criterion.
+        preference_thresholds: Optional 1D array of shape (N,) representing preference threshold p_j
+            for each criterion. If None, linear preference over criterion range is used.
+
+    Returns:
+        A tuple of:
+          - net_flows: 1D NumPy array of shape (M,) containing net outranking flows in [-1.0, 1.0].
+            Higher score indicates a better alternative.
+          - ranks: 1D NumPy array of shape (M,) containing integer ranks (1 = best, M = worst).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    is_benefit = np.asarray(benefit_criteria, dtype=bool)
+
+    m, n = X.shape
+    if m < 2:
+        return np.zeros(m, dtype=np.float64), np.ones(m, dtype=int)
+
+    if w.shape != (n,):
+        raise ValueError(f"weights length ({w.shape[0]}) must match number of criteria ({n})")
+    if is_benefit.shape != (n,):
+        raise ValueError(
+            f"benefit_criteria length ({is_benefit.shape[0]}) must match number of criteria ({n})"
+        )
+
+    w_sum = np.sum(w)
+    if w_sum > 0:
+        w = w / w_sum
+
+    if preference_thresholds is not None:
+        p_thresh = np.asarray(preference_thresholds, dtype=np.float64)
+        if p_thresh.shape != (n,):
+            raise ValueError(
+                f"preference_thresholds length ({p_thresh.shape[0]}) must match criteria ({n})"
+            )
+    else:
+        ranges = np.max(X, axis=0) - np.min(X, axis=0)
+        p_thresh = np.where(ranges > 0, ranges, 1.0)
+
+    p_matrix = np.zeros((m, m), dtype=np.float64)
+
+    for i in range(m):
+        for k in range(m):
+            if i == k:
+                continue
+            pair_pref = 0.0
+            for j in range(n):
+                diff = (X[i, j] - X[k, j]) if is_benefit[j] else (X[k, j] - X[i, j])
+                if diff > 0:
+                    p_val = min(1.0, diff / p_thresh[j]) if p_thresh[j] > 0 else 1.0
+                    pair_pref += w[j] * p_val
+            p_matrix[i, k] = pair_pref
+
+    leaving_flow = np.sum(p_matrix, axis=1) / (m - 1)
+    entering_flow = np.sum(p_matrix, axis=0) / (m - 1)
+    net_flow = leaving_flow - entering_flow
+
+    ranks = np.argsort(-net_flow)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, m + 1)
+
+    return net_flow, rank_order
+

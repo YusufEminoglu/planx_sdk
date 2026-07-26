@@ -1979,3 +1979,173 @@ def calculate_glr(
         }
 
     raise ValueError("Unsupported GLR family. Use gaussian, logistic, or poisson.")
+
+
+def calculate_spatial_lag(
+    y: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
+    row_standardize: bool = True,
+) -> np.ndarray:
+    """Calculates spatial lag (W * y) for a target attribute array.
+
+    Args:
+        y: 1D NumPy array of target values.
+        neighbors: Dict mapping feature ID to list of neighbor feature IDs.
+        weights: Dict mapping feature ID to list of numeric weights.
+        id_order: List of feature IDs defining the index mapping of y.
+        row_standardize: If True, weights for each row are scaled to sum to 1.0.
+
+    Returns:
+        1D NumPy array of spatial lag values.
+    """
+    n = len(y)
+    lag = np.zeros(n, dtype=np.float64)
+    if n == 0:
+        return lag
+
+    id_to_idx = {fid: idx for idx, fid in enumerate(id_order)}
+
+    for i, fid in enumerate(id_order):
+        neighs = neighbors.get(fid, [])
+        w_list = weights.get(fid, [])
+        valid_indices = []
+        valid_w = []
+        for j, nid in enumerate(neighs):
+            if nid in id_to_idx:
+                valid_indices.append(id_to_idx[nid])
+                w_val = w_list[j] if j < len(w_list) else 1.0
+                valid_w.append(w_val)
+
+        if not valid_indices:
+            continue
+
+        w_arr = np.array(valid_w, dtype=np.float64)
+        if row_standardize:
+            w_sum = np.sum(w_arr)
+            if w_sum > 0:
+                w_arr = w_arr / w_sum
+
+        lag[i] = float(np.sum(w_arr * y[valid_indices]))
+
+    return lag
+
+
+def calculate_bivariate_moran(
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
+) -> tuple[float, float, float, float, float]:
+    """Calculates Bivariate Global Moran's I spatial autocorrelation.
+
+    Measures spatial correlation between variable X at locations i and variable Y at neighbors j.
+
+    Args:
+        x_values: 1D array of variable X values.
+        y_values: 1D array of variable Y values.
+        neighbors: Dict mapping feature ID to neighbor IDs.
+        weights: Dict mapping feature ID to neighbor weights.
+        id_order: List of feature IDs.
+
+    Returns:
+        A tuple of (bivariate_moran_i, expected_i, variance, z_score, p_value)
+    """
+    n = len(x_values)
+    if n <= 3:
+        raise ValueError("Bivariate Moran's I requires at least 4 observations.")
+    if len(y_values) != n:
+        raise ValueError("x_values and y_values must have the same length.")
+
+    x_std = np.std(x_values)
+    y_std = np.std(y_values)
+
+    if x_std == 0 or y_std == 0:
+        return 0.0, -1.0 / (n - 1), 0.0, 0.0, 1.0
+
+    zx = (x_values - np.mean(x_values)) / x_std
+    zy = (y_values - np.mean(y_values)) / y_std
+
+    lag_zy = calculate_spatial_lag(zy, neighbors, weights, id_order, row_standardize=True)
+
+    bivariate_i = float(np.sum(zx * lag_zy) / n)
+    expected_i = -1.0 / (n - 1)
+    var_i = (1.0 / n) - (expected_i**2)
+    if var_i < 0:
+        var_i = 1e-9
+    se_i = math.sqrt(var_i)
+    z_score = (bivariate_i - expected_i) / se_i if se_i > 0 else 0.0
+    p_val = 1.0 - math.erf(abs(z_score) / math.sqrt(2.0))
+
+    return bivariate_i, expected_i, var_i, z_score, p_val
+
+
+def calculate_local_bivariate_moran(
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
+    alpha: float = 0.05,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
+    """Calculates Anselin Bivariate Local Moran's I cluster and outlier diagnostics.
+
+    Args:
+        x_values: 1D array of variable X values.
+        y_values: 1D array of variable Y values.
+        neighbors: Dict mapping feature ID to neighbor IDs.
+        weights: Dict mapping feature ID to neighbor weights.
+        id_order: List of feature IDs.
+        alpha: Significance threshold for cluster quadrant assignment.
+
+    Returns:
+        A tuple of:
+          - I_values: NumPy array of Bivariate Local Moran's I values.
+          - z_scores: NumPy array of z-scores.
+          - p_values: NumPy array of p-values.
+          - quadrants: List of strings ('HH', 'LL', 'HL', 'LH', 'Not Significant').
+    """
+    n = len(x_values)
+    I_values = np.zeros(n)
+    z_scores = np.zeros(n)
+    p_values = np.ones(n)
+    quadrants = ["Not Significant"] * n
+
+    if n <= 2:
+        return I_values, z_scores, p_values, quadrants
+
+    x_std = np.std(x_values)
+    y_std = np.std(y_values)
+
+    if x_std == 0 or y_std == 0:
+        return I_values, z_scores, p_values, quadrants
+
+    zx = (x_values - np.mean(x_values)) / x_std
+    zy = (y_values - np.mean(y_values)) / y_std
+
+    lag_zy = calculate_spatial_lag(zy, neighbors, weights, id_order, row_standardize=True)
+
+    I_values = zx * lag_zy
+
+    var_loc = 1.0 / (n - 1) if n > 1 else 1.0
+
+    for i in range(n):
+        z = I_values[i] / math.sqrt(var_loc) if var_loc > 0 else 0.0
+        p = 1.0 - math.erf(abs(z) / math.sqrt(2.0))
+        z_scores[i] = z
+        p_values[i] = p
+
+        if p <= alpha:
+            if zx[i] > 0 and lag_zy[i] > 0:
+                quadrants[i] = "HH"
+            elif zx[i] < 0 and lag_zy[i] < 0:
+                quadrants[i] = "LL"
+            elif zx[i] > 0 and lag_zy[i] < 0:
+                quadrants[i] = "HL"
+            elif zx[i] < 0 and lag_zy[i] > 0:
+                quadrants[i] = "LH"
+
+    return I_values, z_scores, p_values, quadrants
+

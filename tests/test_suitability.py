@@ -15,6 +15,7 @@ from planx.suitability import (
     greedy_p_median,
     normalize_array,
     pca_weights,
+    promethee_ii_method,
     topsis_method,
     vikor_method,
     weighted_linear_combination,
@@ -285,6 +286,47 @@ def test_vikor_method():
     # Error checking
     with pytest.raises(ValueError):
         vikor_method(decision_matrix, weights, benefit_criteria[:-1])
+
+
+def test_promethee_ii_method():
+    decision_matrix = np.array([[10.0, 100.0], [5.0, 50.0], [1.0, 10.0]])
+    weights = np.array([0.5, 0.5])
+    benefit_criteria = np.array([True, True])
+
+    net_flows, ranks = promethee_ii_method(decision_matrix, weights, benefit_criteria)
+
+    assert len(net_flows) == 3
+    assert len(ranks) == 3
+    # Alt 0 is best -> net flow should be positive, rank 1
+    # Alt 2 is worst -> net flow should be negative, rank 3
+    assert ranks[0] == 1
+    assert ranks[1] == 2
+    assert ranks[2] == 3
+    assert net_flows[0] > net_flows[1] > net_flows[2]
+
+    # Test with custom preference thresholds
+    p_thresh = np.array([5.0, 50.0])
+    net_flows_thresh, ranks_thresh = promethee_ii_method(
+        decision_matrix, weights, benefit_criteria, preference_thresholds=p_thresh
+    )
+    assert ranks_thresh[0] == 1
+
+    # Single alternative edge case
+    single_dm = np.array([[10.0, 100.0]])
+    flows_single, ranks_single = promethee_ii_method(single_dm, weights, benefit_criteria)
+    assert len(flows_single) == 1
+    assert ranks_single[0] == 1
+
+    # Validation errors
+    with pytest.raises(ValueError):
+        promethee_ii_method(decision_matrix, weights[:-1], benefit_criteria)
+    with pytest.raises(ValueError):
+        promethee_ii_method(decision_matrix, weights, benefit_criteria[:-1])
+    with pytest.raises(ValueError):
+        promethee_ii_method(
+            decision_matrix, weights, benefit_criteria, preference_thresholds=p_thresh[:-1]
+        )
+
 
 
 # ---------------------------------------------------------------------------
