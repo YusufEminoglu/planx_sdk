@@ -535,3 +535,58 @@ def calculate_solar_access(
         return np.zeros_like(heights)
 
     return (sunlit_sum / valid_steps) * 100.0
+
+
+def tree_canopy_microclimate_cooling(
+    tree_coords: np.ndarray,
+    canopy_radii: np.ndarray,
+    lai: np.ndarray,
+    grid_coords: np.ndarray,
+    max_cooling_dist: float = 50.0,
+) -> np.ndarray:
+    """Calculates microclimate air temperature reduction Delta T_cool (°C) from tree canopies.
+
+    Args:
+        tree_coords: (T, 2) NumPy array of tree trunk coordinates.
+        canopy_radii: (T,) NumPy array of tree canopy radii in meters.
+        lai: (T,) Leaf Area Index array (LAI).
+        grid_coords: (G, 2) NumPy array of spatial grid evaluation points.
+        max_cooling_dist: Maximum cooling influence distance float in meters.
+
+    Returns:
+        1D NumPy array of shape (G,) containing temperature reduction Delta T_cool (°C).
+    """
+    trees = np.asarray(tree_coords, dtype=np.float64)
+    radii = np.asarray(canopy_radii, dtype=np.float64)
+    lai_arr = np.asarray(lai, dtype=np.float64)
+    grid = np.asarray(grid_coords, dtype=np.float64)
+
+    g_count = len(grid)
+    t_count = len(trees)
+
+    if g_count == 0 or t_count == 0:
+        return np.zeros(g_count, dtype=np.float64)
+
+    delta_t = np.zeros(g_count, dtype=np.float64)
+
+    diffs = grid[:, None, :] - trees[None, :, :]
+    dists = np.sqrt(np.sum(diffs**2, axis=2))
+
+    for t_idx in range(t_count):
+        r_t = radii[t_idx]
+        lai_t = lai_arr[t_idx]
+        d_t = dists[:, t_idx]
+
+        in_canopy = d_t <= r_t
+        out_canopy = (d_t > r_t) & (d_t <= (r_t + max_cooling_dist))
+
+        t_cool_t = np.zeros(g_count, dtype=np.float64)
+        t_cool_t[in_canopy] = 0.6 * lai_t
+
+        decay_dist = d_t[out_canopy] - r_t
+        t_cool_t[out_canopy] = (0.6 * lai_t) * np.exp(-3.0 * decay_dist / max_cooling_dist)
+
+        delta_t = np.maximum(delta_t, t_cool_t)
+
+    return delta_t
+

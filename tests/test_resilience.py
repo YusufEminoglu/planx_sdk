@@ -26,6 +26,7 @@ from planx.resilience import (
     simulate_seismic_debris,
     social_vulnerability_index,
     socio_economic_flood_risk,
+    tree_canopy_microclimate_cooling,
     urban_heat_comfort_risk,
     urban_heat_island_intensity,
     wildfire_risk_index,
@@ -1308,5 +1309,20 @@ def test_simulate_interdependent_infrastructure_cascade():
         simulate_interdependent_infrastructure_cascade(
             p_adj, w_adj, dep[:1, :], initial_failed_power=[0]
         )
+
+
+def test_tree_canopy_microclimate_cooling():
+    trees = np.array([[0.0, 0.0], [50.0, 50.0]])
+    radii = np.array([5.0, 8.0])
+    lai = np.array([3.5, 4.0])
+    grid = np.array([[0.0, 0.0], [10.0, 0.0], [200.0, 200.0]])
+
+    dt = tree_canopy_microclimate_cooling(trees, radii, lai, grid, max_cooling_dist=30.0)
+
+    assert len(dt) == 3
+    assert dt[0] == pytest.approx(0.6 * 3.5)
+    assert dt[0] > dt[1] > dt[2]
+    assert dt[2] == 0.0
+
 
 

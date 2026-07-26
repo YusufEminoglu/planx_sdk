@@ -27,6 +27,7 @@ from .stats_engines import (
     calculate_local_bivariate_moran,
     calculate_local_geary,
     calculate_local_moran,
+    calculate_local_moran_fdr,
     calculate_mean_center,
     calculate_median_center,
     calculate_ols,
@@ -38,6 +39,7 @@ from .stats_engines import (
     calculate_standard_distance,
     fit_spatial_error_model,
     fit_spatial_lag_model,
+    fit_spatial_tobit_model,
     run_sensitivity_simulation,
 )
 from .weights import create_distance_band_weights, create_knn_weights
@@ -50,10 +52,12 @@ __all__ = [
     "calculate_spatial_lag",
     "fit_spatial_lag_model",
     "fit_spatial_error_model",
+    "fit_spatial_tobit_model",
     "calculate_mean_center",
     "calculate_central_feature",
     "calculate_sde",
     "calculate_local_moran",
+    "calculate_local_moran_fdr",
     "calculate_local_geary",
     "calculate_ols",
     "calculate_global_moran",

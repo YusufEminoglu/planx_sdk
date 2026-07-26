@@ -25,6 +25,7 @@ from .heat import (
     calculate_solar_access,
     classify_local_climate_zones,
     optimize_canopy_placement,
+    tree_canopy_microclimate_cooling,
     urban_heat_comfort_risk,
     urban_heat_island_intensity,
 )
@@ -73,4 +74,5 @@ __all__ = [
     "calculate_grid_sky_view_factor",
     "classify_local_climate_zones",
     "calculate_solar_access",
+    "tree_canopy_microclimate_cooling",
 ]

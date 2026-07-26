@@ -17,6 +17,7 @@ from .facility import (
 from .mcda import (
     electre_i_method,
     electre_iii_method,
+    mcda_sensitivity_monte_carlo,
     normalize_array,
     promethee_ii_method,
     topsis_method,
@@ -29,6 +30,7 @@ from .weights import (
     critic_weights,
     decision_matrix_from_layers,
     entropy_weights,
+    fuzzy_ahp_weights,
     pca_weights,
 )
 
@@ -40,6 +42,7 @@ __all__ = [
     "promethee_ii_method",
     "electre_i_method",
     "electre_iii_method",
+    "mcda_sensitivity_monte_carlo",
     "greedy_mclp",
     "mclp_distance_decay",
     "pareto_facility_location",
@@ -48,6 +51,7 @@ __all__ = [
     "capacitated_location_allocation",
     "ahp_weights",
     "bwm_weights",
+    "fuzzy_ahp_weights",
     "decision_matrix_from_layers",
     "entropy_weights",
     "critic_weights",

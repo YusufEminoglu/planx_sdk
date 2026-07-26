@@ -574,3 +574,78 @@ def angular_segment_centrality(
         "nach": nach,
     }
 
+
+def axial_to_segment_conversion(
+    axial_coords: list[tuple[tuple[float, float], tuple[float, float]]],
+    tol: float = 1e-6,
+) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    """Converts continuous axial lines into topological line segments split at all intersections.
+
+    Args:
+        axial_coords: List of line endpoints [((x1, y1), (x2, y2)), ...].
+        tol: Coordinate snapping tolerance float.
+
+    Returns:
+        List of sub-segments split at intersection points [((x1, y1), (x2, y2)), ...].
+    """
+    if len(axial_coords) == 0:
+        return []
+
+    segments: list[tuple[tuple[float, float], tuple[float, float]]] = []
+
+    def line_intersection(
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        p3: tuple[float, float],
+        p4: tuple[float, float],
+    ) -> tuple[float, float] | None:
+        x1, y1 = p1
+        x2, y2 = p2
+        x3, y3 = p3
+        x4, y4 = p4
+
+        denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
+        if abs(denom) < tol:
+            return None
+
+        ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
+        ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom
+
+        if 0.0 <= ua <= 1.0 and 0.0 <= ub <= 1.0:
+            ix = x1 + ua * (x2 - x1)
+            iy = y1 + ua * (y2 - y1)
+            return (round(ix, 6), round(iy, 6))
+        return None
+
+    for i, (p1, p2) in enumerate(axial_coords):
+        splits = [p1, p2]
+        for k, (p3, p4) in enumerate(axial_coords):
+            if i != k:
+                intersect = line_intersection(p1, p2, p3, p4)
+                if intersect is not None:
+                    splits.append(intersect)
+
+        dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+        o0, o1 = float(p1[0]), float(p1[1])
+        vx, vy = float(dx), float(dy)
+
+        def proj(
+            pt: tuple[float, float],
+            ox: float = o0,
+            oy: float = o1,
+            v_x: float = vx,
+            v_y: float = vy,
+        ) -> float:
+            return (pt[0] - ox) * v_x + (pt[1] - oy) * v_y
+
+        unique_splits = sorted(set(splits), key=proj)
+        for idx in range(len(unique_splits) - 1):
+            seg_start = unique_splits[idx]
+            seg_end = unique_splits[idx + 1]
+            dist_sq = (seg_end[0] - seg_start[0]) ** 2 + (seg_end[1] - seg_start[1]) ** 2
+            if dist_sq > tol:
+                segments.append((seg_start, seg_end))
+
+    return segments
+
+

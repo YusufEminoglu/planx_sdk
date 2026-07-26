@@ -7,6 +7,7 @@ import pytest
 from planx.spatial import (
     active_mobility_permeability,
     angular_segment_centrality,
+    axial_to_segment_conversion,
     brandes_betweenness,
     calculate_15m_city_score,
     calculate_average_route_circuity,
@@ -1554,5 +1555,20 @@ def test_street_network_morphometry():
         np.array([0]), np.array([]), np.array([]), np.zeros((0, 2))
     )
     assert res_empty["avg_link_length"] == 0.0
+
+
+def test_axial_to_segment_conversion():
+    axial = [
+        ((0.0, 5.0), (10.0, 5.0)),
+        ((5.0, 0.0), (5.0, 10.0)),
+    ]
+
+    segments = axial_to_segment_conversion(axial)
+
+    assert len(segments) == 4
+
+    empty_segs = axial_to_segment_conversion([])
+    assert len(empty_segs) == 0
+
 
 
