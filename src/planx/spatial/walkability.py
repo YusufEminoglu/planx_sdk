@@ -1114,3 +1114,37 @@ def calculate_wind_comfort_lawson(
     }
 
 
+def cul_de_sac_isolation_index(indptr: np.ndarray, adj: np.ndarray) -> dict:
+    """Identifies dead-end street nodes (degree 1) and network cul-de-sac isolation ratio.
+
+    Args:
+        indptr: CSR graph index pointer 1D array of shape (N + 1,).
+        adj: CSR graph adjacency column indices 1D array.
+
+    Returns:
+        Dict containing cul-de-sac isolation statistics:
+          - cul_de_sac_nodes: 1D NumPy array of node IDs with degree == 1.
+          - cul_de_sac_ratio: Float ratio of degree-1 nodes to total nodes.
+          - total_dead_ends: Int count of dead-end nodes.
+    """
+    n = len(indptr) - 1
+    if n == 0:
+        return {
+            "cul_de_sac_nodes": np.zeros(0, dtype=np.int64),
+            "cul_de_sac_ratio": 0.0,
+            "total_dead_ends": 0,
+        }
+
+    degrees = indptr[1:] - indptr[:-1]
+    dead_ends = np.where(degrees == 1)[0]
+    total_dead = len(dead_ends)
+    ratio = float(total_dead / n)
+
+    return {
+        "cul_de_sac_nodes": dead_ends,
+        "cul_de_sac_ratio": ratio,
+        "total_dead_ends": total_dead,
+    }
+
+
+

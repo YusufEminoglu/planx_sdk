@@ -17,6 +17,7 @@ from planx.spatial import (
     choice_centrality_una,
     classify_level_of_traffic_stress,
     closeness_straightness,
+    cul_de_sac_isolation_index,
     cumulative_opportunities,
     eigenvector,
     enhanced_2sfca,
@@ -1585,6 +1586,19 @@ def test_calculate_wind_comfort_lawson():
 
     with pytest.raises(ValueError, match="equal length"):
         calculate_wind_comfort_lawson(h[:1], w, 2.5)
+
+
+def test_cul_de_sac_isolation_index():
+    indptr = np.array([0, 1, 3, 4], dtype=np.int32)
+    adj = np.array([1, 0, 2, 1], dtype=np.int32)
+
+    res = cul_de_sac_isolation_index(indptr, adj)
+
+    assert "cul_de_sac_nodes" in res
+    assert len(res["cul_de_sac_nodes"]) == 2
+    assert res["total_dead_ends"] == 2
+    assert res["cul_de_sac_ratio"] == pytest.approx(2.0 / 3.0)
+
 
 
 

@@ -78,3 +78,69 @@ def simulate_seismic_debris(
     debris_volumes = np.where(collapsed == 1, areas * heights * solid_volume_ratio, 0.0)
 
     return collapse_probs, collapsed, debris_radii, debris_volumes
+
+
+def earthquake_building_collapse_casualty(
+    building_types: list[str],
+    story_counts: np.ndarray,
+    occupancy: np.ndarray,
+    pga_g: float,
+) -> dict:
+    """Calculates seismic building collapse probabilities and estimated casualties.
+
+    Args:
+        building_types: List of strings ("RC", "Masonry", "Timber", "Steel").
+        story_counts: 1D array of building story counts.
+        occupancy: 1D array of peak building occupants.
+        pga_g: Peak Ground Acceleration float in g (e.g. 0.45g).
+
+    Returns:
+        Dict containing seismic vulnerability assessment:
+          - collapse_probability: 1D NumPy array of collapse probability P_D in [0, 1].
+          - expected_collapsed_buildings: Int expected number of collapsed structures.
+          - estimated_fatalities: Float estimated fatalities.
+          - estimated_injuries: Float estimated injuries.
+    """
+    stories = np.asarray(story_counts, dtype=np.float64)
+    occ = np.asarray(occupancy, dtype=np.float64)
+    n = len(building_types)
+
+    if len(stories) != n or len(occ) != n:
+        raise ValueError("building_types, story_counts, and occupancy must have equal length.")
+
+    # Vulnerability fragility median alpha and beta by construction type
+    # (PGA median in g for complete damage state)
+    params = {
+        "RC": (0.50, 0.40),
+        "Masonry": (0.30, 0.45),
+        "Timber": (0.65, 0.35),
+        "Steel": (0.75, 0.35),
+    }
+
+    import scipy.stats as stats
+
+    p_collapse = np.zeros(n, dtype=np.float64)
+
+    for i in range(n):
+        btype = building_types[i]
+        alpha, beta = params.get(btype, (0.45, 0.40))
+        # Story multiplier (taller buildings have higher vulnerability under long-period shaking)
+        story_mult = 1.0 + 0.05 * max(0.0, stories[i] - 1.0)
+        eff_pga = pga_g * story_mult
+
+        p_collapse[i] = float(stats.norm.cdf((np.log(max(1e-4, eff_pga)) - np.log(alpha)) / beta))
+
+    p_collapse = np.clip(p_collapse, 0.0, 1.0)
+
+    exp_collapsed = int(np.sum(p_collapse >= 0.5))
+
+    fatalities = float(np.sum(p_collapse * occ * 0.15))  # 15% fatality rate in collapse
+    injuries = float(np.sum(p_collapse * occ * 0.35))  # 35% injury rate in collapse
+
+    return {
+        "collapse_probability": p_collapse,
+        "expected_collapsed_buildings": exp_collapsed,
+        "estimated_fatalities": fatalities,
+        "estimated_injuries": injuries,
+    }
+

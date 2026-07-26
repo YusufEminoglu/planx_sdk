@@ -715,5 +715,68 @@ def marcos_method(
     return f_k, rank_order
 
 
+def waspas_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    directions: Optional[np.ndarray] = None,
+    lambda_param: float = 0.5,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Ranks alternatives using the WASPAS method.
+
+    WASPAS = Weighted Aggregated Sum Product Assessment.
+
+    Args:
+        decision_matrix: 2D NumPy array of shape (M, N) for M alternatives and N criteria.
+        weights: 1D NumPy array of shape (N,) containing criteria weights.
+        directions: 1D array indicating benefit (1) or cost (-1) criteria.
+        lambda_param: Joint trade-off parameter float in [0.0, 1.0].
+
+    Returns:
+        A tuple of:
+          - Q_scores: 1D NumPy array of shape (M,) containing overall WASPAS score Q_i.
+          - rank_order: 1D NumPy array of shape (M,) containing alternative ranks (1 = best).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    m, n = X.shape
+
+    if len(w) != n:
+        raise ValueError("weights length must match number of columns in decision_matrix.")
+
+    if not (0.0 <= lambda_param <= 1.0):
+        raise ValueError("lambda_param must be between 0.0 and 1.0.")
+
+    if directions is None:
+        dirs = np.ones(n, dtype=np.float64)
+    else:
+        dirs = np.asarray(directions, dtype=np.float64)
+
+    # Linear Max/Min Normalization X_norm
+    X_norm = np.zeros_like(X)
+    for j in range(n):
+        if dirs[j] >= 0:
+            max_val = max(1e-9, np.max(X[:, j]))
+            X_norm[:, j] = X[:, j] / max_val
+        else:
+            min_val = np.min(X[:, j])
+            X_norm[:, j] = min_val / np.maximum(1e-9, X[:, j])
+
+    # 1. Weighted Sum Model Q_1 (WSM)
+    Q1 = X_norm @ w
+
+    # 2. Weighted Product Model Q_2 (WPM)
+    Q2 = np.prod(X_norm ** w[None, :], axis=1)
+
+    # Joint WASPAS score Q_i
+    Q = lambda_param * Q1 + (1.0 - lambda_param) * Q2
+
+    ranks = np.argsort(-Q)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, m + 1)
+
+    return Q, rank_order
+
+
+
 
 

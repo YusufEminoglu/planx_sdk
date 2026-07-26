@@ -35,6 +35,7 @@ from .walkability import (
     calculate_wind_comfort_lawson,
     choice_centrality_una,
     classify_level_of_traffic_stress,
+    cul_de_sac_isolation_index,
     gravity_centrality_una,
     identify_low_stress_islands,
     profile_intersection_density_closeness,
@@ -78,4 +79,5 @@ __all__ = [
     "profile_intersection_density_closeness",
     "street_network_morphometry",
     "calculate_wind_comfort_lawson",
+    "cul_de_sac_isolation_index",
 ]

@@ -2613,6 +2613,91 @@ def calculate_gwss(
     }
 
 
+def calculate_weighted_kde(
+    event_coords: np.ndarray,
+    event_weights: np.ndarray,
+    grid_coords: np.ndarray,
+    bandwidth: float,
+    kernel_type: str = "quartic",
+) -> np.ndarray:
+    """Calculates 2D Kernel Density Estimation (KDE) weighted by event magnitudes.
+
+    Args:
+        event_coords: (E, 2) NumPy array of event point coordinates.
+        event_weights: (E,) NumPy array of magnitude weights per event.
+        grid_coords: (G, 2) NumPy array of spatial evaluation grid points.
+        bandwidth: Spatial search radius bandwidth float.
+        kernel_type: "quartic" or "gaussian".
+
+    Returns:
+        1D NumPy array of shape (G,) containing spatial density values.
+    """
+    pts = np.asarray(event_coords, dtype=np.float64)
+    w = np.asarray(event_weights, dtype=np.float64)
+    grid = np.asarray(grid_coords, dtype=np.float64)
+
+    e_count = len(pts)
+    g_count = len(grid)
+
+    if e_count == 0 or g_count == 0:
+        return np.zeros(g_count, dtype=np.float64)
+
+    if len(w) != e_count:
+        raise ValueError("event_weights length must match event_coords.")
+
+    diffs = grid[:, None, :] - pts[None, :, :]
+    dists = np.sqrt(np.sum(diffs**2, axis=2))
+
+    u = dists / max(1e-9, bandwidth)
+
+    if kernel_type == "gaussian":
+        k_vals = (1.0 / (2.0 * math.pi)) * np.exp(-0.5 * (u**2))
+    else:
+        k_vals = np.where(u <= 1.0, (15.0 / 16.0) * ((1.0 - u**2) ** 2), 0.0)
+
+    density = np.sum(k_vals * w[None, :], axis=1) / (bandwidth**2)
+    return density
+
+
+def calculate_ripleys_cross_k(
+    points_a: np.ndarray,
+    points_b: np.ndarray,
+    radii: np.ndarray,
+    area: float,
+) -> np.ndarray:
+    """Calculates Ripley's Cross-K function K_AB(r) for multi-type point pattern co-location.
+
+    Args:
+        points_a: (Na, 2) NumPy array of type A point coordinates.
+        points_b: (Nb, 2) NumPy array of type B point coordinates.
+        radii: 1D array of distance evaluation radii r.
+        area: Total bounding study area float.
+
+    Returns:
+        1D NumPy array of shape len(radii) containing Ripley's Cross-K values.
+    """
+    pts_a = np.asarray(points_a, dtype=np.float64)
+    pts_b = np.asarray(points_b, dtype=np.float64)
+    r_arr = np.asarray(radii, dtype=np.float64)
+
+    na = len(pts_a)
+    nb = len(pts_b)
+
+    if na == 0 or nb == 0 or area <= 0:
+        return np.zeros(len(r_arr), dtype=np.float64)
+
+    diffs = pts_a[:, None, :] - pts_b[None, :, :]
+    dists = np.sqrt(np.sum(diffs**2, axis=2))
+
+    k_results = np.zeros(len(r_arr), dtype=np.float64)
+    for idx, r in enumerate(r_arr):
+        count = float(np.sum(dists <= r))
+        k_results[idx] = (area / (na * nb)) * count
+
+    return k_results
+
+
+
 
 
 

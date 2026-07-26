@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.0] - 2026-07-27
+### Added
+- **Weighted 2D Kernel Density Estimation (Weighted KDE)** (`calculate_weighted_kde`) in `planx.geostats` for magnitude-weighted 2D spatial event density mapping.
+- **Ripley's Cross-K Function** (`calculate_ripleys_cross_k`) in `planx.geostats` for multi-type point pattern co-location attraction/repulsion testing.
+- **WASPAS MCDA Method** (`waspas_method`) in `planx.suitability.mcda` for Weighted Aggregated Sum Product Assessment combining WSM and WPM models.
+- **DEMATEL Causal Matrix Analysis** (`dematel_method`) in `planx.suitability.weights` for Decision Making Trial and Evaluation Laboratory cause/effect prominence analysis.
+- **Cul-de-sac Isolation Index** (`cul_de_sac_isolation_index`) in `planx.spatial.walkability` for dead-end node identification and network isolation ratio.
+- **Earthquake Building Collapse & Casualty Model** (`earthquake_building_collapse_casualty`) in `planx.resilience.seismic` for structural fragility lognormal CDF collapse probability and casualty estimates.
+
+---
+
 ## [0.8.0] - 2026-07-27
 ### Added
 - **Geographically Weighted Summary Statistics (GWSS)** (`calculate_gwss`) in `planx.geostats` for local weighted mean, standard deviation, and skewness statistics.

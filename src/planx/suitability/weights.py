@@ -540,4 +540,67 @@ def fucom_weights(
     return weights, 0.0
 
 
+def dematel_method(direct_influence_matrix: np.ndarray) -> dict:
+    """Calculates DEMATEL causal structure matrix.
+
+    DEMATEL = Decision Making Trial and Evaluation Laboratory.
+
+    Args:
+        direct_influence_matrix: 2D NumPy array of shape (N, N) for direct influence scores Z_ij.
+
+    Returns:
+        Dict containing DEMATEL outputs:
+          - normalized_matrix: 2D NumPy array X of shape (N, N).
+          - total_influence_matrix: 2D NumPy array T of shape (N, N).
+          - prominence: 1D NumPy array D + R (N,) indicating criteria importance.
+          - relation: 1D NumPy array D - R (N,) indicating cause (+) or effect (-).
+          - cause_effect_class: List of strings ("Cause" or "Effect").
+    """
+    Z = np.asarray(direct_influence_matrix, dtype=np.float64)
+    n, cols = Z.shape
+
+    if n != cols:
+        raise ValueError("direct_influence_matrix must be square (N, N).")
+
+    if n == 0:
+        return {
+            "normalized_matrix": np.zeros((0, 0)),
+            "total_influence_matrix": np.zeros((0, 0)),
+            "prominence": np.zeros(0),
+            "relation": np.zeros(0),
+            "cause_effect_class": [],
+        }
+
+    # Normalization scale factor s
+    row_sums = np.sum(Z, axis=1)
+    col_sums = np.sum(Z, axis=0)
+    max_sum = max(np.max(row_sums), np.max(col_sums))
+    s = 1.0 / max(1e-9, max_sum)
+
+    # Normalized matrix X
+    X = Z * s
+
+    # Total influence matrix T = X (I - X)^-1
+    I_mat = np.eye(n, dtype=np.float64)
+    T = X @ np.linalg.inv(I_mat - X)
+
+    # Dispatch (D) and Receive (R) sums
+    D = np.sum(T, axis=1)
+    R = np.sum(T, axis=0)
+
+    prominence = D + R
+    relation = D - R
+
+    cause_effect = ["Cause" if rel >= 0 else "Effect" for rel in relation]
+
+    return {
+        "normalized_matrix": X,
+        "total_influence_matrix": T,
+        "prominence": prominence,
+        "relation": relation,
+        "cause_effect_class": cause_effect,
+    }
+
+
+
 

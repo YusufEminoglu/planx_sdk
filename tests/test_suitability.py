@@ -10,6 +10,7 @@ from planx.suitability import (
     capacitated_location_allocation,
     critic_weights,
     decision_matrix_from_layers,
+    dematel_method,
     electre_i_method,
     electre_iii_method,
     entropy_weights,
@@ -27,6 +28,7 @@ from planx.suitability import (
     promethee_ii_method,
     topsis_method,
     vikor_method,
+    waspas_method,
     weighted_linear_combination,
 )
 
@@ -477,6 +479,34 @@ def test_fucom_weights():
 
     with pytest.raises(ValueError, match="N-1"):
         fucom_weights(phi[:1], ranks)
+
+
+def test_waspas_method():
+    X = np.array([[10.0, 2.0], [5.0, 8.0], [1.0, 10.0]])
+    w = np.array([0.6, 0.4])
+
+    q, ranks = waspas_method(X, w, lambda_param=0.5)
+
+    assert len(q) == 3
+    assert len(ranks) == 3
+
+    with pytest.raises(ValueError, match="lambda_param"):
+        waspas_method(X, w, lambda_param=1.5)
+
+
+def test_dematel_method():
+    Z = np.array([[0.0, 3.0, 2.0], [1.0, 0.0, 3.0], [2.0, 1.0, 0.0]])
+
+    res = dematel_method(Z)
+
+    assert "total_influence_matrix" in res
+    assert "prominence" in res
+    assert "relation" in res
+    assert len(res["cause_effect_class"]) == 3
+
+    with pytest.raises(ValueError, match="square"):
+        dematel_method(Z[:2, :3])
+
 
 
 
