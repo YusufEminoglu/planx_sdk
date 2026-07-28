@@ -1216,3 +1216,72 @@ def street_orientation_rose_spectrum(
         "anisotropy_index": max(0.0, min(1.0, anisotropy)),
         "dominant_heading_deg": dom_heading,
     }
+
+
+def pedestrian_level_of_service(
+    sidewalk_width_m: np.ndarray,
+    ped_flow_rate_per_min: np.ndarray,
+    vehicle_lanes: np.ndarray,
+    vehicle_speed_kmh: np.ndarray,
+) -> dict:
+    """Evaluates Pedestrian Level of Service (PLOS) based on HCM methodology.
+
+    Computes a composite PLOS score from sidewalk geometry, pedestrian flow,
+    and adjacent traffic characteristics, then classifies into LOS grades A-F.
+
+    Args:
+        sidewalk_width_m: 1D array of effective sidewalk widths in meters.
+        ped_flow_rate_per_min: 1D array of pedestrian flow rate (peds/min/m).
+        vehicle_lanes: 1D array of adjacent vehicle lane counts.
+        vehicle_speed_kmh: 1D array of adjacent vehicle speed in km/h.
+
+    Returns:
+        Dict containing PLOS assessment:
+          - plos_score: 1D NumPy array of composite PLOS scores.
+          - los_grade: List of string LOS grades ("A" through "F").
+          - space_per_ped_m2: 1D array of available space per pedestrian (m^2/ped).
+    """
+    sw = np.asarray(sidewalk_width_m, dtype=np.float64)
+    flow = np.asarray(ped_flow_rate_per_min, dtype=np.float64)
+    lanes = np.asarray(vehicle_lanes, dtype=np.float64)
+    speed = np.asarray(vehicle_speed_kmh, dtype=np.float64)
+    n = len(sw)
+
+    if len(flow) != n or len(lanes) != n or len(speed) != n:
+        raise ValueError("All input arrays must have equal length.")
+
+    # Space per pedestrian (m^2/ped): effective width / max(flow, small eps)
+    space = sw / np.maximum(flow, 1e-6)
+
+    # Width factor: narrower sidewalks penalized
+    fw = np.clip(sw / 3.0, 0.0, 1.0)
+
+    # Traffic stress factor: more lanes and higher speed increase stress
+    ft = 1.0 - np.clip((lanes * speed) / 300.0, 0.0, 1.0)
+
+    # Flow comfort factor: lower density is better
+    fc = np.clip(1.0 - flow / 75.0, 0.0, 1.0)
+
+    # Composite PLOS score [0, 6]: higher = better
+    plos = (0.4 * fw + 0.3 * ft + 0.3 * fc) * 6.0
+
+    grades = []
+    for val in plos.flat:
+        if val >= 5.0:
+            grades.append("A")
+        elif val >= 4.0:
+            grades.append("B")
+        elif val >= 3.0:
+            grades.append("C")
+        elif val >= 2.0:
+            grades.append("D")
+        elif val >= 1.0:
+            grades.append("E")
+        else:
+            grades.append("F")
+
+    return {
+        "plos_score": plos,
+        "los_grade": grades,
+        "space_per_ped_m2": space,
+    }

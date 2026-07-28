@@ -17,6 +17,7 @@ from .evacuation import evacuation_route_optimization
 from .flood import (
     coastal_flood_inundation,
     coastal_surge_inundation,
+    detention_basin_sizing,
     pluvial_flood_susceptibility,
     socio_economic_flood_risk,
     urban_stormwater_peak_runoff,
@@ -53,6 +54,7 @@ __all__ = [
     "pluvial_flood_susceptibility",
     "coastal_flood_inundation",
     "coastal_surge_inundation",
+    "detention_basin_sizing",
     "socio_economic_flood_risk",
     "urban_stormwater_peak_runoff",
     "landslide_susceptibility",

@@ -13,6 +13,7 @@ from planx.suitability import (
     critic_weights,
     decision_matrix_from_layers,
     dematel_method,
+    edas_method,
     electre_i_method,
     electre_iii_method,
     entropy_weights,
@@ -1108,3 +1109,30 @@ def test_copras_method():
 
     with pytest.raises(ValueError, match="weights length"):
         copras_method(X, w[:1])
+
+
+def test_edas_method():
+    X = np.array([[10.0, 2.0], [5.0, 8.0], [1.0, 10.0]])
+    w = np.array([0.6, 0.4])
+
+    scores, ranks = edas_method(X, w)
+
+    assert len(scores) == 3
+    assert len(ranks) == 3
+    assert np.all(scores >= 0.0)
+    assert np.all(scores <= 1.0)
+    assert set(ranks) == {1, 2, 3}
+
+    with pytest.raises(ValueError, match="weights length"):
+        edas_method(X, w[:1])
+
+
+def test_edas_method_cost_criteria():
+    X = np.array([[10.0, 2.0], [5.0, 8.0], [1.0, 10.0]])
+    w = np.array([0.5, 0.5])
+    dirs = np.array([1.0, -1.0])
+
+    scores, ranks = edas_method(X, w, directions=dirs)
+
+    assert len(scores) == 3
+    assert ranks[0] == 1  # alt 0 has highest benefit, lowest cost

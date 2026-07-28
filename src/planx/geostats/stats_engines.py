@@ -2839,3 +2839,85 @@ def fit_spatial_sarma_model(
         "fitted": fitted,
         "residuals": residuals,
     }
+
+
+def calculate_gwpca(
+    X: np.ndarray,
+    coords: np.ndarray,
+    bandwidth: float,
+    n_components: int = 2,
+    kernel_type: str = "fixed_gaussian",
+) -> dict:
+    """Geographically Weighted Principal Components Analysis (GWPCA).
+
+    Computes spatially varying PCA by fitting local covariance matrices weighted
+    by a spatial kernel at each observation location.
+
+    Args:
+        X: 2D NumPy array of shape (N, P) containing standardized attribute variables.
+        coords: 2D NumPy array of shape (N, 2) containing spatial coordinates.
+        bandwidth: Kernel bandwidth float controlling spatial smoothing.
+        n_components: Number of principal components to extract (default 2).
+        kernel_type: Spatial kernel type string ("fixed_gaussian" or "fixed_bisquare").
+
+    Returns:
+        Dict containing GWPCA results:
+          - local_eigenvalues: 2D NumPy array of shape (N, n_components) local eigenvalues.
+          - local_variance_explained: 2D array of shape (N, n_components) local % variance.
+          - winning_variable: 1D array of shape (N,) index of highest-loading variable per location.
+          - total_local_variance: 1D array of shape (N,) total variance at each location.
+    """
+    X_mat = np.asarray(X, dtype=np.float64)
+    C = np.asarray(coords, dtype=np.float64)
+    n, p = X_mat.shape
+
+    if len(C) != n:
+        raise ValueError("Length of coords must match number of rows in X.")
+
+    if n_components > p:
+        n_components = p
+
+    local_eigenvalues = np.zeros((n, n_components), dtype=np.float64)
+    local_var_explained = np.zeros((n, n_components), dtype=np.float64)
+    winning_var = np.zeros(n, dtype=np.int64)
+    total_var = np.zeros(n, dtype=np.float64)
+
+    for i in range(n):
+        diffs = C - C[i]
+        dists = np.sqrt(np.sum(diffs**2, axis=1))
+
+        if kernel_type == "fixed_bisquare":
+            w = np.where(dists <= bandwidth, (1.0 - (dists / bandwidth) ** 2) ** 2, 0.0)
+        else:  # fixed_gaussian
+            w = np.exp(-0.5 * (dists / max(bandwidth, 1e-9)) ** 2)
+
+        w_sum = np.sum(w)
+        if w_sum < 1e-12:
+            continue
+
+        w_norm = w / w_sum
+        X_centered = X_mat - np.sum(w_norm[:, None] * X_mat, axis=0)
+        cov_local = (X_centered * w_norm[:, None]).T @ X_centered
+
+        eigvals, eigvecs = np.linalg.eigh(cov_local)
+        idx_sorted = np.argsort(eigvals)[::-1]
+        eigvals_sorted = eigvals[idx_sorted]
+        eigvecs_sorted = eigvecs[:, idx_sorted]
+
+        k = min(n_components, len(eigvals_sorted))
+        local_eigenvalues[i, :k] = eigvals_sorted[:k]
+
+        total_v = max(np.sum(np.maximum(eigvals_sorted, 0.0)), 1e-12)
+        total_var[i] = total_v
+        local_var_explained[i, :k] = (np.maximum(eigvals_sorted[:k], 0.0) / total_v) * 100.0
+
+        # Winning variable = variable with largest absolute loading on PC1
+        if k > 0:
+            winning_var[i] = int(np.argmax(np.abs(eigvecs_sorted[:, 0])))
+
+    return {
+        "local_eigenvalues": local_eigenvalues,
+        "local_variance_explained": local_var_explained,
+        "winning_variable": winning_var,
+        "total_local_variance": total_var,
+    }

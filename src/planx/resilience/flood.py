@@ -424,3 +424,72 @@ def urban_stormwater_peak_runoff(
         "peak_discharge_m3_s": q_peak,
         "total_runoff_volume_m3": vol_m3,
     }
+
+
+def detention_basin_sizing(
+    catchment_area_ha: float,
+    cn_pre: float,
+    cn_post: float,
+    design_storm_mm: float,
+    storm_duration_hr: float = 6.0,
+) -> dict:
+    """Sizes urban stormwater detention basins using the SCS Curve Number method.
+
+    Computes the required detention storage volume from the difference between
+    pre- and post-development runoff depths for a given design storm event.
+
+    Args:
+        catchment_area_ha: Catchment area in hectares.
+        cn_pre: Pre-development SCS Curve Number (1-100).
+        cn_post: Post-development SCS Curve Number (1-100).
+        design_storm_mm: Design storm rainfall depth in millimeters.
+        storm_duration_hr: Storm event duration in hours (default 6.0).
+
+    Returns:
+        Dict containing detention basin sizing results:
+          - runoff_pre_mm: Float pre-development runoff depth (mm).
+          - runoff_post_mm: Float post-development runoff depth (mm).
+          - detention_depth_mm: Float required detention depth (mm).
+          - detention_volume_m3: Float required storage volume (m^3).
+          - peak_inflow_m3_s: Float estimated peak inflow rate (m^3/s).
+    """
+    if catchment_area_ha <= 0:
+        raise ValueError("catchment_area_ha must be positive.")
+    if not (1.0 <= cn_pre <= 100.0):
+        raise ValueError("cn_pre must be between 1 and 100.")
+    if not (1.0 <= cn_post <= 100.0):
+        raise ValueError("cn_post must be between 1 and 100.")
+    if design_storm_mm <= 0:
+        raise ValueError("design_storm_mm must be positive.")
+
+    P = float(design_storm_mm)
+
+    # SCS runoff equation: Q = (P - 0.2*S)^2 / (P + 0.8*S) when P > 0.2*S
+    def _scs_runoff(cn: float) -> float:
+        S = 25400.0 / max(cn, 1.0) - 254.0  # potential maximum retention (mm)
+        Ia = 0.2 * S  # initial abstraction
+        if P <= Ia:
+            return 0.0
+        return (P - Ia) ** 2 / (P + 0.8 * S)
+
+    q_pre = _scs_runoff(cn_pre)
+    q_post = _scs_runoff(cn_post)
+    detention_mm = max(0.0, q_post - q_pre)
+
+    # Volume = depth * area (convert ha to m^2, mm to m)
+    area_m2 = catchment_area_ha * 10000.0
+    volume_m3 = detention_mm * 0.001 * area_m2
+
+    # Triangular hydrograph peak estimate: Qp = 0.208 * A * Q / Tp
+    # Tp ≈ 0.6 * Tc, with Tc ≈ storm_duration_hr for simplicity
+    tp_hr = max(0.6 * storm_duration_hr, 1e-6)
+    area_km2 = catchment_area_ha / 100.0
+    peak_inflow = 0.208 * area_km2 * q_post / tp_hr
+
+    return {
+        "runoff_pre_mm": round(q_pre, 4),
+        "runoff_post_mm": round(q_post, 4),
+        "detention_depth_mm": round(detention_mm, 4),
+        "detention_volume_m3": round(volume_m3, 2),
+        "peak_inflow_m3_s": round(peak_inflow, 6),
+    }

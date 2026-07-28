@@ -30,6 +30,7 @@ from planx.spatial import (
     multi_source,
     network_criticality,
     pagerank_centrality,
+    pedestrian_level_of_service,
     profile_intersection_density_closeness,
     reach_centrality_una,
     service_area_coverage,
@@ -1616,3 +1617,23 @@ def test_street_orientation_rose_spectrum():
 
     empty_res = street_orientation_rose_spectrum([])
     assert empty_res["anisotropy_index"] == 0.0
+
+
+def test_pedestrian_level_of_service():
+    sw = np.array([4.0, 1.5, 2.0])
+    flow = np.array([5.0, 30.0, 15.0])
+    lanes = np.array([2.0, 4.0, 3.0])
+    speed = np.array([30.0, 60.0, 50.0])
+
+    res = pedestrian_level_of_service(sw, flow, lanes, speed)
+
+    assert "plos_score" in res
+    assert "los_grade" in res
+    assert "space_per_ped_m2" in res
+    assert len(res["plos_score"]) == 3
+    assert len(res["los_grade"]) == 3
+    valid_grades = {"A", "B", "C", "D", "E", "F"}
+    assert all(g in valid_grades for g in res["los_grade"])
+
+    with pytest.raises(ValueError, match="equal length"):
+        pedestrian_level_of_service(sw[:1], flow, lanes, speed)

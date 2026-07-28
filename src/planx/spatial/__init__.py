@@ -38,6 +38,7 @@ from .walkability import (
     cul_de_sac_isolation_index,
     gravity_centrality_una,
     identify_low_stress_islands,
+    pedestrian_level_of_service,
     profile_intersection_density_closeness,
     reach_centrality_una,
     simulate_thermal_comfort_pet,
@@ -82,4 +83,5 @@ __all__ = [
     "calculate_wind_comfort_lawson",
     "cul_de_sac_isolation_index",
     "street_orientation_rose_spectrum",
+    "pedestrian_level_of_service",
 ]

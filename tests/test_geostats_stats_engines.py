@@ -20,6 +20,7 @@ from planx.geostats import (
     calculate_general_g,
     calculate_glr,
     calculate_gwlr,
+    calculate_gwpca,
     calculate_gwr,
     calculate_gwss,
     calculate_incremental_autocorrelation,
@@ -1125,3 +1126,29 @@ def test_stats_engines_additional_coverage():
 
     # 4. calculate_central_feature with n <= 1
     assert calculate_central_feature(np.array([1.0]), np.array([1.0])) == 0
+
+
+def test_calculate_gwpca():
+    X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]])
+    coords = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]])
+
+    res = calculate_gwpca(X, coords, bandwidth=2.0, n_components=2)
+
+    assert res["local_eigenvalues"].shape == (4, 2)
+    assert res["local_variance_explained"].shape == (4, 2)
+    assert len(res["winning_variable"]) == 4
+    assert len(res["total_local_variance"]) == 4
+    assert np.all(res["local_variance_explained"] >= 0.0)
+
+    with pytest.raises(ValueError, match="Length of coords"):
+        calculate_gwpca(X[:2], coords, bandwidth=2.0)
+
+
+def test_calculate_gwpca_bisquare():
+    X = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0], [10.0, 11.0, 12.0]])
+    coords = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]])
+
+    res = calculate_gwpca(X, coords, bandwidth=1.5, n_components=2, kernel_type="fixed_bisquare")
+
+    assert res["local_eigenvalues"].shape == (4, 2)
+    assert np.all(res["total_local_variance"] >= 0.0)
