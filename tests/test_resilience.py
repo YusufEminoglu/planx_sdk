@@ -1407,10 +1407,3 @@ def test_urban_heat_vulnerability_index():
     assert "hvi_score" in res
     assert "vulnerability_category" in res
     assert len(res["vulnerability_category"]) == 3
-
-
-
-
-
-
-

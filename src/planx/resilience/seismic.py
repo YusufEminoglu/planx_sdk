@@ -143,4 +143,3 @@ def earthquake_building_collapse_casualty(
         "estimated_fatalities": fatalities,
         "estimated_injuries": injuries,
     }
-

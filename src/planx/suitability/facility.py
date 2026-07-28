@@ -486,9 +486,7 @@ def mclp_distance_decay(
         selected.append(best_candidate)
         available.remove(best_candidate)
 
-        current_best_coverage = np.maximum(
-            current_best_coverage, decay_factors[:, best_candidate]
-        )
+        current_best_coverage = np.maximum(current_best_coverage, decay_factors[:, best_candidate])
         added_cov.append(best_added)
         cum_cov.append(float(np.sum(current_best_coverage * weights)))
 
@@ -571,12 +569,14 @@ def pareto_facility_location(
         sum_sd = max(1e-9, float(np.sum(sorted_d)))
         gini = float(1.0 - 2.0 * float(np.sum(sorted_d * (1.0 - cum_w_norm))) / sum_sd)
 
-        evaluations.append({
-            "selected_indices": list(cfg),
-            "total_coverage": tot_cov,
-            "avg_distance": avg_d,
-            "gini_inequality": max(0.0, min(1.0, gini)),
-        })
+        evaluations.append(
+            {
+                "selected_indices": list(cfg),
+                "total_coverage": tot_cov,
+                "avg_distance": avg_d,
+                "gini_inequality": max(0.0, min(1.0, gini)),
+            }
+        )
 
     # Filter non-dominated Pareto front (Maximize coverage, Minimize avg_distance)
     pareto_front = []
@@ -595,5 +595,3 @@ def pareto_facility_location(
             pareto_front.append(eval_i)
 
     return pareto_front
-
-

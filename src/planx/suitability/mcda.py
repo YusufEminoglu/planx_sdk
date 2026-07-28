@@ -910,10 +910,3 @@ def copras_method(
     rank_order[ranks] = np.arange(1, m + 1)
 
     return N_utility, rank_order
-
-
-
-
-
-
-

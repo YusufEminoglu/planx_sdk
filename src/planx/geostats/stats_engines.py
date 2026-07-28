@@ -2221,9 +2221,7 @@ def fit_spatial_lag_model(
     cov_matrix = s2 * np.linalg.pinv(X_lag.T @ P_z @ X_lag)
     std_errors = np.sqrt(np.maximum(0.0, np.diagonal(cov_matrix)))
     z_stats = np.divide(params, std_errors, out=np.zeros_like(params), where=std_errors > 0)
-    p_vals = 2.0 * (
-        1.0 - 0.5 * (1.0 + np.vectorize(math.erf)(np.abs(z_stats) / math.sqrt(2.0)))
-    )
+    p_vals = 2.0 * (1.0 - 0.5 * (1.0 + np.vectorize(math.erf)(np.abs(z_stats) / math.sqrt(2.0))))
 
     sst = float(np.sum((y_arr - np.mean(y_arr)) ** 2))
     r2 = float(1.0 - (sse / sst)) if sst > 0 else 0.0
@@ -2318,9 +2316,7 @@ def fit_spatial_error_model(
     cov_matrix = s2 * cov_x_trans
     std_errors = np.sqrt(np.maximum(0.0, np.diagonal(cov_matrix)))
     z_stats = np.divide(beta, std_errors, out=np.zeros_like(beta), where=std_errors > 0)
-    p_vals = 2.0 * (
-        1.0 - 0.5 * (1.0 + np.vectorize(math.erf)(np.abs(z_stats) / math.sqrt(2.0)))
-    )
+    p_vals = 2.0 * (1.0 - 0.5 * (1.0 + np.vectorize(math.erf)(np.abs(z_stats) / math.sqrt(2.0))))
 
     sst = float(np.sum((y_arr - np.mean(y_arr)) ** 2))
     r2 = float(1.0 - (sse / sst)) if sst > 0 else 0.0
@@ -2843,11 +2839,3 @@ def fit_spatial_sarma_model(
         "fitted": fitted,
         "residuals": residuals,
     }
-
-
-
-
-
-
-
-

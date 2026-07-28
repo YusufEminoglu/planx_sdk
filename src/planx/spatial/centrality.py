@@ -647,5 +647,3 @@ def axial_to_segment_conversion(
                 segments.append((seg_start, seg_end))
 
     return segments
-
-

@@ -600,7 +600,3 @@ def dematel_method(direct_influence_matrix: np.ndarray) -> dict:
         "relation": relation,
         "cause_effect_class": cause_effect,
     }
-
-
-
-
