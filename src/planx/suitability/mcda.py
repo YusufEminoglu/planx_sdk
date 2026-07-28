@@ -910,3 +910,70 @@ def copras_method(
     rank_order[ranks] = np.arange(1, m + 1)
 
     return N_utility, rank_order
+
+
+def edas_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    directions: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Ranks alternatives using the EDAS method.
+
+    EDAS = Evaluation Based on Distance from Average Solution.
+
+    Args:
+        decision_matrix: 2D NumPy array of shape (M, N) for M alternatives and N criteria.
+        weights: 1D NumPy array of shape (N,) containing criteria weights.
+        directions: 1D array indicating benefit (1) or cost (-1) criteria.
+
+    Returns:
+        A tuple of:
+          - appraisal_scores: 1D NumPy array of shape (M,) containing normalized AS values.
+          - rank_order: 1D NumPy array of shape (M,) containing alternative ranks (1 = best).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64)
+    m, n = X.shape
+
+    if len(w) != n:
+        raise ValueError("weights length must match number of columns in decision_matrix.")
+
+    if directions is None:
+        dirs = np.ones(n, dtype=np.float64)
+    else:
+        dirs = np.asarray(directions, dtype=np.float64)
+
+    # 1. Average solution across alternatives
+    avg = np.mean(X, axis=0)
+
+    # 2. Positive Distance from Average (PDA) and Negative Distance from Average (NDA)
+    pda = np.zeros((m, n), dtype=np.float64)
+    nda = np.zeros((m, n), dtype=np.float64)
+
+    for j in range(n):
+        avg_j = max(avg[j], 1e-12)
+        if dirs[j] >= 0:  # benefit
+            pda[:, j] = np.maximum(0.0, X[:, j] - avg[j]) / avg_j
+            nda[:, j] = np.maximum(0.0, avg[j] - X[:, j]) / avg_j
+        else:  # cost
+            pda[:, j] = np.maximum(0.0, avg[j] - X[:, j]) / avg_j
+            nda[:, j] = np.maximum(0.0, X[:, j] - avg[j]) / avg_j
+
+    # 3. Weighted sum of PDA and NDA
+    sp = np.sum(w[None, :] * pda, axis=1)
+    sn = np.sum(w[None, :] * nda, axis=1)
+
+    # 4. Normalize SP and SN
+    max_sp = max(np.max(sp), 1e-12)
+    max_sn = max(np.max(sn), 1e-12)
+    nsp = sp / max_sp
+    nsn = 1.0 - (sn / max_sn)
+
+    # 5. Appraisal Score
+    appraisal = 0.5 * (nsp + nsn)
+
+    ranks = np.argsort(-appraisal)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, m + 1)
+
+    return appraisal, rank_order

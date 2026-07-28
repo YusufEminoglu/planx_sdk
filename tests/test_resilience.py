@@ -12,6 +12,7 @@ from planx.resilience import (
     coastal_flood_inundation,
     coastal_surge_inundation,
     debris_clearance_routing,
+    detention_basin_sizing,
     earthquake_building_collapse_casualty,
     equity_adjusted_priority,
     evacuation_route_optimization,
@@ -1407,3 +1408,30 @@ def test_urban_heat_vulnerability_index():
     assert "hvi_score" in res
     assert "vulnerability_category" in res
     assert len(res["vulnerability_category"]) == 3
+
+
+def test_detention_basin_sizing():
+    res = detention_basin_sizing(
+        catchment_area_ha=5.0,
+        cn_pre=65.0,
+        cn_post=85.0,
+        design_storm_mm=80.0,
+    )
+
+    assert "runoff_pre_mm" in res
+    assert "runoff_post_mm" in res
+    assert "detention_depth_mm" in res
+    assert "detention_volume_m3" in res
+    assert "peak_inflow_m3_s" in res
+    assert res["runoff_post_mm"] > res["runoff_pre_mm"]
+    assert res["detention_volume_m3"] > 0.0
+    assert res["peak_inflow_m3_s"] > 0.0
+
+    with pytest.raises(ValueError, match="positive"):
+        detention_basin_sizing(0.0, 65.0, 85.0, 80.0)
+
+    with pytest.raises(ValueError, match="cn_pre"):
+        detention_basin_sizing(5.0, 0.5, 85.0, 80.0)
+
+    with pytest.raises(ValueError, match="cn_post"):
+        detention_basin_sizing(5.0, 65.0, 101.0, 80.0)
