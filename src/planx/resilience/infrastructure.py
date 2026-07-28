@@ -545,4 +545,3 @@ def simulate_interdependent_infrastructure_cascade(
         "power_operability_ratio": float(p_operable),
         "water_operability_ratio": float(w_operable),
     }
-

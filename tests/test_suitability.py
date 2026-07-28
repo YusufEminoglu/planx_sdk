@@ -427,10 +427,12 @@ def test_pareto_facility_location():
 
 
 def test_fuzzy_ahp_weights():
-    mat = np.array([
-        [[1.0, 1.0, 1.0], [2.0, 3.0, 4.0]],
-        [[1 / 4.0, 1 / 3.0, 1 / 2.0], [1.0, 1.0, 1.0]],
-    ])
+    mat = np.array(
+        [
+            [[1.0, 1.0, 1.0], [2.0, 3.0, 4.0]],
+            [[1 / 4.0, 1 / 3.0, 1 / 2.0], [1.0, 1.0, 1.0]],
+        ]
+    )
 
     w, ci = fuzzy_ahp_weights(mat)
 
@@ -508,12 +510,6 @@ def test_dematel_method():
 
     with pytest.raises(ValueError, match="square"):
         dematel_method(Z[:2, :3])
-
-
-
-
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1112,5 +1108,3 @@ def test_copras_method():
 
     with pytest.raises(ValueError, match="weights length"):
         copras_method(X, w[:1])
-
-

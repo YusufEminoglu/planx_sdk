@@ -424,5 +424,3 @@ def urban_stormwater_peak_runoff(
         "peak_discharge_m3_s": q_peak,
         "total_runoff_volume_m3": vol_m3,
     }
-
-

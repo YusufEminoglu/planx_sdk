@@ -1616,9 +1616,3 @@ def test_street_orientation_rose_spectrum():
 
     empty_res = street_orientation_rose_spectrum([])
     assert empty_res["anisotropy_index"] == 0.0
-
-
-
-
-
-
