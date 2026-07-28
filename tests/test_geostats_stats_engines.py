@@ -309,12 +309,6 @@ def test_fit_spatial_sarma_model():
         fit_spatial_sarma_model(y[:2], X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
 
 
-
-
-
-
-
-
 def test_calculate_bivariate_lee_l_zero_variance():
     x = np.array([5.0, 5.0, 5.0, 5.0])
     y = np.array([1.0, 2.0, 3.0, 4.0])

@@ -686,5 +686,3 @@ def urban_heat_vulnerability_index(
         "hvi_score": hvi_score,
         "vulnerability_category": cats,
     }
-
-

@@ -1216,7 +1216,3 @@ def street_orientation_rose_spectrum(
         "anisotropy_index": max(0.0, min(1.0, anisotropy)),
         "dominant_heading_deg": dom_heading,
     }
-
-
-
-

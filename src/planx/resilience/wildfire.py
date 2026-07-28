@@ -227,4 +227,3 @@ def wildfire_evacuation_encroachment(
         "flame_encroachment_mask": mask,
         "safe_evacuation_buffer_m": buffer_m,
     }
-
