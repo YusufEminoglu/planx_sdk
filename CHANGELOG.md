@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-07-28
+### Added
+- **Geographically Weighted PCA (GWPCA)** (`calculate_gwpca`) in `planx.geostats` for spatially varying Principal Components Analysis with local eigenvalue decomposition and kernel-weighted covariance matrices.
+- **EDAS MCDA Method** (`edas_method`) in `planx.suitability.mcda` for Evaluation Based on Distance from Average Solution ranking with Positive/Negative Distance Appraisal Scores.
+- **Pedestrian Level of Service (PLOS)** (`pedestrian_level_of_service`) in `planx.spatial.walkability` for HCM-based sidewalk quality grading (LOS A-F) from width, flow, and traffic stress factors.
+- **Urban Flood Detention Basin Sizing** (`detention_basin_sizing`) in `planx.resilience.flood` for SCS Curve Number pre-/post-development runoff-based detention storage volume and peak inflow estimation.
+
+---
+
 ## [1.1.0] - 2026-07-27
 ### Added
 - **SARMA Spatial Model (Spatial Autoregressive Moving Average)** (`fit_spatial_sarma_model`) in `planx.geostats` for 2SLS joint Spatial Lag + Spatial Error regression modeling.
