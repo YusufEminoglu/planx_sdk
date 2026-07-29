@@ -238,3 +238,58 @@ def test_healthcare_equity_index_validation():
 
     with pytest.raises(ValueError, match="catchment_distance must be positive"):
         healthcare_equity_index(demand, facs, caps, pops, weights, catchment_distance=-10.0)
+
+
+def test_calculate_multimodal_15m_city_basic():
+    from planx.spatial.accessibility import calculate_multimodal_15m_city
+
+    demand = np.array([[0.0, 0.0], [5000.0, 0.0]])
+    amenities = {
+        "grocery": np.array([[1000.0, 0.0], [6000.0, 0.0]]),  # dist: 1km
+        "school": np.array([[2000.0, 0.0], [7000.0, 0.0]]),  # dist: 2km
+    }
+
+    res = calculate_multimodal_15m_city(demand, amenities)
+
+    assert "city_15m_score" in res
+    assert "category_scores" in res
+    assert "gini_equity_score" in res
+    assert "threshold_compliance_pct" in res
+
+    assert res["city_15m_score"].shape == (2,)
+    assert "grocery" in res["category_scores"]
+    assert "school" in res["category_scores"]
+    assert res["category_scores"]["grocery"].shape == (2,)
+
+
+def test_calculate_multimodal_15m_city_validation():
+    from planx.spatial.accessibility import calculate_multimodal_15m_city
+
+    demand = np.array([[0.0, 0.0]])
+    amenities = {"grocery": np.array([[100.0, 0.0]])}
+
+    with pytest.raises(ValueError, match="demand_coords must be a 2D array"):
+        calculate_multimodal_15m_city(np.array([0.0, 0.0]), amenities)
+
+    with pytest.raises(ValueError, match="demand_coords cannot be empty"):
+        calculate_multimodal_15m_city(np.empty((0, 2)), amenities)
+
+    with pytest.raises(ValueError, match="amenity_coords_dict cannot be empty"):
+        calculate_multimodal_15m_city(demand, {})
+
+    with pytest.raises(ValueError, match="Speed for mode walk must be positive"):
+        calculate_multimodal_15m_city(demand, amenities, modal_speeds_kmh={"walk": -1.0})
+
+    with pytest.raises(ValueError, match="Modal weights must sum to 1.0"):
+        calculate_multimodal_15m_city(demand, amenities, modal_weights={"walk": 0.5})
+
+    with pytest.raises(ValueError, match="No common modes"):
+        calculate_multimodal_15m_city(
+            demand, amenities, modal_speeds_kmh={"walk": 5.0}, modal_weights={"bike": 1.0}
+        )
+
+    with pytest.raises(ValueError, match="Coordinates for category 'grocery' must be shape"):
+        calculate_multimodal_15m_city(demand, {"grocery": np.array([0.0, 0.0])})
+
+    with pytest.raises(ValueError, match="Coordinates for category 'grocery' cannot be empty"):
+        calculate_multimodal_15m_city(demand, {"grocery": np.empty((0, 2))})

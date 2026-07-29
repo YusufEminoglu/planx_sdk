@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -685,4 +685,124 @@ def urban_heat_vulnerability_index(
     return {
         "hvi_score": hvi_score,
         "vulnerability_category": cats,
+    }
+
+
+def optimize_tree_canopy_greening(
+    lst_temperatures: np.ndarray,
+    air_quality_index: np.ndarray,
+    pedestrian_density: np.ndarray,
+    existing_canopy_ratio: np.ndarray,
+    candidate_locations_coords: np.ndarray,
+    budget_max_trees: int,
+    cooling_radius: float = 100.0,
+) -> dict[str, Any]:
+    """Multi-objective greedy location-allocation solver for urban tree canopy optimization.
+
+    Maximizes heat mitigation and air quality benefit.
+
+    Args:
+        lst_temperatures: 1D array of Land Surface Temp (°C) per candidate cell.
+        air_quality_index: 1D array of Air pollution / AQI score per cell.
+        pedestrian_density: 1D array of Pedestrian count / foot traffic per cell.
+        existing_canopy_ratio: 1D array of Current tree canopy ratio [0, 1].
+        candidate_locations_coords: 2D array of coordinates (N, 2) of candidate cells.
+        budget_max_trees: Max number of trees B to plant.
+        cooling_radius: Distance decay radius for microclimate cooling benefit.
+
+    Returns:
+        Dict with keys:
+        - selected_indices: (B,) int array of selected cell indices
+        - selected_coords: (B, 2) float array of coordinates
+        - total_heat_reduction_score: float
+        - priority_scores: (N,) float array of initial priority scores
+        - post_greening_heat_mitigation: (N,) float array of estimated LST temp reduction (°C)
+    """
+    lst = np.asarray(lst_temperatures, dtype=np.float64)
+    aqi = np.asarray(air_quality_index, dtype=np.float64)
+    ped = np.asarray(pedestrian_density, dtype=np.float64)
+    canopy = np.asarray(existing_canopy_ratio, dtype=np.float64)
+    coords = np.asarray(candidate_locations_coords, dtype=np.float64)
+
+    n_candidates = lst.shape[0]
+
+    if (
+        aqi.shape != (n_candidates,)
+        or ped.shape != (n_candidates,)
+        or canopy.shape != (n_candidates,)
+        or coords.shape != (n_candidates, 2)
+    ):
+        raise ValueError("Input arrays must have matching shape corresponding to N candidates.")
+
+    if np.any(canopy < 0) or np.any(canopy > 1):
+        raise ValueError("existing_canopy_ratio must be between 0 and 1.")
+
+    if budget_max_trees <= 0:
+        raise ValueError("budget_max_trees must be greater than 0.")
+
+    if cooling_radius <= 0:
+        raise ValueError("cooling_radius must be positive.")
+
+    def min_max(arr: np.ndarray) -> np.ndarray:
+        min_v, max_v = np.min(arr), np.max(arr)
+        if max_v > min_v:
+            return (arr - min_v) / (max_v - min_v)
+        return np.zeros_like(arr)
+
+    lst_norm = min_max(lst)
+    aqi_norm = min_max(aqi)
+    ped_norm = min_max(ped)
+
+    priority_scores = (lst_norm * 0.4 + aqi_norm * 0.3 + ped_norm * 0.3) * (1.0 - canopy)
+    initial_priority_scores = priority_scores.copy()
+
+    selected_indices = []
+    total_heat_reduction_score = 0.0
+    post_greening_heat_mitigation = np.zeros(n_candidates, dtype=np.float64)
+
+    current_priority = priority_scores.copy()
+
+    for _ in range(min(budget_max_trees, n_candidates)):
+        if np.all(current_priority <= 0):
+            break
+
+        best_idx = int(np.argmax(current_priority))
+        selected_indices.append(best_idx)
+
+        # apply cooling effect to surrounding cells
+        best_coord = coords[best_idx]
+        dists = np.sqrt(np.sum((coords - best_coord) ** 2, axis=1))
+
+        # Gaussian distance decay
+        effect = np.exp(-(dists**2) / (2 * (cooling_radius / 3) ** 2))
+        effect[dists > cooling_radius] = 0
+
+        # update post_greening_heat_mitigation (approximate °C reduction)
+        # Apply Gaussian distance-decay cooling reduction to surrounding cells
+        # within cooling_radius.
+        # Update priority scores of nearby cells.
+        # Let's say max cooling per tree is 1.0 degree at center?
+        cooling_effect = effect * 1.5  # arbitrary scaling for heat mitigation if not specified
+        post_greening_heat_mitigation += cooling_effect
+        total_heat_reduction_score += np.sum(cooling_effect)
+
+        # reduce priority of nearby cells
+        # The priority reduction can be proportional to the cooling effect
+        # We can just reduce LST component or reduce priority directly
+        reduction = effect * 0.2
+        current_priority = np.maximum(0, current_priority - reduction)
+        current_priority[best_idx] = 0  # Cannot plant here again
+
+    sel_idx_arr = np.array(selected_indices, dtype=int)
+    if len(sel_idx_arr) > 0:
+        sel_coords = coords[sel_idx_arr]
+    else:
+        sel_coords = np.empty((0, 2), dtype=np.float64)
+
+    return {
+        "selected_indices": sel_idx_arr,
+        "selected_coords": sel_coords,
+        "total_heat_reduction_score": float(total_heat_reduction_score),
+        "priority_scores": initial_priority_scores,
+        "post_greening_heat_mitigation": post_greening_heat_mitigation,
     }

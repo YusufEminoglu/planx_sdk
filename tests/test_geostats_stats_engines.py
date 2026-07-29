@@ -44,6 +44,7 @@ from planx.geostats import (
     fit_spatial_lag_model,
     fit_spatial_sarma_model,
     fit_spatial_tobit_model,
+    fit_spatial_tobit_panel,
     run_sensitivity_simulation,
     skater_spatial_clustering,
 )
@@ -1403,3 +1404,85 @@ def test_fit_spatial_panel_model_validation():
     # X shape mismatch 3D
     with pytest.raises(ValueError, match="independent_vars shape"):
         fit_spatial_panel_model(y, np.random.randn(5, 3, 2), W, 2)
+
+
+# ---------------------------------------------------------------------------
+# fit_spatial_tobit_panel
+# ---------------------------------------------------------------------------
+
+
+def test_fit_spatial_tobit_panel_normal():
+    # 4 spatial units, 2 time periods -> N=4, T=2
+    # Total obs = 8
+    T = 2
+
+    y = np.array([0.0, 5.0, 10.0, 15.0, 0.0, 6.0, 12.0, 18.0])
+    # 2 independent variables
+    X = np.array(
+        [
+            [1.0, 2.0],
+            [1.0, 3.0],
+            [1.0, 4.0],
+            [1.0, 5.0],
+            [1.0, 2.5],
+            [1.0, 3.5],
+            [1.0, 4.5],
+            [1.0, 5.5],
+        ]
+    )
+
+    W = np.array(
+        [[0.0, 1.0, 0.0, 0.0], [0.5, 0.0, 0.5, 0.0], [0.0, 0.5, 0.0, 0.5], [0.0, 0.0, 1.0, 0.0]]
+    )
+
+    res = fit_spatial_tobit_panel(y, X, W, time_periods=T, censoring_limit=0.0)
+
+    assert "coefficients" in res
+    assert "spatial_rho" in res
+    assert "std_errors" in res
+    assert "t_stat" in res
+    assert "p_values" in res
+    assert "r_squared" in res
+    assert "censored_count" in res
+    assert "uncensored_count" in res
+    assert "residuals" in res
+
+    assert res["censored_count"] == 2
+    assert res["uncensored_count"] == 6
+    assert len(res["coefficients"]) == 2
+    assert len(res["residuals"]) == 8
+
+
+def test_fit_spatial_tobit_panel_validation():
+    y = np.ones(8)
+    X = np.ones((8, 2))
+    W = np.eye(4)
+
+    with pytest.raises(ValueError, match="time_periods must be >= 2"):
+        fit_spatial_tobit_panel(y, X, W, time_periods=1)
+
+    with pytest.raises(ValueError, match="square 2D array"):
+        fit_spatial_tobit_panel(y, X, np.ones(4), time_periods=2)
+
+    with pytest.raises(ValueError, match="must be >= 3"):
+        fit_spatial_tobit_panel(np.ones(4), np.ones((4, 2)), np.eye(2), time_periods=2)
+
+    with pytest.raises(ValueError, match="does not match"):
+        fit_spatial_tobit_panel(np.ones((4, 3)), X, W, time_periods=2)
+
+    with pytest.raises(ValueError, match="Too few uncensored"):
+        fit_spatial_tobit_panel(np.zeros(8), X, W, time_periods=2, censoring_limit=0.0)
+
+
+def test_fit_spatial_tobit_panel_2d_inputs():
+    T = 2
+    y = np.array([[0.0, 5.0, 10.0, 15.0], [0.0, 6.0, 12.0, 18.0]]).T  # shape (4, 2)
+
+    X = np.ones((4, 2, 3))
+    W = np.array(
+        [[0.0, 1.0, 0.0, 0.0], [0.5, 0.0, 0.5, 0.0], [0.0, 0.5, 0.0, 0.5], [0.0, 0.0, 1.0, 0.0]]
+    )
+
+    res = fit_spatial_tobit_panel(y, X, W, time_periods=T)
+    assert res["censored_count"] == 2
+    assert len(res["coefficients"]) == 3

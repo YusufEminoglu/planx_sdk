@@ -11,6 +11,7 @@ from planx.spatial import (
     brandes_betweenness,
     calculate_15m_city_score,
     calculate_average_route_circuity,
+    calculate_building_solar_envelope,
     calculate_pedestrian_route_directness,
     calculate_walk_score,
     calculate_wind_comfort_lawson,
@@ -1637,3 +1638,54 @@ def test_pedestrian_level_of_service():
 
     with pytest.raises(ValueError, match="equal length"):
         pedestrian_level_of_service(sw[:1], flow, lanes, speed)
+
+
+def test_calculate_building_solar_envelope():
+    coords = np.array(
+        [
+            [[0, 0], [10, 0], [10, 10], [0, 10]],
+            [[20, 0], [30, 0], [30, 10], [20, 10]],
+        ],
+        dtype=np.float64,
+    )
+    heights = np.array([10.0, 20.0], dtype=np.float64)
+
+    res = calculate_building_solar_envelope(
+        coords, heights, 45.0, 180.0, ground_grid_resolution=1.0
+    )
+    assert res["shadow_lengths_m"].shape == (2,)
+    np.testing.assert_allclose(res["shadow_lengths_m"], [10.0, 20.0])
+
+    assert res["building_solar_access_scores"].shape == (2,)
+    np.testing.assert_allclose(res["building_solar_access_scores"], [100.0, 100.0])
+    np.testing.assert_allclose(res["building_footprint_area_m2"], 200.0)
+
+    res_90 = calculate_building_solar_envelope(
+        coords, heights, 90.0, 180.0, ground_grid_resolution=1.0
+    )
+    np.testing.assert_allclose(res_90["shadow_lengths_m"], [0.0, 0.0])
+
+
+def test_calculate_building_solar_envelope_validation():
+    coords = np.array([[[0, 0], [10, 0], [10, 10], [0, 10]]], dtype=np.float64)
+    heights = np.array([10.0], dtype=np.float64)
+
+    with pytest.raises(ValueError):
+        calculate_building_solar_envelope(coords, heights, 0.0, 180.0)
+    with pytest.raises(ValueError):
+        calculate_building_solar_envelope(coords, heights, 95.0, 180.0)
+    with pytest.raises(ValueError):
+        calculate_building_solar_envelope(coords, heights, 45.0, 360.0)
+    with pytest.raises(ValueError):
+        calculate_building_solar_envelope(coords, heights, 45.0, -10.0)
+    with pytest.raises(ValueError):
+        calculate_building_solar_envelope(coords, np.array([-1.0]), 45.0, 180.0)
+    with pytest.raises(ValueError):
+        calculate_building_solar_envelope(coords, heights, 45.0, 180.0, -1.0)
+    with pytest.raises(ValueError):
+        calculate_building_solar_envelope(np.array([[0, 0]]), heights, 45.0, 180.0)
+    with pytest.raises(ValueError):
+        calculate_building_solar_envelope(coords, np.array([10.0, 20.0]), 45.0, 180.0)
+
+    res_empty = calculate_building_solar_envelope(np.zeros((0, 4, 2)), np.zeros(0), 45.0, 180.0)
+    assert len(res_empty["shadow_lengths_m"]) == 0

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0] - 2026-07-29
+### Added
+- **Spatial Panel Tobit Model** (`fit_spatial_tobit_panel`) in `planx.geostats` for left/zero-censored spatio-temporal panel data regression using 2SLS Spatial Lag initial parameters and truncated normal Mills ratio expected value adjustments.
+- **Urban Tree Canopy Placement Optimizer** (`optimize_tree_canopy_greening`) in `planx.resilience.heat` for multi-objective greedy tree planting site selection maximizing LST cooling, air quality mitigation, and pedestrian exposure with Gaussian spatial cooling decay.
+- **Multi-Modal 15-Minute City Score & Equity Engine** (`calculate_multimodal_15m_city`) in `planx.spatial.accessibility` evaluating walking, cycling, and public transit multi-modal travel time scores across essential urban service categories with Gini equity decomposition.
+- **3D Building Solar Envelope & Shadow Analysis Engine** (`calculate_building_solar_envelope`) in `planx.spatial.centrality` for 3D building mass shadow length/projection and ground/roof solar access envelope calculations given solar altitude and azimuth angles.
+
+---
+
 ## [1.5.0] - 2026-07-29
 ### Added
 - **Spatial Panel Regression Engine** (`fit_spatial_panel_model`) in `planx.geostats` for spatio-temporal panel econometrics supporting 2SLS Spatial Panel Lag and FGLS Spatial Panel Error models.
