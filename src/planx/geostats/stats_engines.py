@@ -3301,3 +3301,160 @@ def create_space_time_cube(
         "n_spatial_bins": int(n_x * n_y),
         "n_populated_bins": len(bins_data),
     }
+
+
+def fit_spatial_panel_model(
+    dependent_var: np.ndarray,
+    independent_vars: np.ndarray,
+    weights_matrix: np.ndarray,
+    time_periods: int,
+    model_type: str = "lag",
+) -> dict[str, Any]:
+    """Fit a spatial panel model (lag or error) using 2SLS or spatial error estimation.
+
+    Args:
+        dependent_var: Array of dependent variables, shape (N*T,) or (N, T).
+            If (N, T), it is flattened to (N*T,) in spatial-first order.
+        independent_vars: Array of independent variables, shape (N*T, K) or (N, T, K).
+        weights_matrix: Spatial weights matrix, shape (N, N).
+        time_periods: Number of time periods (T).
+        model_type: 'lag' (Spatial Panel Autoregressive) or 'error' (Spatial Panel Error).
+
+    Returns:
+        dict[str, Any]: A dictionary containing coefficients, spatial_parameter,
+            std_errors, t_stat, p_values, r_squared, residuals, model_type,
+            n_spatial_units, and time_periods.
+    """
+    y = np.asarray(dependent_var, dtype=np.float64)
+    X = np.asarray(independent_vars, dtype=np.float64)
+    W = np.asarray(weights_matrix, dtype=np.float64)
+
+    if time_periods < 2:
+        raise ValueError("time_periods must be >= 2")
+
+    if W.ndim != 2 or W.shape[0] != W.shape[1]:
+        raise ValueError("weights_matrix must be a square 2D array")
+
+    N = W.shape[0]
+    T = time_periods
+
+    if N < 3:
+        raise ValueError("Number of spatial units (N) must be >= 3")
+
+    if y.ndim == 2:
+        if y.shape != (N, T):
+            raise ValueError(f"dependent_var shape {y.shape} does not match (N, T) = ({N}, {T})")
+        y = y.T.flatten()
+    elif y.ndim == 1:
+        if y.shape[0] != N * T:
+            raise ValueError(f"dependent_var length {y.shape[0]} does not match N*T = {N * T}")
+    else:
+        raise ValueError("dependent_var must be 1D or 2D array")
+
+    if X.ndim == 3:
+        if X.shape[:2] != (N, T):
+            raise ValueError(f"independent_vars shape {X.shape} does not match (N, T, K)")
+        K = X.shape[2]
+        X = X.transpose((1, 0, 2)).reshape((N * T, K))
+    elif X.ndim == 2:
+        if X.shape[0] != N * T:
+            raise ValueError(
+                f"independent_vars first dim {X.shape[0]} does not match N*T = {N * T}"
+            )
+        K = X.shape[1]
+    else:
+        raise ValueError("independent_vars must be 2D or 3D array")
+
+    model_type = model_type.lower()
+    if model_type not in ["lag", "error"]:
+        raise ValueError("model_type must be 'lag' or 'error'")
+
+    I_T = np.eye(T)
+    W_full = np.kron(I_T, W)
+
+    if model_type == "lag":
+        WX = W_full @ X
+        W2X = W_full @ WX
+        Z = np.hstack((X, WX, W2X))
+
+        Wy = W_full @ y
+
+        Z_pinv = np.linalg.pinv(Z)
+        Wy_hat = Z @ (Z_pinv @ Wy)
+
+        X_stage2 = np.column_stack((X, Wy_hat))
+
+        coef = np.linalg.lstsq(X_stage2, y, rcond=None)[0]
+
+        X_actual = np.column_stack((X, Wy))
+        residuals = y - X_actual @ coef
+
+        n_obs = N * T
+        k_vars = K + 1
+        sig2 = np.sum(residuals**2) / (n_obs - k_vars)
+
+        cov_matrix = sig2 * np.linalg.inv(X_stage2.T @ X_stage2)
+        std_errors = np.sqrt(np.diag(cov_matrix))
+
+        t_stat = coef / std_errors
+        p_values = 2 * (1 - stats.t.cdf(np.abs(t_stat), df=n_obs - k_vars))
+
+        y_mean = np.mean(y)
+        tss = np.sum((y - y_mean) ** 2)
+        rss = np.sum(residuals**2)
+        r_squared = 1 - (rss / tss) if tss > 0 else 0.0
+
+        return {
+            "coefficients": coef[:K],
+            "spatial_parameter": float(coef[K]),
+            "std_errors": std_errors[:K],
+            "t_stat": t_stat[:K],
+            "p_values": p_values[:K],
+            "r_squared": float(r_squared),
+            "residuals": residuals,
+            "model_type": "lag",
+            "n_spatial_units": N,
+            "time_periods": T,
+        }
+
+    else:
+        coef_ols = np.linalg.lstsq(X, y, rcond=None)[0]
+        e = y - X @ coef_ols
+
+        We = W_full @ e
+        lambda_val = np.linalg.lstsq(We.reshape(-1, 1), e, rcond=None)[0][0]
+
+        y_star = y - lambda_val * (W_full @ y)
+        X_star = X - lambda_val * (W_full @ X)
+
+        coef = np.linalg.lstsq(X_star, y_star, rcond=None)[0]
+
+        residuals_final = y - X @ coef
+
+        n_obs = N * T
+        k_vars = K
+        u_hat = y_star - X_star @ coef
+        sig2 = np.sum(u_hat**2) / (n_obs - k_vars)
+        cov_matrix = sig2 * np.linalg.inv(X_star.T @ X_star)
+
+        std_errors = np.sqrt(np.diag(cov_matrix))
+        t_stat = coef / std_errors
+        p_values = 2 * (1 - stats.t.cdf(np.abs(t_stat), df=n_obs - k_vars))
+
+        y_star_mean = np.mean(y_star)
+        tss = np.sum((y_star - y_star_mean) ** 2)
+        rss = np.sum(u_hat**2)
+        r_squared = 1 - (rss / tss) if tss > 0 else 0.0
+
+        return {
+            "coefficients": coef,
+            "spatial_parameter": float(lambda_val),
+            "std_errors": std_errors,
+            "t_stat": t_stat,
+            "p_values": p_values,
+            "r_squared": float(r_squared),
+            "residuals": residuals_final,
+            "model_type": "error",
+            "n_spatial_units": N,
+            "time_periods": T,
+        }

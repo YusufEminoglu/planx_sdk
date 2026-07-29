@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -802,4 +802,138 @@ def network_voronoi_allocation(
         "facility_mean_cost": facility_mean_cost,
         "facility_max_cost": facility_max_cost,
         "coverage_ratio": coverage_ratio,
+    }
+
+
+def healthcare_equity_index(
+    demand_coords: np.ndarray,
+    facility_coords: np.ndarray,
+    facility_capacities: np.ndarray,
+    population_groups: np.ndarray,
+    group_weights: np.ndarray,
+    catchment_distance: float = 5000.0,
+) -> Dict[str, Any]:
+    """Computes socio-spatial healthcare accessibility equity across vulnerable demographic groups.
+
+    Uses E2SFCA and Gini/Atkinson equity decomposition.
+
+    Args:
+        demand_coords: NumPy array of shape (N, 2) containing demand point locations.
+        facility_coords: NumPy array of shape (M, 2) containing healthcare facility locations.
+        facility_capacities: NumPy array of shape (M,) with capacity/beds/staff per facility (> 0).
+        population_groups: NumPy array of shape (N, G) containing population counts for G
+            demographic/vulnerability groups (e.g., elderly, low-income).
+        group_weights: NumPy array of shape (G,) with vulnerability weighting factors (>= 0).
+        catchment_distance: Maximum catchment distance threshold. Defaults to 5000.0.
+
+    Returns:
+        Dictionary containing:
+            - `accessibility_scores`: (N,) float array of accessibility scores A_i.
+            - `weighted_accessibility`: (N,) float array of weighted accessibility.
+            - `gini_coefficient`: Float representing the overall spatial Gini coefficient (0 to 1).
+            - `group_accessibility_mean`: (G,) float array of mean access per group.
+            - `group_deficit`: (G,) float array of relative deficit per group.
+            - `equity_index`: Float overall score in [0, 1] (1 = perfectly equitable access).
+    """
+    from scipy.spatial.distance import cdist
+
+    dem_coords = np.asarray(demand_coords, dtype=np.float64)
+    fac_coords = np.asarray(facility_coords, dtype=np.float64)
+    caps = np.asarray(facility_capacities, dtype=np.float64)
+    pops = np.asarray(population_groups, dtype=np.float64)
+    weights = np.asarray(group_weights, dtype=np.float64)
+
+    if dem_coords.ndim != 2 or dem_coords.shape[1] != 2:
+        raise ValueError("demand_coords must be of shape (N, 2)")
+    if fac_coords.ndim != 2 or fac_coords.shape[1] != 2:
+        raise ValueError("facility_coords must be of shape (M, 2)")
+
+    n_demands = dem_coords.shape[0]
+    n_facs = fac_coords.shape[0]
+
+    if caps.shape != (n_facs,):
+        raise ValueError("facility_capacities must be of shape (M,)")
+    if np.any(caps <= 0):
+        raise ValueError("facility_capacities must be positive (> 0)")
+
+    if pops.ndim != 2 or pops.shape[0] != n_demands:
+        raise ValueError("population_groups must be of shape (N, G)")
+    if np.any(pops < 0):
+        raise ValueError("population_groups must be non-negative")
+
+    n_groups = pops.shape[1]
+    if weights.shape != (n_groups,):
+        raise ValueError("group_weights must be of shape (G,)")
+    if np.any(weights < 0):
+        raise ValueError("group_weights must be non-negative")
+
+    if catchment_distance <= 0:
+        raise ValueError("catchment_distance must be positive")
+
+    # Step 1: E2SFCA Access Ratios
+    dists = cdist(dem_coords, fac_coords)
+
+    # Distance decay zones
+    W = np.zeros_like(dists)
+    c1 = 0.33 * catchment_distance
+    c2 = 0.66 * catchment_distance
+    c3 = 1.0 * catchment_distance
+
+    mask1 = dists <= c1
+    mask2 = (dists > c1) & (dists <= c2)
+    mask3 = (dists > c2) & (dists <= c3)
+
+    W[mask1] = 1.0
+    W[mask2] = 0.6
+    W[mask3] = 0.2
+
+    pop_total = np.sum(pops, axis=1)
+
+    # Compute provider-to-population ratio R_m for each facility m
+    weighted_demand = np.sum(W * pop_total[:, None], axis=0)
+    R = np.zeros(n_facs, dtype=np.float64)
+    valid_demand = weighted_demand > 0.0
+    R[valid_demand] = caps[valid_demand] / weighted_demand[valid_demand]
+
+    # Compute accessibility score A_i for each demand point i
+    A_i = np.sum(W * R[None, :], axis=1)
+
+    # Step 2: Equity & Mismatch Decomposition
+    # Weighted accessibility score per location considering vulnerability
+    vul_weight_i = np.sum(pops * weights[None, :], axis=1)
+    A_weighted_i = np.zeros_like(A_i)
+    valid_vul = vul_weight_i > 0.0
+    A_weighted_i[valid_vul] = A_i[valid_vul] / vul_weight_i[valid_vul]
+
+    # Overall Spatial Gini Coefficient of A_i across population
+    gini = spatial_equity_gini(A_i, pop_total)
+    equity_index = 1.0 - gini
+
+    # Group Accessibility Deficit
+    total_mean = np.average(A_i, weights=pop_total) if np.sum(pop_total) > 0 else 0.0
+
+    group_means = np.zeros(n_groups, dtype=np.float64)
+    group_deficits = np.zeros(n_groups, dtype=np.float64)
+
+    for g in range(n_groups):
+        pop_g = pops[:, g]
+        sum_pop_g = np.sum(pop_g)
+        if sum_pop_g > 0:
+            mean_g = np.average(A_i, weights=pop_g)
+            group_means[g] = mean_g
+            if total_mean > 0:
+                group_deficits[g] = (total_mean - mean_g) / total_mean
+            else:
+                group_deficits[g] = 0.0
+        else:
+            group_means[g] = 0.0
+            group_deficits[g] = 0.0
+
+    return {
+        "accessibility_scores": A_i,
+        "weighted_accessibility": A_weighted_i,
+        "gini_coefficient": float(gini),
+        "group_accessibility_mean": group_means,
+        "group_deficit": group_deficits,
+        "equity_index": float(equity_index),
     }
