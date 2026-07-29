@@ -293,3 +293,76 @@ def test_calculate_multimodal_15m_city_validation():
 
     with pytest.raises(ValueError, match="Coordinates for category 'grocery' cannot be empty"):
         calculate_multimodal_15m_city(demand, {"grocery": np.empty((0, 2))})
+
+
+def test_huff_retail_market_share_basic():
+    from planx.spatial.accessibility import huff_retail_market_share
+
+    origins = np.array([[0.0, 0.0], [10.0, 0.0]])
+    stores = np.array([[5.0, 0.0], [20.0, 0.0]])
+    attr = np.array([100.0, 200.0])
+    pops = np.array([1000.0, 500.0])
+
+    res = huff_retail_market_share(origins, stores, attr, pops)
+
+    assert "probability_matrix" in res
+    assert "store_captured_customers" in res
+    assert "store_market_shares" in res
+    assert "trade_area_zone_counts" in res
+
+    assert res["probability_matrix"].shape == (2, 2)
+    assert res["store_captured_customers"].shape == (2,)
+    assert res["store_market_shares"].shape == (2,)
+    assert res["trade_area_zone_counts"].shape == (2,)
+
+    # P sums to 1 for each origin
+    np.testing.assert_allclose(np.sum(res["probability_matrix"], axis=1), [1.0, 1.0])
+
+    # total captured customers should equal total population
+    np.testing.assert_allclose(np.sum(res["store_captured_customers"]), 1500.0)
+
+    # total market share should equal 1.0
+    np.testing.assert_allclose(np.sum(res["store_market_shares"]), 1.0)
+
+
+def test_huff_retail_market_share_validation():
+    from planx.spatial.accessibility import huff_retail_market_share
+
+    origins = np.array([[0.0, 0.0]])
+    stores = np.array([[10.0, 0.0]])
+    attr = np.array([100.0])
+
+    with pytest.raises(ValueError, match="origin_coords must be a 2D array"):
+        huff_retail_market_share(np.array([0.0, 0.0]), stores, attr)
+
+    with pytest.raises(ValueError, match="store_coords must be a 2D array"):
+        huff_retail_market_share(origins, np.array([10.0, 0.0]), attr)
+
+    with pytest.raises(ValueError, match="store_attractiveness length"):
+        huff_retail_market_share(origins, stores, np.array([100.0, 200.0]))
+
+    with pytest.raises(ValueError, match="store_attractiveness must be > 0"):
+        huff_retail_market_share(origins, stores, np.array([-10.0]))
+
+    with pytest.raises(ValueError, match="distance_exponent must be > 0"):
+        huff_retail_market_share(origins, stores, attr, distance_exponent=0.0)
+
+    with pytest.raises(ValueError, match="origin_populations length"):
+        huff_retail_market_share(origins, stores, attr, origin_populations=np.array([10.0, 20.0]))
+
+    with pytest.raises(ValueError, match="origin_populations must be non-negative"):
+        huff_retail_market_share(origins, stores, attr, origin_populations=np.array([-10.0]))
+
+
+def test_huff_retail_market_share_empty():
+    from planx.spatial.accessibility import huff_retail_market_share
+
+    origins = np.empty((0, 2))
+    stores = np.empty((0, 2))
+    attr = np.empty((0,))
+
+    res = huff_retail_market_share(origins, stores, attr)
+    assert res["probability_matrix"].shape == (0, 0)
+    assert res["store_captured_customers"].shape == (0,)
+    assert res["store_market_shares"].shape == (0,)
+    assert res["trade_area_zone_counts"].shape == (0,)

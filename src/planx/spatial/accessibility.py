@@ -1039,3 +1039,106 @@ def calculate_multimodal_15m_city(
         "gini_equity_score": gini_equity_score,
         "threshold_compliance_pct": threshold_compliance_pct,
     }
+
+
+def huff_retail_market_share(
+    origin_coords: np.ndarray,
+    store_coords: np.ndarray,
+    store_attractiveness: np.ndarray,
+    origin_populations: np.ndarray | None = None,
+    distance_exponent: float = 2.0,
+) -> dict[str, Any]:
+    """Computes Huff Gravity Model market share probability matrices and expected retail sales.
+
+    Args:
+        origin_coords: NumPy array of shape (N, 2) containing demand / origin zone locations.
+        store_coords: NumPy array of shape (M, 2) containing competing retail store locations.
+        store_attractiveness: NumPy array of shape (M,) containing floor area / store score (> 0).
+        origin_populations: Optional NumPy array of shape (N,) containing population /
+            purchasing power per origin zone. Default is uniform (1.0).
+        distance_exponent: Distance decay exponent lambda. Default is 2.0.
+
+    Returns:
+        Dict with keys:
+            - 'probability_matrix': (N, M) float array of choice probabilities P_{i,j}.
+            - 'store_captured_customers': (M,) float array of expected customers C_j.
+            - 'store_market_shares': (M,) float array of total market share S_j [0, 1].
+            - 'trade_area_zone_counts': (M,) int array count of zones with P >= 0.5.
+    """
+    from scipy.spatial.distance import cdist
+
+    orig = np.asarray(origin_coords, dtype=np.float64)
+    stores = np.asarray(store_coords, dtype=np.float64)
+    attr = np.asarray(store_attractiveness, dtype=np.float64)
+
+    if orig.ndim != 2 or orig.shape[1] != 2:
+        raise ValueError(f"origin_coords must be a 2D array of shape (N, 2), got {orig.shape}")
+    if stores.ndim != 2 or stores.shape[1] != 2:
+        raise ValueError(f"store_coords must be a 2D array of shape (M, 2), got {stores.shape}")
+
+    n_orig = orig.shape[0]
+    n_stores = stores.shape[0]
+
+    if attr.ndim != 1 or attr.shape[0] != n_stores:
+        raise ValueError(
+            f"store_attractiveness length ({attr.shape[0]}) must "
+            f"match number of stores ({n_stores})"
+        )
+
+    if np.any(attr <= 0):
+        raise ValueError("store_attractiveness must be > 0")
+
+    if distance_exponent <= 0:
+        raise ValueError("distance_exponent must be > 0")
+
+    if origin_populations is None:
+        pops = np.ones(n_orig, dtype=np.float64)
+    else:
+        pops = np.asarray(origin_populations, dtype=np.float64)
+        if pops.ndim != 1 or pops.shape[0] != n_orig:
+            raise ValueError(
+                f"origin_populations length ({pops.shape[0]}) must "
+                f"match number of origins ({n_orig})"
+            )
+        if np.any(pops < 0):
+            raise ValueError("origin_populations must be non-negative")
+
+    if n_orig == 0 or n_stores == 0:
+        return {
+            "probability_matrix": np.zeros((n_orig, n_stores), dtype=np.float64),
+            "store_captured_customers": np.zeros(n_stores, dtype=np.float64),
+            "store_market_shares": np.zeros(n_stores, dtype=np.float64),
+            "trade_area_zone_counts": np.zeros(n_stores, dtype=int),
+        }
+
+    # Distance matrix D (N, M). Avoid division by zero by clipping D >= 1.0.
+    dists = cdist(orig, stores, metric="euclidean")
+    dists = np.clip(dists, 1.0, None)
+
+    # Utility U_{i,j} = store_attractiveness_j / (D_{i,j} ^ distance_exponent)
+    utility = attr[None, :] / (dists**distance_exponent)
+
+    # Choice Probability Matrix P_{i,j} = U_{i,j} / sum_k(U_{i,k})
+    sum_utility = np.sum(utility, axis=1, keepdims=True)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        prob_matrix = np.where(sum_utility > 0, utility / sum_utility, 0.0)
+
+    # Expected customers per store C_j = sum_i(origin_populations_i * P_{i,j})
+    captured = np.sum(pops[:, None] * prob_matrix, axis=0)
+
+    # Total Market Share per store S_j = C_j / sum(origin_populations)
+    total_pop = np.sum(pops)
+    if total_pop > 0:
+        market_shares = captured / total_pop
+    else:
+        market_shares = np.zeros(n_stores, dtype=np.float64)
+
+    # Primary Trade Area (zones where P_{i,j} >= 0.50)
+    trade_areas = np.sum(prob_matrix >= 0.50, axis=0).astype(int)
+
+    return {
+        "probability_matrix": prob_matrix,
+        "store_captured_customers": captured,
+        "store_market_shares": market_shares,
+        "trade_area_zone_counts": trade_areas,
+    }

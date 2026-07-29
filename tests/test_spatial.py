@@ -8,6 +8,7 @@ from planx.spatial import (
     active_mobility_permeability,
     angular_segment_centrality,
     axial_to_segment_conversion,
+    bike_network_low_stress_connectivity,
     brandes_betweenness,
     calculate_15m_city_score,
     calculate_average_route_circuity,
@@ -1689,3 +1690,55 @@ def test_calculate_building_solar_envelope_validation():
 
     res_empty = calculate_building_solar_envelope(np.zeros((0, 4, 2)), np.zeros(0), 45.0, 180.0)
     assert len(res_empty["shadow_lengths_m"]) == 0
+
+
+def test_bike_network_low_stress_connectivity():
+    import scipy.sparse as sp
+
+    lts = np.array([1, 2, 3, 4, 1])
+    lengths = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+
+    # 5 edges, lets map them to a small graph of 4 nodes
+    # Edges: 0-1, 1-2, 2-3, 3-0, 0-2
+    # LTS:   1,   2,   3,   4,   1
+
+    row = np.array([0, 1, 2, 3, 0])
+    col = np.array([1, 2, 3, 0, 2])
+    data = np.ones(5)
+    adj = sp.coo_matrix((data, (row, col)), shape=(4, 4))
+
+    res = bike_network_low_stress_connectivity(lts, lengths, adj, target_max_lts=2)
+
+    # Low stress edges: LTS <= 2. That's indices 0, 1, 4. (lengths 10, 20, 50)
+    # Total low stress length = 10 + 20 + 50 = 80
+    # Total length = 10 + 20 + 30 + 40 + 50 = 150
+    # Ratio = 80 / 150 = 0.5333
+
+    assert np.isclose(res["low_stress_length_ratio"], 80.0 / 150.0)
+
+    # Islands:
+    # Edges 0 (0-1), 1 (1-2), 4 (0-2) are low stress.
+    # Nodes 0, 1, 2 form a single connected component.
+    # Node 3 is isolated (no low stress edges).
+    # Component for nodes 0,1,2 will have length 10+20+50 = 80.
+    # Wait, isolated node 3 forms its own component. Does it have length > 0? No, length 0.
+    # So there is 1 low stress island (length > 0).
+    assert res["num_low_stress_islands"] == 1
+    assert res["largest_island_length_m"] == 80.0
+    assert res["largest_island_node_count"] == 3
+    assert res["llsc_ratio"] == 1.0
+
+    # Test dense matrix
+    dense_adj = adj.toarray()
+    res2 = bike_network_low_stress_connectivity(lts, lengths, dense_adj, target_max_lts=2)
+    assert np.allclose(res["low_stress_length_ratio"], res2["low_stress_length_ratio"])
+
+    # Test exceptions
+    with pytest.raises(ValueError):
+        bike_network_low_stress_connectivity(np.array([0, 2]), np.array([10.0, 10.0]), dense_adj)
+    with pytest.raises(ValueError):
+        bike_network_low_stress_connectivity(lts, np.array([-10.0] * 5), dense_adj)
+    with pytest.raises(ValueError):
+        bike_network_low_stress_connectivity(lts, lengths, dense_adj, target_max_lts=5)
+    with pytest.raises(ValueError):
+        bike_network_low_stress_connectivity(lts[:4], lengths[:4], dense_adj)  # shape mismatch

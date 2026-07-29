@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-07-29
+### Added
+- **Spatial Panel SARMA Model** (`fit_spatial_sarma_panel`) in `planx.geostats` for joint Spatial Lag + Spatial Error panel data regression using 2SLS stage 1 lag parameter estimation and GS2SLS stage 2 error transformation.
+- **Stormwater Retention Basin Design Engine** (`stormwater_retention_basin_design`) in `planx.resilience.flood` for green infrastructure storage volume, infiltration surface area, and drain-down time engineering based on SCS Curve Number and soil K_sat.
+- **Low-Stress Bicycle Network Connectivity Profiler** (`bike_network_low_stress_connectivity`) in `planx.spatial.walkability` evaluating bicycle Level of Traffic Stress (LTS 1-4) low-stress island connected components and permeability ratios.
+- **Spatial Huff Gravity Retail Market Share Model** (`huff_retail_market_share`) in `planx.spatial.accessibility` for multi-store attraction, distance exponent decay, customer capture, and primary trade area market share projections.
+
+---
+
 ## [1.6.0] - 2026-07-29
 ### Added
 - **Spatial Panel Tobit Model** (`fit_spatial_tobit_panel`) in `planx.geostats` for left/zero-censored spatio-temporal panel data regression using 2SLS Spatial Lag initial parameters and truncated normal Mills ratio expected value adjustments.

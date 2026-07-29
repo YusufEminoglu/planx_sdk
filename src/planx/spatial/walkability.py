@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import heapq
 import math
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import scipy.sparse as sp
+from scipy.sparse.csgraph import connected_components
 
 from .paths import many_to_many
 
@@ -1284,4 +1286,93 @@ def pedestrian_level_of_service(
         "plos_score": plos,
         "los_grade": grades,
         "space_per_ped_m2": space,
+    }
+
+
+def bike_network_low_stress_connectivity(
+    edge_lts_scores: np.ndarray,
+    edge_lengths_m: np.ndarray,
+    graph_adj_matrix: np.ndarray,
+    target_max_lts: int = 2,
+) -> dict[str, Any]:
+    """Evaluates bicycle stress levels and calculates connected low-stress island subgraphs.
+
+    Args:
+        edge_lts_scores: (E,) int array of Level of Traffic Stress per edge (1 to 4).
+        edge_lengths_m: (E,) float array of edge lengths in meters.
+        graph_adj_matrix: (V, V) sparse or dense adjacency matrix representing the street graph.
+        target_max_lts: Max LTS threshold considered "low stress" (default 2).
+
+    Returns:
+        Dict with connectivity and permeability metrics.
+    """
+    lts = np.asarray(edge_lts_scores, dtype=np.int64)
+    lengths = np.asarray(edge_lengths_m, dtype=np.float64)
+
+    if np.any((lts < 1) | (lts > 4)):
+        raise ValueError("LTS scores must be between 1 and 4")
+    if target_max_lts < 1 or target_max_lts > 4:
+        raise ValueError("target_max_lts must be between 1 and 4")
+    if np.any(lengths < 0):
+        raise ValueError("Edge lengths must be non-negative")
+
+    is_low_stress = lts <= target_max_lts
+
+    if sp.issparse(graph_adj_matrix):
+        mat = graph_adj_matrix.tocoo()  # type: ignore
+        v = mat.shape[0]
+        rows = mat.row  # type: ignore
+        cols = mat.col  # type: ignore
+    else:
+        mat = np.asarray(graph_adj_matrix)
+        v = mat.shape[0]
+        rows, cols = np.nonzero(mat)
+
+    if len(rows) != len(lts):
+        raise ValueError(
+            f"Number of edges in graph_adj_matrix ({len(rows)}) "
+            f"must match array length ({len(lts)})"
+        )
+
+    # Filter for low stress edges
+    ls_rows = rows[is_low_stress]
+    ls_cols = cols[is_low_stress]
+    ls_data = np.ones(len(ls_rows), dtype=int)
+
+    ls_adj = sp.coo_matrix((ls_data, (ls_rows, ls_cols)), shape=(v, v))
+
+    n_components, labels = connected_components(ls_adj, directed=False)
+
+    edge_labels = labels[ls_rows]
+    ls_lengths = lengths[is_low_stress]
+    island_lengths = np.bincount(edge_labels, weights=ls_lengths, minlength=n_components)
+    island_node_counts = np.bincount(labels, minlength=n_components)
+
+    total_low_stress_length = float(np.sum(ls_lengths))
+    total_length = float(np.sum(lengths))
+
+    if total_length > 0.0:
+        low_stress_length_ratio = total_low_stress_length / total_length
+    else:
+        low_stress_length_ratio = 0.0
+
+    if total_low_stress_length > 0.0:
+        largest_island_length = float(np.max(island_lengths))
+        llsc_ratio = largest_island_length / total_low_stress_length
+        largest_island_id = int(np.argmax(island_lengths))
+        largest_island_nodes = int(island_node_counts[largest_island_id])
+    else:
+        largest_island_length = 0.0
+        llsc_ratio = 0.0
+        largest_island_nodes = 0
+
+    num_islands = int(np.sum(island_lengths > 0))
+
+    return {
+        "low_stress_length_ratio": low_stress_length_ratio,
+        "num_low_stress_islands": num_islands,
+        "largest_island_length_m": largest_island_length,
+        "largest_island_node_count": largest_island_nodes,
+        "llsc_ratio": llsc_ratio,
+        "edge_is_low_stress": is_low_stress,
     }

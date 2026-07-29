@@ -3616,3 +3616,153 @@ def fit_spatial_tobit_panel(
         "uncensored_count": uncensored_count,
         "residuals": residuals,
     }
+
+
+def fit_spatial_sarma_panel(
+    dependent_var: np.ndarray,
+    independent_vars: np.ndarray,
+    weights_matrix: np.ndarray,
+    time_periods: int,
+):
+
+    y = np.asarray(dependent_var, dtype=np.float64)
+
+    X = np.asarray(independent_vars, dtype=np.float64)
+
+    W = np.asarray(weights_matrix, dtype=np.float64)
+
+    if time_periods < 2:
+        raise ValueError("time_periods must be >= 2")
+
+    if W.ndim != 2 or W.shape[0] != W.shape[1]:
+        raise ValueError("weights_matrix must be a square 2D array")
+
+    N = W.shape[0]
+
+    T = time_periods
+
+    if N < 3:
+        raise ValueError("Number of spatial units (N) must be >= 3")
+
+    if y.ndim == 2:
+        if y.shape != (N, T):
+            raise ValueError(f"dependent_var shape {y.shape} does not match (N, T) = ({N}, {T})")
+
+        y = y.T.flatten()
+
+    elif y.ndim == 1:
+        if y.shape[0] != N * T:
+            raise ValueError(f"dependent_var length {y.shape[0]} does not match N*T = {N * T}")
+
+    else:
+        raise ValueError("dependent_var must be 1D or 2D array")
+
+    if X.ndim == 3:
+        if X.shape[:2] != (N, T):
+            raise ValueError(f"independent_vars shape {X.shape} does not match (N, T, K)")
+
+        K = X.shape[2]
+
+        X = X.transpose((1, 0, 2)).reshape((N * T, K))
+
+    elif X.ndim == 2:
+        if X.shape[0] != N * T:
+            raise ValueError(
+                f"independent_vars first dim {X.shape[0]} does not match N*T = {N * T}"
+            )
+
+        K = X.shape[1]
+
+    else:
+        raise ValueError("independent_vars must be 2D or 3D array")
+
+    I_T = np.eye(T)
+
+    W_full = np.kron(I_T, W)
+
+    Wy = W_full @ y
+
+    WX = W_full @ X
+
+    W2X = W_full @ WX
+
+    Z = np.column_stack((X, WX, W2X))
+
+    Z_pinv = np.linalg.pinv(Z)
+
+    Wy_hat = Z @ (Z_pinv @ Wy)
+
+    X_stage1_hat = np.column_stack((X, Wy_hat))
+
+    coef_stage1 = np.linalg.lstsq(X_stage1_hat, y, rcond=None)[0]
+
+    beta_stage1 = coef_stage1[:K]
+
+    rho_stage1 = float(coef_stage1[K])
+
+    e = y - rho_stage1 * Wy - X @ beta_stage1
+
+    We = W_full @ e
+
+    lambda_val = float(np.linalg.lstsq(We.reshape(-1, 1), e, rcond=None)[0][0])
+
+    y_star = y - lambda_val * Wy
+
+    X_star = X - lambda_val * WX
+
+    Wy_star = W_full @ y_star
+
+    WX_star = W_full @ X_star
+
+    W2X_star = W_full @ WX_star
+
+    Z_star = np.column_stack((X_star, WX_star, W2X_star))
+
+    Z_star_pinv = np.linalg.pinv(Z_star)
+
+    Wy_star_hat = Z_star @ (Z_star_pinv @ Wy_star)
+
+    X_stage2_hat = np.column_stack((X_star, Wy_star_hat))
+
+    coef_final = np.linalg.lstsq(X_stage2_hat, y_star, rcond=None)[0]
+
+    beta_final = coef_final[:K]
+
+    rho_final = float(coef_final[K])
+
+    residuals_final = y - rho_final * Wy - X @ beta_final
+
+    n_obs = N * T
+
+    k_vars = K + 1
+
+    sig2 = np.sum(residuals_final**2) / (n_obs - k_vars)
+
+    cov_matrix = sig2 * np.linalg.inv(X_stage2_hat.T @ X_stage2_hat)
+
+    std_errors_all = np.sqrt(np.diag(cov_matrix))
+
+    std_errors = std_errors_all[:K]
+
+    t_stat = beta_final / std_errors
+
+    p_values = 2 * (1 - stats.t.cdf(np.abs(t_stat), df=n_obs - k_vars))
+
+    y_mean = np.mean(y)
+
+    tss = np.sum((y - y_mean) ** 2)
+
+    rss = np.sum(residuals_final**2)
+
+    r_squared = 1 - (rss / tss) if tss > 0 else 0.0
+
+    return {
+        "coefficients": beta_final,
+        "spatial_rho": rho_final,
+        "spatial_lambda": lambda_val,
+        "std_errors": std_errors,
+        "t_stat": t_stat,
+        "p_values": p_values,
+        "r_squared": float(r_squared),
+        "residuals": residuals_final,
+    }
