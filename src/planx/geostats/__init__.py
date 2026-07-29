@@ -48,6 +48,7 @@ from .stats_engines import (
     fit_spatial_panel_model,
     fit_spatial_sarma_model,
     fit_spatial_tobit_model,
+    fit_spatial_tobit_panel,
     run_sensitivity_simulation,
     skater_spatial_clustering,
 )
@@ -64,6 +65,7 @@ __all__ = [
     "fit_spatial_error_model",
     "fit_spatial_sarma_model",
     "fit_spatial_tobit_model",
+    "fit_spatial_tobit_panel",
     "calculate_mean_center",
     "calculate_central_feature",
     "calculate_sde",

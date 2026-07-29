@@ -7,6 +7,7 @@ Network centrality and shortest path calculations on sparse graphs.
 
 from .accessibility import (
     calculate_15m_city_score,
+    calculate_multimodal_15m_city,
     cumulative_opportunities,
     enhanced_2sfca,
     gravity_accessibility,
@@ -23,6 +24,7 @@ from .centrality import (
     angular_segment_centrality,
     axial_to_segment_conversion,
     brandes_betweenness,
+    calculate_building_solar_envelope,
     closeness_straightness,
     eigenvector,
     network_criticality,
@@ -56,6 +58,7 @@ __all__ = [
     "closeness_straightness",
     "eigenvector",
     "brandes_betweenness",
+    "calculate_building_solar_envelope",
     "angular_segment_centrality",
     "axial_to_segment_conversion",
     "network_criticality",
@@ -79,6 +82,7 @@ __all__ = [
     "calculate_walk_score",
     "calculate_pedestrian_route_directness",
     "calculate_15m_city_score",
+    "calculate_multimodal_15m_city",
     "pagerank_centrality",
     "street_orientation_entropy",
     "calculate_average_route_circuity",

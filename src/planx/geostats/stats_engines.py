@@ -3458,3 +3458,161 @@ def fit_spatial_panel_model(
             "n_spatial_units": N,
             "time_periods": T,
         }
+
+
+def fit_spatial_tobit_panel(
+    dependent_var: np.ndarray,
+    independent_vars: np.ndarray,
+    weights_matrix: np.ndarray,
+    time_periods: int,
+    censoring_limit: float = 0.0,
+) -> dict[str, Any]:
+    """Fits a Spatial Panel Autoregressive Tobit model for zero/left-censored data.
+
+    Args:
+        dependent_var: Array of dependent variables, shape (N*T,) or (N, T).
+            If (N, T), it is flattened to (N*T,) in spatial-first order.
+        independent_vars: Array of independent variables, shape (N*T, K) or (N, T, K).
+        weights_matrix: Spatial weights matrix, shape (N, N).
+        time_periods: Number of time periods (T).
+        censoring_limit: Left-censoring threshold (default 0.0).
+
+    Returns:
+        dict[str, Any]: Dictionary containing model parameters and diagnostics.
+    """
+    y = np.asarray(dependent_var, dtype=np.float64)
+    X = np.asarray(independent_vars, dtype=np.float64)
+    W = np.asarray(weights_matrix, dtype=np.float64)
+
+    if time_periods < 2:
+        raise ValueError("time_periods must be >= 2")
+
+    if W.ndim != 2 or W.shape[0] != W.shape[1]:
+        raise ValueError("weights_matrix must be a square 2D array")
+
+    N = W.shape[0]
+    T = time_periods
+
+    if N < 3:
+        raise ValueError("Number of spatial units (N) must be >= 3")
+
+    if y.ndim == 2:
+        if y.shape != (N, T):
+            raise ValueError(f"dependent_var shape {y.shape} does not match (N, T) = ({N}, {T})")
+        y = y.T.flatten()
+    elif y.ndim == 1:
+        if y.shape[0] != N * T:
+            raise ValueError(f"dependent_var length {y.shape[0]} does not match N*T = {N * T}")
+    else:
+        raise ValueError("dependent_var must be 1D or 2D array")
+
+    if X.ndim == 3:
+        if X.shape[:2] != (N, T):
+            raise ValueError(f"independent_vars shape {X.shape} does not match (N, T, K)")
+        K = X.shape[2]
+        X = X.transpose((1, 0, 2)).reshape((N * T, K))
+    elif X.ndim == 2:
+        if X.shape[0] != N * T:
+            raise ValueError(
+                f"independent_vars first dim {X.shape[0]} does not match N*T = {N * T}"
+            )
+        K = X.shape[1]
+    else:
+        raise ValueError("independent_vars must be 2D or 3D array")
+
+    # Create W_full = I_T ⊗ W_spatial (N*T, N*T)
+    I_T = np.eye(T)
+    W_full = np.kron(I_T, W)
+
+    uncensored = y > censoring_limit
+    uncensored_count = int(np.sum(uncensored))
+    censored_count = (N * T) - uncensored_count
+
+    if uncensored_count < (K + 1):
+        raise ValueError("Too few uncensored observations for Tobit estimation.")
+
+    # Compute 2SLS Spatial Lag on uncensored subset
+    y_unc = y[uncensored]
+    X_unc = X[uncensored]
+
+    Wy = W_full @ y
+    WX = W_full @ X
+    Wy_unc = Wy[uncensored]
+    WX_unc = WX[uncensored]
+
+    # Instruments Z for uncensored
+    Z_unc = np.column_stack((X_unc, WX_unc))
+    X_sp_unc = np.column_stack((Wy_unc, X_unc))
+
+    # P_Z = Z (Z'Z)^-1 Z'
+    ztz_inv_unc = np.linalg.pinv(Z_unc.T @ Z_unc)
+    P_Z_unc = Z_unc @ ztz_inv_unc @ Z_unc.T
+    X_hat_unc = P_Z_unc @ X_sp_unc
+
+    beta_full_init = np.linalg.pinv(X_hat_unc.T @ X_hat_unc) @ (X_hat_unc.T @ y_unc)
+
+    # Iterative Tobit Expected Value Adjustment
+    X_sp_full = np.column_stack((Wy, X))
+    y_pred = X_sp_full @ beta_full_init
+
+    residuals_init_unc = y_unc - y_pred[uncensored]
+    sigma = float(np.std(residuals_init_unc))
+
+    y_star = y.copy()
+    if sigma > 0 and censored_count > 0:
+        censored = ~uncensored
+        alpha = (censoring_limit - y_pred[censored]) / sigma
+
+        cdf_alpha = np.maximum(stats.norm.cdf(alpha), 1e-10)
+        pdf_alpha = stats.norm.pdf(alpha)
+        lambda_mills = pdf_alpha / cdf_alpha
+
+        y_star[censored] = y_pred[censored] - sigma * lambda_mills
+        y_star[censored] = np.minimum(y_star[censored], censoring_limit)
+
+    # Final 2SLS regression of latent y* on [X, W_full @ y*]
+    Wy_star = W_full @ y_star
+    Z_star = np.column_stack((X, WX))
+    X_sp_star = np.column_stack((Wy_star, X))
+
+    ztz_inv_star = np.linalg.pinv(Z_star.T @ Z_star)
+    P_Z_star = Z_star @ ztz_inv_star @ Z_star.T
+    X_hat_star = P_Z_star @ X_sp_star
+
+    xtx_inv_final = np.linalg.pinv(X_hat_star.T @ X_hat_star)
+    beta_full = xtx_inv_final @ (X_hat_star.T @ y_star)
+
+    rho = float(beta_full[0])
+    beta = beta_full[1:]
+
+    y_fitted = X_sp_star @ beta_full
+    residuals = y_star - y_fitted
+
+    sse = float(np.sum(residuals**2))
+    df = (N * T) - (K + 1)
+    s2 = sse / df if df > 0 else 0.0
+
+    cov_beta = s2 * xtx_inv_final
+    se_full = np.sqrt(np.maximum(0.0, np.diagonal(cov_beta)))
+    t_full = np.zeros_like(beta_full)
+    p_full = np.ones_like(beta_full)
+
+    for j in range(len(beta_full)):
+        if se_full[j] > 0:
+            t_full[j] = beta_full[j] / se_full[j]
+            p_full[j] = 2.0 * (1.0 - stats.t.cdf(abs(t_full[j]), df=max(1, df)))
+
+    sst = float(np.sum((y_star - np.mean(y_star)) ** 2))
+    r2 = float(1.0 - (sse / sst)) if sst > 0 else 0.0
+
+    return {
+        "coefficients": beta,
+        "spatial_rho": rho,
+        "std_errors": se_full[1:],
+        "t_stat": t_full[1:],
+        "p_values": p_full[1:],
+        "r_squared": r2,
+        "censored_count": censored_count,
+        "uncensored_count": uncensored_count,
+        "residuals": residuals,
+    }

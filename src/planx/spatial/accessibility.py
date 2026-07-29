@@ -937,3 +937,105 @@ def healthcare_equity_index(
         "group_deficit": group_deficits,
         "equity_index": float(equity_index),
     }
+
+
+def calculate_multimodal_15m_city(
+    demand_coords: np.ndarray,
+    amenity_coords_dict: dict[str, np.ndarray],
+    modal_speeds_kmh: dict[str, float] | None = None,
+    modal_weights: dict[str, float] | None = None,
+    max_travel_time_minutes: float = 15.0,
+) -> dict[str, Any]:
+    """Computes multi-modal 15-minute city accessibility scores across urban services.
+
+    Args:
+        demand_coords: (N, 2) NumPy array of demand point locations.
+        amenity_coords_dict: Dictionary mapping amenity category name to (M_c, 2) coordinates array.
+        modal_speeds_kmh: Dictionary mapping mode to speed in km/h. Default:
+            {'walk': 4.5, 'bike': 15.0, 'transit': 20.0}.
+        modal_weights: Dictionary mapping mode to weight [0, 1] summing to 1. Default:
+            {'walk': 0.6, 'bike': 0.3, 'transit': 0.1}.
+        max_travel_time_minutes: Target threshold in minutes. Default: 15.0.
+
+    Returns:
+        Dictionary containing:
+        - `city_15m_score`: (N,) float array in [0, 100] representing overall index.
+        - `category_scores`: dict mapping category name -> (N,) float array in [0, 100].
+        - `gini_equity_score`: float Gini coefficient of the scores.
+        - `threshold_compliance_pct`: float percentage of locations meeting target score (>= 75.0).
+    """
+    from scipy.spatial.distance import cdist
+
+    dem = np.asarray(demand_coords, dtype=np.float64)
+    if dem.ndim != 2 or dem.shape[1] != 2:
+        raise ValueError(f"demand_coords must be a 2D array of shape (N, 2), got {dem.shape}")
+
+    n_points = dem.shape[0]
+    if n_points == 0:
+        raise ValueError("demand_coords cannot be empty")
+
+    if not amenity_coords_dict:
+        raise ValueError("amenity_coords_dict cannot be empty")
+
+    if max_travel_time_minutes <= 0:
+        raise ValueError("max_travel_time_minutes must be positive")
+
+    if modal_speeds_kmh is None:
+        modal_speeds_kmh = {"walk": 4.5, "bike": 15.0, "transit": 20.0}
+    if modal_weights is None:
+        modal_weights = {"walk": 0.6, "bike": 0.3, "transit": 0.1}
+
+    for mode, speed in modal_speeds_kmh.items():
+        if speed <= 0:
+            raise ValueError(f"Speed for mode {mode} must be positive, got {speed}")
+
+    weight_sum = 0.0
+    for mode, weight in modal_weights.items():
+        if weight < 0 or weight > 1:
+            raise ValueError(f"Weight for mode {mode} must be between 0 and 1, got {weight}")
+        weight_sum += weight
+
+    if not np.isclose(weight_sum, 1.0):
+        raise ValueError(f"Modal weights must sum to 1.0, got {weight_sum}")
+
+    common_modes = set(modal_speeds_kmh.keys()).intersection(set(modal_weights.keys()))
+    if not common_modes:
+        raise ValueError("No common modes between speeds and weights")
+
+    category_scores: dict[str, np.ndarray] = {}
+
+    for cat, coords in amenity_coords_dict.items():
+        coords_arr = np.asarray(coords, dtype=np.float64)
+        if coords_arr.ndim != 2 or coords_arr.shape[1] != 2:
+            raise ValueError(f"Coordinates for category '{cat}' must be shape (M, 2)")
+        if coords_arr.shape[0] == 0:
+            raise ValueError(f"Coordinates for category '{cat}' cannot be empty")
+
+        dists = cdist(dem, coords_arr, metric="euclidean")
+        min_dist_m = np.min(dists, axis=1)
+        min_dist_km = min_dist_m / 1000.0
+
+        cat_score = np.zeros(n_points, dtype=np.float64)
+
+        for mode in common_modes:
+            speed = modal_speeds_kmh[mode]
+            weight = modal_weights[mode]
+
+            travel_time_min = (min_dist_km / speed) * 60.0
+            mode_score = np.clip(1.0 - travel_time_min / max_travel_time_minutes, 0.0, 1.0)
+            cat_score += weight * mode_score
+
+        category_scores[cat] = cat_score * 100.0
+
+    all_scores = np.stack(list(category_scores.values()), axis=0)
+    city_15m_score = np.mean(all_scores, axis=0)
+
+    threshold_compliance_pct = float(np.mean(city_15m_score >= 75.0) * 100.0)
+    gini_equity_score = spatial_equity_gini(city_15m_score, np.ones(n_points, dtype=np.float64))
+
+    return {
+        "city_15m_score": city_15m_score,
+        "category_scores": category_scores,
+        "gini_equity_score": gini_equity_score,
+        "threshold_compliance_pct": threshold_compliance_pct,
+    }

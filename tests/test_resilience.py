@@ -1640,3 +1640,52 @@ def test_dynamic_evacuation_bottlenecks():
             edge_capacities,
             edge_free_flow_times,
         )
+
+
+def test_optimize_tree_canopy_greening():
+    import numpy as np
+    import pytest
+
+    from planx.resilience import optimize_tree_canopy_greening
+
+    lst = np.array([35.0, 36.0, 32.0, 38.0])
+    aqi = np.array([50.0, 60.0, 40.0, 80.0])
+    ped = np.array([100.0, 200.0, 50.0, 300.0])
+    canopy = np.array([0.1, 0.0, 0.5, 0.0])
+    coords = np.array([[0, 0], [0, 50], [0, 100], [0, 150]])
+
+    # Normal case
+    res = optimize_tree_canopy_greening(
+        lst, aqi, ped, canopy, coords, budget_max_trees=2, cooling_radius=100.0
+    )
+    assert "selected_indices" in res
+    assert "selected_coords" in res
+    assert "total_heat_reduction_score" in res
+    assert "priority_scores" in res
+    assert "post_greening_heat_mitigation" in res
+
+    assert len(res["selected_indices"]) == 2
+    assert res["selected_coords"].shape == (2, 2)
+    assert res["total_heat_reduction_score"] > 0
+    assert len(res["priority_scores"]) == 4
+    assert len(res["post_greening_heat_mitigation"]) == 4
+
+    # Test budget larger than candidates
+    res_large_budget = optimize_tree_canopy_greening(
+        lst, aqi, ped, canopy, coords, budget_max_trees=10, cooling_radius=100.0
+    )
+    assert len(res_large_budget["selected_indices"]) <= 4
+
+    # Test error cases
+    with pytest.raises(ValueError, match="Input arrays must have matching shape"):
+        optimize_tree_canopy_greening(lst[:-1], aqi, ped, canopy, coords, 2)
+
+    with pytest.raises(ValueError, match="existing_canopy_ratio must be between 0 and 1"):
+        bad_canopy = np.array([0.1, -0.2, 0.5, 1.2])
+        optimize_tree_canopy_greening(lst, aqi, ped, bad_canopy, coords, 2)
+
+    with pytest.raises(ValueError, match="budget_max_trees must be greater than 0"):
+        optimize_tree_canopy_greening(lst, aqi, ped, canopy, coords, 0)
+
+    with pytest.raises(ValueError, match="cooling_radius must be positive"):
+        optimize_tree_canopy_greening(lst, aqi, ped, canopy, coords, 2, cooling_radius=0.0)
