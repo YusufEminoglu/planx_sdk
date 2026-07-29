@@ -32,6 +32,7 @@ from planx.resilience import (
     simulate_seismic_debris,
     social_vulnerability_index,
     socio_economic_flood_risk,
+    stormwater_retention_basin_design,
     tree_canopy_microclimate_cooling,
     urban_heat_comfort_risk,
     urban_heat_island_intensity,
@@ -801,6 +802,7 @@ def test_socio_economic_flood_risk_edge_cases():
         w_vulnerability=0.0,
     )
     np.testing.assert_allclose(scores_add_zero, 0.0)
+    assert np.all(np.isfinite(scores_add_zero))
 
     # NaN classification (one invalid cell) plus a Very High score cell
     hazard = np.array([[100.0, np.nan], [50.0, 20.0]])
@@ -1689,3 +1691,56 @@ def test_optimize_tree_canopy_greening():
 
     with pytest.raises(ValueError, match="cooling_radius must be positive"):
         optimize_tree_canopy_greening(lst, aqi, ped, canopy, coords, 2, cooling_radius=0.0)
+
+
+# ---------------------------------------------------------------------------
+# Tests for stormwater_retention_basin_design
+# ---------------------------------------------------------------------------
+
+
+def test_stormwater_retention_basin_design():
+    # Basic valid inputs
+    res = stormwater_retention_basin_design(
+        drainage_area_ha=1.0,  # 10,000 m2
+        impervious_ratio=0.5,  # C = 0.05 + 0.9*0.5 = 0.5
+        rainfall_depth_mm=50.0,  # R = 0.5 * 50 = 25 mm = 0.025 m
+        soil_infiltration_rate_mmh=10.0,  # 10 mm/h
+        max_allowable_drain_hours=48.0,
+        basin_safety_factor=1.2,
+    )
+    # V_raw = 0.025 * 10000 = 250 m3
+    # V_design = 250 * 1.2 = 300 m3
+    # D_max = (10 / 1000) * 48 = 0.48 m
+    # A_basin = 300 / 0.48 = 625 m2
+    # t_drain = (0.48 * 1000) / 10 = 48.0 h
+    assert np.isclose(res["runoff_volume_m3"], 250.0)
+    assert np.isclose(res["design_storage_volume_m3"], 300.0)
+    assert np.isclose(res["max_basin_depth_m"], 0.48)
+    assert np.isclose(res["min_basin_surface_area_m2"], 625.0)
+    assert np.isclose(res["actual_draindown_hours"], 48.0)
+    assert np.isclose(res["runoff_coefficient"], 0.5)
+    assert res["is_drain_time_compliant"] is True
+
+
+def test_stormwater_retention_basin_design_errors():
+    with pytest.raises(ValueError, match="drainage_area_ha must be positive"):
+        stormwater_retention_basin_design(-1.0, 0.5, 50.0, 10.0)
+
+    with pytest.raises(ValueError, match="impervious_ratio must be between 0 and 1"):
+        stormwater_retention_basin_design(1.0, 1.5, 50.0, 10.0)
+
+    with pytest.raises(ValueError, match="rainfall_depth_mm must be positive"):
+        stormwater_retention_basin_design(1.0, 0.5, -50.0, 10.0)
+
+    with pytest.raises(ValueError, match="soil_infiltration_rate_mmh must be positive"):
+        stormwater_retention_basin_design(1.0, 0.5, 50.0, 0.0)
+
+
+def test_stormwater_retention_basin_design_edge_cases():
+    # Zero impervious ratio
+    res = stormwater_retention_basin_design(1.0, 0.0, 50.0, 10.0)
+    assert np.isclose(res["runoff_coefficient"], 0.05)
+
+    # 1.0 impervious ratio
+    res2 = stormwater_retention_basin_design(1.0, 1.0, 50.0, 10.0)
+    assert np.isclose(res2["runoff_coefficient"], 0.95)

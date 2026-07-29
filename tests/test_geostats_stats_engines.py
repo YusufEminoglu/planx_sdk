@@ -43,6 +43,7 @@ from planx.geostats import (
     fit_spatial_error_model,
     fit_spatial_lag_model,
     fit_spatial_sarma_model,
+    fit_spatial_sarma_panel,
     fit_spatial_tobit_model,
     fit_spatial_tobit_panel,
     run_sensitivity_simulation,
@@ -1486,3 +1487,56 @@ def test_fit_spatial_tobit_panel_2d_inputs():
     res = fit_spatial_tobit_panel(y, X, W, time_periods=T)
     assert res["censored_count"] == 2
     assert len(res["coefficients"]) == 3
+
+
+def test_fit_spatial_sarma_panel():
+    y = np.array([10.0, 20.0, 30.0, 40.0, 12.0, 22.0, 32.0, 42.0])
+    X = np.array(
+        [
+            [1.0, 2.0],
+            [1.0, 3.0],
+            [1.0, 4.0],
+            [1.0, 5.0],
+            [1.0, 2.5],
+            [1.0, 3.5],
+            [1.0, 4.5],
+            [1.0, 5.5],
+        ]
+    )
+    W = np.array(
+        [[0.0, 0.5, 0.5, 0.0], [0.5, 0.0, 0.0, 0.5], [0.5, 0.0, 0.0, 0.5], [0.0, 0.5, 0.5, 0.0]]
+    )
+
+    res = fit_spatial_sarma_panel(y, X, W, time_periods=2)
+
+    assert "spatial_rho" in res
+    assert "spatial_lambda" in res
+    assert "coefficients" in res
+    assert len(res["coefficients"]) == 2
+    assert "std_errors" in res
+    assert "p_values" in res
+    assert "t_stat" in res
+    assert "r_squared" in res
+    assert "residuals" in res
+    assert len(res["residuals"]) == 8
+
+
+def test_fit_spatial_sarma_panel_invalid():
+    y = np.array([10.0, 20.0, 30.0, 40.0])
+    X = np.array([[1.0, 2.0], [1.0, 3.0], [1.0, 4.0], [1.0, 5.0]])
+    W = np.eye(4)
+
+    with pytest.raises(ValueError, match="time_periods must be >= 2"):
+        fit_spatial_sarma_panel(y, X, W, time_periods=1)
+
+    with pytest.raises(ValueError, match="weights_matrix must be a square 2D array"):
+        fit_spatial_sarma_panel(y, X, np.array([1, 2, 3]), time_periods=2)
+
+    with pytest.raises(ValueError, match="must be >= 3"):
+        fit_spatial_sarma_panel(y[:2], X[:2], np.eye(2), time_periods=2)
+
+    with pytest.raises(ValueError, match="dependent_var length"):
+        fit_spatial_sarma_panel(y, X, W, time_periods=2)
+
+    with pytest.raises(ValueError, match="independent_vars first dim"):
+        fit_spatial_sarma_panel(np.zeros(8), X, W, time_periods=2)

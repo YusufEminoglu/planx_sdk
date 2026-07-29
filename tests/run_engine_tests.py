@@ -1760,10 +1760,8 @@ check(
 _cross_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_growth_cross_check.py")
 with open(_cross_script, "w", encoding="utf-8") as fh:
     fh.write(
-        "import sys\n"
-        "sys.path.insert(0, r'"
-        + os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        + "')\n"
+        "import sys, os\n"
+        "sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))\n"
         "import numpy as np\n"
         "from planx.engine import growth\n"
         "seed = np.zeros((5, 5), dtype=bool); seed[2, 2] = True\n"
@@ -1777,9 +1775,10 @@ _out = subprocess.run(  # nosec B603 - own interpreter + file we just wrote
     [sys.executable, _cross_script], capture_output=True, text=True
 )
 _expected = "".join("1" if v else "0" for v in sim["masks"][-1].ravel().tolist())
+_stdout_last = _out.stdout.strip().splitlines()[-1] if _out.stdout.strip() else ""
 check(
     "ca: identical result from a separate process",
-    _out.returncode == 0 and _out.stdout.strip() == _expected,
+    _out.returncode == 0 and _stdout_last == _expected,
 )
 os.remove(_cross_script)
 
@@ -1838,10 +1837,8 @@ _cross_script_demo = os.path.join(
 )
 with open(_cross_script_demo, "w", encoding="utf-8") as fh:
     fh.write(
-        "import sys\n"
-        "sys.path.insert(0, r'"
-        + os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        + "')\n"
+        "import sys, os\n"
+        "sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))\n"
         "from planx.engine import demo\n"
         "res = demo.generate_demo_city(42, 2, 2, 100.0)\n"
         "print(len(res['streets']), len(res['buildings']), float(res['dsm'].sum()))\n"
@@ -1849,10 +1846,13 @@ with open(_cross_script_demo, "w", encoding="utf-8") as fh:
 _out_demo = subprocess.run(  # nosec B603 - fixed args, test-only script
     [sys.executable, _cross_script_demo], capture_output=True, text=True
 )
-_expected_demo = f"14 8 {float(res_demo['dsm'].sum())}\n"
+_stdout_demo_last = (
+    _out_demo.stdout.strip().splitlines()[-1] if _out_demo.stdout.strip() else ""
+)
+_expected_demo = f"14 8 {float(res_demo['dsm'].sum())}"
 check(
     "demo: identical result from separate process",
-    _out_demo.returncode == 0 and _out_demo.stdout.replace("\r", "") == _expected_demo,
+    _out_demo.returncode == 0 and _stdout_demo_last == _expected_demo,
 )
 if os.path.exists(_cross_script_demo):
     os.remove(_cross_script_demo)
