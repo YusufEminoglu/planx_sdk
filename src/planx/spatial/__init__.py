@@ -12,6 +12,7 @@ from .accessibility import (
     gravity_accessibility,
     huff_gravity_model,
     kernel_density_2sfca,
+    network_voronoi_allocation,
     service_area_coverage,
     spatial_equity_gini,
     three_step_2sfca,
@@ -86,4 +87,5 @@ __all__ = [
     "street_orientation_rose_spectrum",
     "pedestrian_level_of_service",
     "transit_frequency_accessibility",
+    "network_voronoi_allocation",
 ]

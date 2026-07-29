@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from planx.suitability.mcda import fuzzy_topsis_method
+from planx.suitability.mcda import fuzzy_topsis_method, fuzzy_vikor_method
 
 
 def test_fuzzy_topsis_method_basic():
@@ -143,3 +143,98 @@ def test_fuzzy_topsis_method_validation_ctype():
 
     with pytest.raises(ValueError, match="contain only 1 \\(benefit\\) or -1 \\(cost\\)"):
         fuzzy_topsis_method(l_mat, m_mat, u_mat, wl, wm, wu, ctype)
+
+
+def test_fuzzy_vikor_method_basic():
+    l_mat = np.array([[1.0, 2.0], [3.0, 1.0]])
+    m_mat = np.array([[2.0, 3.0], [4.0, 2.0]])
+    u_mat = np.array([[3.0, 4.0], [5.0, 3.0]])
+
+    wl = np.array([0.2, 0.3])
+    wm = np.array([0.3, 0.4])
+    wu = np.array([0.4, 0.5])
+
+    ctype = np.array([1, 1])
+
+    res = fuzzy_vikor_method(l_mat, m_mat, u_mat, wl, wm, wu, ctype)
+
+    assert "Q" in res
+    assert "S" in res
+    assert "R" in res
+    assert "ranking" in res
+    assert "compromise_set" in res
+    assert res["Q"].shape == (2,)
+    assert res["ranking"].shape == (2,)
+    assert isinstance(res["compromise_set"], list)
+
+
+def test_fuzzy_vikor_method_with_cost():
+    l_mat = np.array([[1.0, 2.0], [3.0, 1.0]])
+    m_mat = np.array([[2.0, 3.0], [4.0, 2.0]])
+    u_mat = np.array([[3.0, 4.0], [5.0, 3.0]])
+
+    wl = np.array([0.2, 0.3])
+    wm = np.array([0.3, 0.4])
+    wu = np.array([0.4, 0.5])
+
+    ctype = np.array([1, -1])
+
+    res = fuzzy_vikor_method(l_mat, m_mat, u_mat, wl, wm, wu, ctype)
+
+    assert len(res["Q"]) == 2
+
+
+def test_fuzzy_vikor_method_validation_shapes():
+    l_mat = np.array([[1.0, 2.0], [3.0, 1.0]])
+    m_mat = np.array([[2.0, 3.0]])  # wrong shape
+    u_mat = np.array([[3.0, 4.0], [5.0, 3.0]])
+
+    wl = np.array([0.2, 0.3])
+    wm = np.array([0.3, 0.4])
+    wu = np.array([0.4, 0.5])
+    ctype = np.array([1, 1])
+
+    with pytest.raises(ValueError, match="same shape"):
+        fuzzy_vikor_method(l_mat, m_mat, u_mat, wl, wm, wu, ctype)
+
+
+def test_fuzzy_vikor_method_validation_weights_len():
+    l_mat = np.array([[1.0, 2.0], [3.0, 1.0]])
+    m_mat = np.array([[2.0, 3.0], [4.0, 2.0]])
+    u_mat = np.array([[3.0, 4.0], [5.0, 3.0]])
+
+    wl = np.array([0.2])  # wrong len
+    wm = np.array([0.3, 0.4])
+    wu = np.array([0.4, 0.5])
+    ctype = np.array([1, 1])
+
+    with pytest.raises(ValueError, match="length equal to the number of criteria"):
+        fuzzy_vikor_method(l_mat, m_mat, u_mat, wl, wm, wu, ctype)
+
+
+def test_fuzzy_vikor_method_validation_tfn_constraints():
+    l_mat = np.array([[3.0, 2.0], [3.0, 1.0]])
+    m_mat = np.array([[2.0, 3.0], [4.0, 2.0]])  # l > m for first element
+    u_mat = np.array([[3.0, 4.0], [5.0, 3.0]])
+
+    wl = np.array([0.2, 0.3])
+    wm = np.array([0.3, 0.4])
+    wu = np.array([0.4, 0.5])
+    ctype = np.array([1, 1])
+
+    with pytest.raises(ValueError, match="satisfy l <= m <= u"):
+        fuzzy_vikor_method(l_mat, m_mat, u_mat, wl, wm, wu, ctype)
+
+
+def test_fuzzy_vikor_method_validation_v_range():
+    l_mat = np.array([[1.0, 2.0], [3.0, 1.0]])
+    m_mat = np.array([[2.0, 3.0], [4.0, 2.0]])
+    u_mat = np.array([[3.0, 4.0], [5.0, 3.0]])
+
+    wl = np.array([0.2, 0.3])
+    wm = np.array([0.3, 0.4])
+    wu = np.array([0.4, 0.5])
+    ctype = np.array([1, 1])
+
+    with pytest.raises(ValueError, match="between 0.0 and 1.0"):
+        fuzzy_vikor_method(l_mat, m_mat, u_mat, wl, wm, wu, ctype, v=1.5)
