@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-07-29
+### Added
+- **Space-Time Cube Generator** (`create_space_time_cube`) in `planx.geostats` for 3D spatial (x, y) and temporal (t) bin aggregation supporting mean, sum, count, min, max, and std metrics.
+- **Fuzzy VIKOR MCDA Method** (`fuzzy_vikor_method`) in `planx.suitability.mcda` for Triangular Fuzzy Number (TFN) compromise ranking with defuzzification, S/R group utility/regret, Q index, and C1/C2 stability condition testing.
+- **Network-Based Voronoi Service Area** (`network_voronoi_allocation`) in `planx.spatial.accessibility` for multi-source graph-based shortest path network Voronoi allocation with demand coverage ratio calculation.
+- **Compound Multi-Hazard Cascade Simulation** (`compound_hazard_cascade`) in `planx.resilience.synthesis` for iterative cascading multi-hazard triggering and amplification modeling with saturating damage indices.
+
+---
+
 ## [1.3.0] - 2026-07-29
 ### Added
 - **Emerging Hot Spot Analysis** (`emerging_hotspot_analysis`) in `planx.geostats` for spatio-temporal trend detection combining Getis-Ord Gi* hot spot z-scores with Mann-Kendall trend testing to classify 17 space-time patterns (new, consecutive, intensifying, persistent, diminishing, sporadic, oscillating, historical hot/cold spots).

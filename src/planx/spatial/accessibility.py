@@ -682,3 +682,124 @@ def transit_frequency_accessibility(
         "nearest_stop_distance": np.min(dists, axis=1),
         "mean_headway_in_catchment": mean_headway,
     }
+
+
+def network_voronoi_allocation(
+    graph_sparse: np.ndarray,
+    facility_indices: np.ndarray,
+    demand_values: Optional[np.ndarray] = None,
+    impedance_cutoff: Optional[float] = None,
+) -> Dict[str, Union[np.ndarray, float]]:
+    """Allocates every node in a sparse graph to its nearest facility using
+    shortest-path network Voronoi tessellation.
+
+    Args:
+        graph_sparse: (V, V) scipy sparse CSR matrix of edge weights (distances/costs).
+            Can also be a dense numpy array which we convert.
+        facility_indices: (F,) array of node indices that are facilities (0-based).
+        demand_values: Optional (V,) array of demand/population at each node.
+            Default is uniform (all ones).
+        impedance_cutoff: Optional maximum travel cost. Nodes beyond this from all
+            facilities are unassigned.
+
+    Returns:
+        Dict with keys:
+        - `assigned_facility`: (V,) int array, facility index each node is assigned to
+          (-1 = unassigned)
+        - `travel_cost`: (V,) float array, shortest distance to assigned facility
+          (np.inf if unassigned)
+        - `facility_demand`: (F,) float array, total demand served by each facility
+        - `facility_node_count`: (F,) int array, number of nodes assigned to each facility
+        - `facility_mean_cost`: (F,) float array, mean travel cost per facility
+        - `facility_max_cost`: (F,) float array, max travel cost per facility
+        - `coverage_ratio`: float, fraction of total demand within cutoff (1.0 if no cutoff)
+    """
+    from scipy.sparse import csr_matrix, issparse
+    from scipy.sparse.csgraph import shortest_path
+
+    if issparse(graph_sparse):
+        g = graph_sparse.tocsr()  # type: ignore[attr-defined]
+    else:
+        g_arr = np.asarray(graph_sparse, dtype=np.float64)
+        if g_arr.ndim != 2 or g_arr.shape[0] != g_arr.shape[1]:
+            raise ValueError("graph_sparse must be a 2D square matrix (V, V)")
+        g = csr_matrix(g_arr)
+
+    v = g.shape[0]
+    fac = np.asarray(facility_indices, dtype=np.int64)
+    if fac.ndim != 1:
+        raise ValueError("facility_indices must be a 1D array")
+    if fac.size == 0:
+        raise ValueError("facility_indices must have at least 1 facility")
+    if np.any((fac < 0) | (fac >= v)):
+        raise ValueError("facility_indices must be in range [0, V)")
+
+    if demand_values is None:
+        dem = np.ones(v, dtype=np.float64)
+    else:
+        dem = np.asarray(demand_values, dtype=np.float64)
+        if dem.ndim != 1 or dem.shape[0] != v:
+            raise ValueError(f"demand_values must be 1D with length V ({v})")
+        if np.any(dem < 0):
+            raise ValueError("demand_values must be non-negative")
+
+    if impedance_cutoff is not None and impedance_cutoff <= 0:
+        raise ValueError("impedance_cutoff must be > 0")
+
+    dist_matrix = shortest_path(
+        csgraph=g,
+        method="D",
+        directed=True,
+        return_predecessors=False,
+        unweighted=False,
+        indices=fac,
+    )
+
+    min_dist_idx = np.argmin(dist_matrix, axis=0)
+    travel_cost = np.min(dist_matrix, axis=0)
+
+    assigned_facility = min_dist_idx.copy()
+
+    if impedance_cutoff is not None:
+        unassigned_mask = travel_cost > impedance_cutoff
+        assigned_facility[unassigned_mask] = -1
+        travel_cost[unassigned_mask] = np.inf
+    else:
+        unassigned_mask = np.isinf(travel_cost)
+        assigned_facility[unassigned_mask] = -1
+
+    f = len(fac)
+    facility_demand = np.zeros(f, dtype=np.float64)
+    facility_node_count = np.zeros(f, dtype=np.int64)
+    facility_mean_cost = np.zeros(f, dtype=np.float64)
+    facility_max_cost = np.zeros(f, dtype=np.float64)
+
+    for i in range(f):
+        assigned_nodes = assigned_facility == i
+        node_count = np.sum(assigned_nodes)
+        facility_node_count[i] = node_count
+
+        if node_count > 0:
+            facility_demand[i] = np.sum(dem[assigned_nodes])
+            facility_mean_cost[i] = np.mean(travel_cost[assigned_nodes])
+            facility_max_cost[i] = np.max(travel_cost[assigned_nodes])
+        else:
+            facility_mean_cost[i] = np.nan
+            facility_max_cost[i] = np.nan
+
+    total_demand = np.sum(dem)
+    if total_demand > 0:
+        assigned_demand = np.sum(facility_demand)
+        coverage_ratio = float(assigned_demand / total_demand)
+    else:
+        coverage_ratio = 1.0
+
+    return {
+        "assigned_facility": assigned_facility,
+        "travel_cost": travel_cost,
+        "facility_demand": facility_demand,
+        "facility_node_count": facility_node_count,
+        "facility_mean_cost": facility_mean_cost,
+        "facility_max_cost": facility_max_cost,
+        "coverage_ratio": coverage_ratio,
+    }

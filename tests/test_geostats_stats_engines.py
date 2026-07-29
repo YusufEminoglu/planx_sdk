@@ -38,6 +38,7 @@ from planx.geostats import (
     calculate_spatial_lag,
     calculate_standard_distance,
     calculate_weighted_kde,
+    create_space_time_cube,
     emerging_hotspot_analysis,
     fit_spatial_error_model,
     fit_spatial_lag_model,
@@ -1212,3 +1213,92 @@ def test_emerging_hotspot_analysis_validation():
 
     with pytest.raises(ValueError, match="weights_matrix"):
         emerging_hotspot_analysis(coords, values3, ts3, np.eye(3))
+
+
+# ---------------------------------------------------------------------------
+# create_space_time_cube
+# ---------------------------------------------------------------------------
+
+
+def test_create_space_time_cube_normal():
+    # 3 points, spatial bin 10, 2 temporal bins
+    coords = np.array([[0.0, 0.0], [5.0, 5.0], [20.0, 20.0]])
+    t = np.array([0.0, 5.0, 10.0])
+    vals = np.array([1.0, 2.0, 3.0])
+
+    # x_min=0, x_max=20 -> range=20 -> n_x = ceil(20/10) = 2.
+    # But points are 0, 5, 20. Wait, point at 20 goes to bin 20/10=2,
+    # which would be out of bounds if n_x=2.
+    # Ah, the implementation clips to n_x-1, so point at 20 goes to bin 1.
+    result = create_space_time_cube(
+        coordinates=coords,
+        timestamps=t,
+        values=vals,
+        spatial_bin_size=10.0,
+        temporal_bin_count=2,
+        aggregation="mean",
+    )
+
+    assert result["n_spatial_bins"] == 4
+    assert result["n_populated_bins"] == 3
+    assert result["cube"].shape == (2, 2, 2)
+    assert result["spatial_extent"]["x_max"] == 20.0
+
+    # Check centers
+    np.testing.assert_allclose(result["x_centers"], [5.0, 15.0])
+    np.testing.assert_allclose(result["t_centers"], [2.5, 7.5])
+
+    # Counts
+    assert np.sum(result["bin_counts"]) == 3
+
+
+def test_create_space_time_cube_count_aggregation():
+    coords = np.array([[0.0, 0.0], [1.0, 1.0], [0.0, 0.0]])
+    t = np.array([1.0, 1.0, 2.0])
+    vals = np.array([1.0, 2.0, 3.0])
+
+    result = create_space_time_cube(
+        coordinates=coords,
+        timestamps=t,
+        values=vals,
+        spatial_bin_size=2.0,
+        temporal_bin_count=1,
+        aggregation="count",
+    )
+
+    assert result["cube"].shape == (1, 1, 1)
+    assert result["cube"][0, 0, 0] == 3.0
+
+
+def test_create_space_time_cube_min_max_std():
+    coords = np.array([[0.0, 0.0], [0.0, 0.0]])
+    t = np.array([0.0, 0.0])
+    vals = np.array([1.0, 3.0])
+
+    for agg, exp in [("min", 1.0), ("max", 3.0), ("std", 1.0), ("sum", 4.0)]:
+        res = create_space_time_cube(coords, t, vals, 5.0, 1, aggregation=agg)
+        assert res["cube"][0, 0, 0] == exp
+
+
+def test_create_space_time_cube_validation():
+    coords = np.array([[0.0, 0.0]])
+    t = np.array([0.0])
+    vals = np.array([1.0])
+
+    with pytest.raises(ValueError, match="coordinates must be a 2D array"):
+        create_space_time_cube(np.array([0.0]), t, vals, 5.0, 1)
+
+    with pytest.raises(ValueError, match="timestamps must be a 1D array"):
+        create_space_time_cube(coords, np.array([[0.0]]), vals, 5.0, 1)
+
+    with pytest.raises(ValueError, match="values must be a 1D array"):
+        create_space_time_cube(coords, t, np.array([[1.0]]), 5.0, 1)
+
+    with pytest.raises(ValueError, match="spatial_bin_size must be"):
+        create_space_time_cube(coords, t, vals, -1.0, 1)
+
+    with pytest.raises(ValueError, match="temporal_bin_count must be"):
+        create_space_time_cube(coords, t, vals, 5.0, 0)
+
+    with pytest.raises(ValueError, match="aggregation must be one of"):
+        create_space_time_cube(coords, t, vals, 5.0, 1, "invalid")
