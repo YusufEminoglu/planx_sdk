@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-07-29
+### Added
+- **Spatial Panel Regression Engine** (`fit_spatial_panel_model`) in `planx.geostats` for spatio-temporal panel econometrics supporting 2SLS Spatial Panel Lag and FGLS Spatial Panel Error models.
+- **Healthcare Equity Index** (`healthcare_equity_index`) in `planx.spatial.accessibility` combining E2SFCA 3-step decay accessibility with demographic group vulnerability weights and spatial Gini equity decomposition.
+- **Dynamic Evacuation Traffic Bottleneck Simulator** (`dynamic_evacuation_bottlenecks`) in `planx.resilience.evacuation` for dynamic traffic assignment with BPR congestion delays, spatial queue tracking, and critical bottleneck edge identification.
+- **Structural Seismic Damage & Economic Loss Curve** (`seismic_damage_loss_curve`) in `planx.resilience.seismic` for Hazus-compatible lognormal fragility damage state probability curves and building monetary loss estimations across Peak Ground Acceleration (PGA) spectrums.
+
+---
+
 ## [1.4.0] - 2026-07-29
 ### Added
 - **Space-Time Cube Generator** (`create_space_time_cube`) in `planx.geostats` for 3D spatial (x, y) and temporal (t) bin aggregation supporting mean, sum, count, min, max, and std metrics.

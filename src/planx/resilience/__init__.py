@@ -13,7 +13,7 @@ from .active_travel import (
     job_housing_spatial_mismatch,
     transport_mismatch_index,
 )
-from .evacuation import evacuation_route_optimization
+from .evacuation import dynamic_evacuation_bottlenecks, evacuation_route_optimization
 from .flood import (
     coastal_flood_inundation,
     coastal_surge_inundation,
@@ -44,7 +44,11 @@ from .infrastructure import (
     simulate_network_disruption,
 )
 from .landslide import landslide_susceptibility
-from .seismic import earthquake_building_collapse_casualty, simulate_seismic_debris
+from .seismic import (
+    earthquake_building_collapse_casualty,
+    seismic_damage_loss_curve,
+    simulate_seismic_debris,
+)
 from .social import social_vulnerability_index
 from .synthesis import compound_hazard_cascade, equity_adjusted_priority, multi_hazard_composite
 from .wildfire import wildfire_evacuation_encroachment, wildfire_risk_index
@@ -52,6 +56,7 @@ from .wildfire import wildfire_evacuation_encroachment, wildfire_risk_index
 __all__ = [
     "simulate_seismic_debris",
     "earthquake_building_collapse_casualty",
+    "seismic_damage_loss_curve",
     "pluvial_flood_susceptibility",
     "coastal_flood_inundation",
     "coastal_surge_inundation",
@@ -74,6 +79,7 @@ __all__ = [
     "prioritize_debris_clearance",
     "network_criticality_index",
     "debris_clearance_routing",
+    "dynamic_evacuation_bottlenecks",
     "evacuation_route_optimization",
     "simulate_interdependent_infrastructure_cascade",
     "job_housing_spatial_mismatch",

@@ -1302,3 +1302,104 @@ def test_create_space_time_cube_validation():
 
     with pytest.raises(ValueError, match="aggregation must be one of"):
         create_space_time_cube(coords, t, vals, 5.0, 1, "invalid")
+
+
+def test_fit_spatial_panel_model_lag():
+    from planx.geostats.stats_engines import fit_spatial_panel_model
+
+    np.random.seed(42)
+    N = 4
+    T = 3
+    K = 2
+    # dependent_var: N*T, independent_vars: N*T x K
+    y = np.random.randn(N * T)
+    X = np.random.randn(N * T, K)
+
+    # Simple row-standardized spatial weights matrix for N=4
+    W = np.array([[0, 0.5, 0.5, 0], [0.5, 0, 0, 0.5], [0.5, 0, 0, 0.5], [0, 0.5, 0.5, 0]])
+
+    res = fit_spatial_panel_model(
+        dependent_var=y, independent_vars=X, weights_matrix=W, time_periods=T, model_type="lag"
+    )
+
+    assert res["model_type"] == "lag"
+    assert res["n_spatial_units"] == N
+    assert res["time_periods"] == T
+    assert len(res["coefficients"]) == K
+    assert len(res["std_errors"]) == K
+    assert len(res["t_stat"]) == K
+    assert len(res["p_values"]) == K
+    assert len(res["residuals"]) == N * T
+    assert isinstance(res["spatial_parameter"], float)
+    assert isinstance(res["r_squared"], float)
+
+
+def test_fit_spatial_panel_model_error():
+    from planx.geostats.stats_engines import fit_spatial_panel_model
+
+    np.random.seed(43)
+    N = 5
+    T = 2
+    K = 1
+    # 2D and 3D inputs
+    y = np.random.randn(N, T)
+    X = np.random.randn(N, T, K)
+
+    W = np.zeros((N, N))
+    for i in range(N):
+        for j in range(N):
+            if i != j:
+                W[i, j] = 1.0 / (N - 1)
+
+    res = fit_spatial_panel_model(
+        dependent_var=y, independent_vars=X, weights_matrix=W, time_periods=T, model_type="error"
+    )
+
+    assert res["model_type"] == "error"
+    assert res["n_spatial_units"] == N
+    assert res["time_periods"] == T
+    assert len(res["coefficients"]) == K
+    assert len(res["residuals"]) == N * T
+    assert isinstance(res["spatial_parameter"], float)
+
+
+def test_fit_spatial_panel_model_validation():
+    import pytest
+
+    from planx.geostats.stats_engines import fit_spatial_panel_model
+
+    y = np.random.randn(10)
+    X = np.random.randn(10, 2)
+    W = np.ones((5, 5))
+
+    # T < 2
+    with pytest.raises(ValueError, match="time_periods must be >= 2"):
+        fit_spatial_panel_model(y, X, W, 1)
+
+    # Invalid model type
+    with pytest.raises(ValueError, match="model_type must be 'lag' or 'error'"):
+        fit_spatial_panel_model(y, X, W, 2, model_type="invalid")
+
+    # Non-square W
+    with pytest.raises(ValueError, match="weights_matrix must be a square 2D array"):
+        fit_spatial_panel_model(y, X, np.ones((5, 4)), 2)
+
+    # N < 3
+    with pytest.raises(ValueError, match="Number of spatial units .* must be >= 3"):
+        fit_spatial_panel_model(y, X, np.ones((2, 2)), 5)
+
+    # y shape mismatch 1D
+    with pytest.raises(ValueError, match="dependent_var length"):
+        fit_spatial_panel_model(np.random.randn(11), X, W, 2)
+
+    # y shape mismatch 2D
+    with pytest.raises(ValueError, match="dependent_var shape"):
+        fit_spatial_panel_model(np.random.randn(5, 3), X, W, 2)
+
+    # X shape mismatch 2D
+    with pytest.raises(ValueError, match="independent_vars first dim"):
+        fit_spatial_panel_model(y, np.random.randn(11, 2), W, 2)
+
+    # X shape mismatch 3D
+    with pytest.raises(ValueError, match="independent_vars shape"):
+        fit_spatial_panel_model(y, np.random.randn(5, 3, 2), W, 2)

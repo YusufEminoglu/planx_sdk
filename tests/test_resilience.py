@@ -26,6 +26,7 @@ from planx.resilience import (
     pluvial_flood_susceptibility,
     prioritize_debris_clearance,
     scs_unit_hydrograph,
+    seismic_damage_loss_curve,
     simulate_interdependent_infrastructure_cascade,
     simulate_network_disruption,
     simulate_seismic_debris,
@@ -1558,3 +1559,84 @@ def test_compound_hazard_cascade():
     with pytest.raises(ValueError):
         invalid_amp = np.ones((3, 3))  # Diagonal not zero
         compound_hazard_cascade(hazard_intensities, trigger_thresholds, invalid_amp, vulnerability)
+
+
+def test_seismic_damage_loss_curve():
+    pga_values = np.array([0.0, 0.1, 0.5, 1.0])
+    building_counts = np.array([10, 20])
+    replacement_values = np.array([100000, 200000])
+
+    res = seismic_damage_loss_curve(
+        pga_values, building_counts, replacement_values, building_type="c2_medium"
+    )
+
+    assert "pga_values" in res
+    assert "damage_state_probabilities" in res
+    assert "expected_loss_ratio" in res
+    assert "total_economic_loss" in res
+    assert "building_collapse_count" in res
+
+    np.testing.assert_allclose(res["pga_values"], pga_values)
+
+    # For PGA=0, everything should be 0 except P_none
+    np.testing.assert_allclose(res["damage_state_probabilities"][0, :], [1.0, 0.0, 0.0, 0.0, 0.0])
+    np.testing.assert_allclose(res["expected_loss_ratio"][0], 0.0)
+    np.testing.assert_allclose(res["total_economic_loss"][0], 0.0)
+    np.testing.assert_allclose(res["building_collapse_count"][0], 0.0)
+
+    # For high PGA, loss ratio should be close to 1
+    assert res["expected_loss_ratio"][-1] > 0.5
+    assert res["total_economic_loss"][-1] > 0
+
+    # Total loss bounds check
+    total_value = np.sum(building_counts * replacement_values)
+    assert np.all(res["total_economic_loss"] >= 0)
+    assert np.all(res["total_economic_loss"] <= total_value)
+
+    # Test error cases
+    with pytest.raises(ValueError, match="cannot be negative"):
+        seismic_damage_loss_curve(np.array([-0.1, 0.5]), building_counts, replacement_values)
+
+    with pytest.raises(ValueError, match="cannot be negative"):
+        seismic_damage_loss_curve(pga_values, np.array([-10, 20]), replacement_values)
+
+    with pytest.raises(ValueError, match="Unknown building_type"):
+        seismic_damage_loss_curve(
+            pga_values, building_counts, replacement_values, building_type="unknown"
+        )
+
+
+def test_dynamic_evacuation_bottlenecks():
+    import numpy as np
+    import pytest
+
+    from planx.resilience import dynamic_evacuation_bottlenecks
+
+    origin_demands = np.array([100.0, 50.0, 0.0])
+    destination_capacities = np.array([0.0, 0.0, 200.0])
+    edge_list = np.array([[0, 1], [1, 2]])
+    edge_capacities = np.array([30.0, 40.0])
+    edge_free_flow_times = np.array([1.0, 1.0])
+    res = dynamic_evacuation_bottlenecks(
+        origin_demands,
+        destination_capacities,
+        edge_list,
+        edge_capacities,
+        edge_free_flow_times,
+        time_horizon_steps=10,
+    )
+    assert "total_evacuated" in res
+    assert res["total_evacuated"] > 0
+    assert "clearance_time_step" in res
+    assert "edge_max_vcr" in res
+    assert "edge_total_queues" in res
+    assert "critical_bottlenecks" in res
+    assert "time_series_evacuated" in res
+    with pytest.raises(ValueError):
+        dynamic_evacuation_bottlenecks(
+            origin_demands[:-1],
+            destination_capacities,
+            edge_list,
+            edge_capacities,
+            edge_free_flow_times,
+        )
