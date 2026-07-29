@@ -21,6 +21,7 @@ from .flood import (
     pluvial_flood_susceptibility,
     scs_unit_hydrograph,
     socio_economic_flood_risk,
+    stormwater_retention_basin_design,
     urban_stormwater_peak_runoff,
 )
 from .heat import (
@@ -96,4 +97,5 @@ __all__ = [
     "tree_canopy_microclimate_cooling",
     "calculate_building_solar_radiation",
     "urban_heat_vulnerability_index",
+    "stormwater_retention_basin_design",
 ]

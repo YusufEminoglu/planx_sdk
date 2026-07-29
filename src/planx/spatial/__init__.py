@@ -13,6 +13,7 @@ from .accessibility import (
     gravity_accessibility,
     healthcare_equity_index,
     huff_gravity_model,
+    huff_retail_market_share,
     kernel_density_2sfca,
     network_voronoi_allocation,
     service_area_coverage,
@@ -34,6 +35,7 @@ from .centrality import (
 from .paths import many_to_many, multi_source
 from .walkability import (
     active_mobility_permeability,
+    bike_network_low_stress_connectivity,
     calculate_average_route_circuity,
     calculate_pedestrian_route_directness,
     calculate_walk_score,
@@ -67,6 +69,7 @@ __all__ = [
     "enhanced_2sfca",
     "healthcare_equity_index",
     "huff_gravity_model",
+    "huff_retail_market_share",
     "kernel_density_2sfca",
     "spatial_equity_gini",
     "service_area_coverage",
@@ -78,6 +81,7 @@ __all__ = [
     "choice_centrality_una",
     "classify_level_of_traffic_stress",
     "identify_low_stress_islands",
+    "bike_network_low_stress_connectivity",
     "three_step_2sfca",
     "calculate_walk_score",
     "calculate_pedestrian_route_directness",

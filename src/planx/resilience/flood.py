@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import math
 from collections import deque
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import scipy.ndimage
@@ -658,4 +658,65 @@ def scs_unit_hydrograph(
         "total_volume_m3": float(total_volume_m3),
         "lag_time_hr": float(t_lag),
         "retention_mm": float(s_retention),
+    }
+
+
+def stormwater_retention_basin_design(
+    drainage_area_ha: float,
+    impervious_ratio: float,
+    rainfall_depth_mm: float,
+    soil_infiltration_rate_mmh: float,
+    max_allowable_drain_hours: float = 48.0,
+    basin_safety_factor: float = 1.2,
+) -> dict[str, Any]:
+    """Engineers green infrastructure stormwater retention & infiltration basin
+    volumes, surface area, and drain-down time.
+
+    Args:
+        drainage_area_ha: Drainage basin area in hectares (> 0).
+        impervious_ratio: Ratio of impervious surface [0, 1].
+        rainfall_depth_mm: Design storm rainfall depth in mm (> 0).
+        soil_infiltration_rate_mmh: Saturated hydraulic conductivity K_sat in mm/hour (> 0).
+        max_allowable_drain_hours: Max allowed emptying time (default 48.0 h).
+        basin_safety_factor: Safety multiplier for design storage (default 1.2).
+
+    Returns:
+        Dict with keys:
+        - `runoff_volume_m3`: float
+        - `design_storage_volume_m3`: float
+        - `max_basin_depth_m`: float
+        - `min_basin_surface_area_m2`: float
+        - `actual_draindown_hours`: float
+        - `runoff_coefficient`: float
+        - `is_drain_time_compliant`: bool
+    """
+    if drainage_area_ha <= 0:
+        raise ValueError("drainage_area_ha must be positive.")
+    if not (0.0 <= impervious_ratio <= 1.0):
+        raise ValueError("impervious_ratio must be between 0 and 1.")
+    if rainfall_depth_mm <= 0:
+        raise ValueError("rainfall_depth_mm must be positive.")
+    if soil_infiltration_rate_mmh <= 0:
+        raise ValueError("soil_infiltration_rate_mmh must be positive.")
+
+    a_m2 = float(drainage_area_ha * 10000.0)
+    c = 0.05 + 0.9 * float(impervious_ratio)
+    r_mm = c * float(rainfall_depth_mm)
+    v_raw_m3 = (r_mm / 1000.0) * a_m2
+    v_design_m3 = v_raw_m3 * float(basin_safety_factor)
+
+    d_max_m = (float(soil_infiltration_rate_mmh) / 1000.0) * float(max_allowable_drain_hours)
+
+    a_basin_m2 = v_design_m3 / d_max_m if d_max_m > 0 else float("inf")
+
+    t_drain_hours = (d_max_m * 1000.0) / float(soil_infiltration_rate_mmh)
+
+    return {
+        "runoff_volume_m3": float(v_raw_m3),
+        "design_storage_volume_m3": float(v_design_m3),
+        "max_basin_depth_m": float(d_max_m),
+        "min_basin_surface_area_m2": float(a_basin_m2),
+        "actual_draindown_hours": float(t_drain_hours),
+        "runoff_coefficient": float(c),
+        "is_drain_time_compliant": bool(t_drain_hours <= max_allowable_drain_hours),
     }
