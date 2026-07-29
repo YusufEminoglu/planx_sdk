@@ -495,8 +495,8 @@ def simulate_interdependent_infrastructure_cascade(
     w_adj = np.asarray(water_adj, dtype=np.float64)
     dep = np.asarray(dependency_matrix, dtype=np.float64)
 
-    np_nodes = p_adj.shape[0]
-    nw_nodes = w_adj.shape[0]
+    np_nodes = int(p_adj.shape[0])
+    nw_nodes = int(w_adj.shape[0])
 
     if dep.shape != (np_nodes, nw_nodes):
         raise ValueError("dependency_matrix shape must be (Np, Nw).")
