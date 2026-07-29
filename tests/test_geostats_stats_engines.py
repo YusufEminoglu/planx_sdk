@@ -43,6 +43,7 @@ from planx.geostats import (
     fit_spatial_error_model,
     fit_spatial_lag_model,
     fit_spatial_probit_panel,
+    fit_spatial_quantile_panel,
     fit_spatial_sarma_model,
     fit_spatial_sarma_panel,
     fit_spatial_tobit_model,
@@ -241,6 +242,67 @@ def test_fit_spatial_tobit_model():
 
     with pytest.raises(ValueError, match="Length of y must match"):
         fit_spatial_tobit_model(y[:2], X, LINE_NEIGHBORS, LINE_WEIGHTS_UNIT, LINE_ID_ORDER)
+
+
+def test_fit_spatial_quantile_panel():
+    y = np.array([10.0, 20.0, 30.0, 15.0, 25.0, 35.0])
+    X = np.array(
+        [
+            [1.0, 2.0],
+            [1.0, 3.0],
+            [1.0, 4.0],
+            [1.0, 2.5],
+            [1.0, 3.5],
+            [1.0, 4.5],
+        ]
+    )
+    W = np.array(
+        [
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+            [0.5, 0.5, 0.0],
+        ]
+    )
+
+    res = fit_spatial_quantile_panel(y, X, W, time_periods=2, quantile=0.5)
+
+    assert "coefficients" in res
+    assert "spatial_rho" in res
+    assert "quantile" in res
+    assert res["quantile"] == 0.5
+    assert "pinball_loss" in res
+    assert "pseudo_r_squared" in res
+    assert "residuals" in res
+    assert len(res["coefficients"]) == 2
+    assert len(res["residuals"]) == 6
+    assert isinstance(res["spatial_rho"], float)
+
+
+def test_fit_spatial_quantile_panel_validations():
+    y = np.array([10.0, 20.0, 30.0, 15.0, 25.0, 35.0])
+    X = np.ones((6, 2))
+    W = np.array(
+        [
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+            [0.5, 0.5, 0.0],
+        ]
+    )
+
+    with pytest.raises(ValueError, match="strictly between 0 and 1"):
+        fit_spatial_quantile_panel(y, X, W, time_periods=2, quantile=1.5)
+
+    with pytest.raises(ValueError, match="time_periods must be >= 2"):
+        fit_spatial_quantile_panel(y[:3], X[:3], W, time_periods=1, quantile=0.5)
+
+    with pytest.raises(ValueError, match="Number of spatial units must be >= 3"):
+        fit_spatial_quantile_panel(y[:4], X[:4], np.eye(2), time_periods=2, quantile=0.5)
+
+    with pytest.raises(ValueError, match="must equal N \\* T"):
+        fit_spatial_quantile_panel(y[:5], X, W, time_periods=2, quantile=0.5)
+
+    with pytest.raises(ValueError, match="Number of rows in independent_vars must equal N \\* T"):
+        fit_spatial_quantile_panel(y, X[:5], W, time_periods=2, quantile=0.5)
 
 
 def test_calculate_local_moran_fdr():

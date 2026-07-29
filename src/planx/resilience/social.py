@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 
@@ -82,3 +84,90 @@ def social_vulnerability_index(
             classes.append("Low")
 
     return scores, classes
+
+
+def urban_energy_vulnerability_index(
+    median_income: np.ndarray,
+    building_energy_efficiency_score: np.ndarray,
+    climate_exposure_score: np.ndarray,
+    vulnerable_demographics_ratio: np.ndarray,
+) -> dict[str, Any]:
+    """Computes composite urban energy vulnerability and fuel poverty risk indices.
+
+    Args:
+        median_income: (N,) median household income per zone (> 0).
+        building_energy_efficiency_score: (N,) building energy efficiency rating
+            [0, 100] (100 = highly efficient).
+        climate_exposure_score: (N,) extreme temperature exposure score
+            [0, 100] (100 = extreme heat/cold).
+        vulnerable_demographics_ratio: (N,) ratio of low-income/elderly households [0, 1].
+
+    Returns:
+        Dictionary containing:
+            - 'energy_vulnerability_index': (N,) float array in [0, 100]
+            - 'income_burden_score': (N,) float array
+            - 'inefficiency_burden_score': (N,) float array
+            - 'high_risk_zones_count': int
+            - 'moderate_risk_zones_count': int
+            - 'low_risk_zones_count': int
+            - 'overall_energy_poverty_gini': float [0, 1]
+    """
+    inc = np.asarray(median_income, dtype=np.float64)
+    eff = np.asarray(building_energy_efficiency_score, dtype=np.float64)
+    exp = np.asarray(climate_exposure_score, dtype=np.float64)
+    dem = np.asarray(vulnerable_demographics_ratio, dtype=np.float64)
+
+    if inc.shape != eff.shape or inc.shape != exp.shape or inc.shape != dem.shape:
+        raise ValueError("All input arrays must have the same shape")
+
+    if inc.size == 0:
+        return {
+            "energy_vulnerability_index": np.array([], dtype=np.float64),
+            "income_burden_score": np.array([], dtype=np.float64),
+            "inefficiency_burden_score": np.array([], dtype=np.float64),
+            "high_risk_zones_count": 0,
+            "moderate_risk_zones_count": 0,
+            "low_risk_zones_count": 0,
+            "overall_energy_poverty_gini": 0.0,
+        }
+
+    if np.any(inc <= 0):
+        raise ValueError("median_income must be strictly positive (> 0)")
+    if np.any((eff < 0) | (eff > 100)):
+        raise ValueError("building_energy_efficiency_score must be in [0, 100]")
+    if np.any((exp < 0) | (exp > 100)):
+        raise ValueError("climate_exposure_score must be in [0, 100]")
+    if np.any((dem < 0) | (dem > 1)):
+        raise ValueError("vulnerable_demographics_ratio must be in [0, 1]")
+
+    max_inc = np.max(inc)
+    s_income = 1.0 - (inc / max_inc)
+    s_ineff = 1.0 - (eff / 100.0)
+    s_exposure = exp / 100.0
+
+    evi = (s_income * 0.35 + s_ineff * 0.30 + s_exposure * 0.20 + dem * 0.15) * 100.0
+
+    high_risk_count = int(np.sum(evi >= 65.0))
+    moderate_risk_count = int(np.sum((evi >= 40.0) & (evi < 65.0)))
+    low_risk_count = int(np.sum(evi < 40.0))
+
+    evi_sorted = np.sort(evi)
+    n = len(evi_sorted)
+    sum_evi = np.sum(evi_sorted)
+
+    if n > 0 and sum_evi > 0:
+        index = np.arange(1, n + 1)
+        gini_raw = (2.0 * np.sum(index * evi_sorted)) / (n * sum_evi) - (n + 1.0) / n
+        gini_val = float(np.clip(gini_raw, 0.0, 1.0))
+    else:
+        gini_val = 0.0
+
+    return {
+        "energy_vulnerability_index": evi,
+        "income_burden_score": s_income,
+        "inefficiency_burden_score": s_ineff,
+        "high_risk_zones_count": high_risk_count,
+        "moderate_risk_zones_count": moderate_risk_count,
+        "low_risk_zones_count": low_risk_count,
+        "overall_energy_poverty_gini": gini_val,
+    }

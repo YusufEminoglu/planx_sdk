@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
@@ -595,3 +595,79 @@ def pareto_facility_location(
             pareto_front.append(eval_i)
 
     return pareto_front
+
+
+def evaluate_tod_node_suitability(
+    station_transit_frequency: np.ndarray,
+    surrounding_population_density: np.ndarray,
+    land_use_mix_entropy: np.ndarray,
+    walkability_pedestrian_score: np.ndarray,
+    parking_supply_ratio: np.ndarray,
+) -> dict[str, Any]:
+    """Evaluates Transit-Oriented Development (TOD) suitability across transit station nodes.
+
+    Uses 3D/5D TOD design principles (Density, Diversity, Design, Destination accessibility,
+    Distance) to calculate a multi-criteria TOD suitability score.
+
+    Args:
+        station_transit_frequency: (S,) transit trips per hour at station (> 0).
+        surrounding_population_density: (S,) residents/jobs per ha within 800m (> 0).
+        land_use_mix_entropy: (S,) Shannon land-use mix entropy index [0, 1].
+        walkability_pedestrian_score: (S,) pedestrian infrastructure quality score [0, 100].
+        parking_supply_ratio: (S,) park-and-ride / parking spaces per transit user.
+
+    Returns:
+        Dict with keys:
+          - 'tod_scores': (S,) float array in [0, 100]
+          - 'tier_1_count': int
+          - 'tier_2_count': int
+          - 'tier_3_count': int
+          - 'tod_ranking': (S,) int array 1-based ranks
+    """
+    freq = np.asarray(station_transit_frequency, dtype=np.float64)
+    density = np.asarray(surrounding_population_density, dtype=np.float64)
+    entropy = np.asarray(land_use_mix_entropy, dtype=np.float64)
+    walkability = np.asarray(walkability_pedestrian_score, dtype=np.float64)
+    parking = np.asarray(parking_supply_ratio, dtype=np.float64)
+
+    if freq.ndim != 1:
+        raise ValueError("station_transit_frequency must be a 1D array")
+
+    if np.any(freq <= 0):
+        raise ValueError("station_transit_frequency must be > 0.")
+    if np.any(density <= 0):
+        raise ValueError("surrounding_population_density must be > 0.")
+    if np.any((entropy < 0) | (entropy > 1)):
+        raise ValueError("land_use_mix_entropy must be in [0, 1].")
+    if np.any((walkability < 0) | (walkability > 100)):
+        raise ValueError("walkability_pedestrian_score must be in [0, 100].")
+
+    s_freq = freq / np.max(freq) if np.max(freq) > 0 else np.zeros_like(freq)
+    s_density = density / np.max(density) if np.max(density) > 0 else np.zeros_like(density)
+
+    p_parking = np.exp(-0.5 * np.maximum(0, parking - 0.2))
+
+    tod_scores = (
+        s_freq * 0.25
+        + s_density * 0.25
+        + entropy * 0.20
+        + (walkability / 100.0) * 0.20
+        + p_parking * 0.10
+    ) * 100.0
+
+    tier_1_count = int(np.sum(tod_scores >= 75))
+    tier_2_count = int(np.sum((tod_scores >= 50) & (tod_scores < 75)))
+    tier_3_count = int(np.sum(tod_scores < 50))
+
+    # Standard competition ranking or dense ranking? For now simple argsort
+    order = np.argsort(-tod_scores)
+    tod_ranking = np.empty_like(order)
+    tod_ranking[order] = np.arange(1, len(tod_scores) + 1)
+
+    return {
+        "tod_scores": tod_scores,
+        "tier_1_count": tier_1_count,
+        "tier_2_count": tier_2_count,
+        "tier_3_count": tier_3_count,
+        "tod_ranking": tod_ranking.astype(int),
+    }
