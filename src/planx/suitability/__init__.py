@@ -8,6 +8,7 @@ including reclassification, normalization, and weighted linear combination.
 
 from .facility import (
     capacitated_location_allocation,
+    evaluate_tod_node_suitability,
     greedy_lscp,
     greedy_mclp,
     greedy_p_median,
@@ -74,4 +75,5 @@ __all__ = [
     "entropy_weights",
     "critic_weights",
     "pca_weights",
+    "evaluate_tod_node_suitability",
 ]

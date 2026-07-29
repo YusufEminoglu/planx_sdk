@@ -1376,3 +1376,132 @@ def bike_network_low_stress_connectivity(
         "llsc_ratio": llsc_ratio,
         "edge_is_low_stress": is_low_stress,
     }
+
+
+def microclimate_pedestrian_route_optimizer(
+    graph_adj_matrix: np.ndarray,
+    edge_lengths_m: np.ndarray,
+    edge_shade_ratios: np.ndarray,
+    edge_lst_temperatures: np.ndarray,
+    origin_node: int,
+    destination_node: int,
+    heat_sensitivity_weight: float = 0.5,
+) -> dict[str, Any]:
+    """Finds optimal cool pedestrian routes balancing shortest distance against thermal discomfort.
+
+    Args:
+        graph_adj_matrix: (V, V) sparse or dense adjacency matrix representing street network graph.
+        edge_lengths_m: (E,) length of edges in meters.
+        edge_shade_ratios: (E,) tree/building canopy shade ratio [0, 1].
+        edge_lst_temperatures: (E,) Land Surface Temperature (Celsius) per edge.
+        origin_node: Start node index.
+        destination_node: Destination node index.
+        heat_sensitivity_weight: Weight w in [0, 1] balancing distance vs thermal discomfort.
+
+    Returns:
+        Dict containing path_nodes, total_distance_m, mean_shade_ratio, mean_lst_temperature,
+        thermal_impedance_score, and shortest_distance_comparison.
+    """
+    from scipy.sparse.csgraph import dijkstra
+
+    csr = sp.csr_matrix(graph_adj_matrix)
+    v_count = csr.shape[0]
+    if csr.shape[0] != csr.shape[1]:
+        raise ValueError("graph_adj_matrix must be square")
+
+    lengths = np.asarray(edge_lengths_m, dtype=np.float64)
+    shades = np.asarray(edge_shade_ratios, dtype=np.float64)
+    lsts = np.asarray(edge_lst_temperatures, dtype=np.float64)
+    e_count = csr.nnz
+
+    if lengths.shape[0] != e_count:
+        raise ValueError(f"edge_lengths_m must match number of edges ({e_count})")
+    if shades.shape[0] != e_count:
+        raise ValueError(f"edge_shade_ratios must match number of edges ({e_count})")
+    if lsts.shape[0] != e_count:
+        raise ValueError(f"edge_lst_temperatures must match number of edges ({e_count})")
+
+    if origin_node < 0 or origin_node >= v_count:
+        raise ValueError("origin_node out of bounds")
+    if destination_node < 0 or destination_node >= v_count:
+        raise ValueError("destination_node out of bounds")
+    if not (0.0 <= heat_sensitivity_weight <= 1.0):
+        raise ValueError("heat_sensitivity_weight must be between 0 and 1")
+    if np.any((shades < 0.0) | (shades > 1.0)):
+        raise ValueError("edge_shade_ratios must be between 0 and 1")
+
+    m_e = (1.0 - 0.5 * shades) * (lsts / 30.0)
+    c_e = lengths * ((1.0 - heat_sensitivity_weight) + heat_sensitivity_weight * m_e)
+
+    csr_dist = csr.copy()
+    csr_dist.data = lengths
+    dist_shortest, pred_shortest = dijkstra(
+        csgraph=csr_dist, directed=True, indices=origin_node, return_predecessors=True
+    )
+    shortest_dist_m = float(dist_shortest[destination_node])
+
+    csr_therm = csr.copy()
+    csr_therm.data = c_e
+    dist_thermal, pred_thermal = dijkstra(
+        csgraph=csr_therm, directed=True, indices=origin_node, return_predecessors=True
+    )
+    thermal_impedance_score = float(dist_thermal[destination_node])
+
+    if np.isinf(thermal_impedance_score) or pred_thermal[destination_node] == -9999:
+        return {
+            "path_nodes": [],
+            "total_distance_m": 0.0,
+            "mean_shade_ratio": 0.0,
+            "mean_lst_temperature": 0.0,
+            "thermal_impedance_score": float("inf"),
+            "shortest_distance_comparison": {
+                "shortest_dist_m": float("inf"),
+                "extra_distance_pct": 0.0,
+            },
+        }
+
+    path = []
+    curr = destination_node
+    while curr != origin_node and curr >= 0:
+        path.append(int(curr))
+        curr = pred_thermal[curr]
+    path.append(int(origin_node))
+    path.reverse()
+
+    total_dist = 0.0
+    total_shade = 0.0
+    total_lst = 0.0
+    num_edges = len(path) - 1
+
+    for i in range(num_edges):
+        u = path[i]
+        v = path[i + 1]
+        start_idx = csr.indptr[u]
+        end_idx = csr.indptr[u + 1]
+        v_indices = csr.indices[start_idx:end_idx]
+        idx = np.where(v_indices == v)[0]
+        if len(idx) == 0:
+            raise RuntimeError(f"Edge {u}->{v} not found in graph")
+        edge_idx = start_idx + idx[0]
+
+        total_dist += lengths[edge_idx]
+        total_shade += shades[edge_idx]
+        total_lst += lsts[edge_idx]
+
+    mean_shade = float(total_shade / num_edges) if num_edges > 0 else 0.0
+    mean_lst = float(total_lst / num_edges) if num_edges > 0 else 0.0
+    extra_dist_pct = 0.0
+    if shortest_dist_m > 0 and not np.isinf(shortest_dist_m):
+        extra_dist_pct = float(((total_dist - shortest_dist_m) / shortest_dist_m) * 100.0)
+
+    return {
+        "path_nodes": path,
+        "total_distance_m": float(total_dist),
+        "mean_shade_ratio": mean_shade,
+        "mean_lst_temperature": mean_lst,
+        "thermal_impedance_score": thermal_impedance_score,
+        "shortest_distance_comparison": {
+            "shortest_dist_m": shortest_dist_m,
+            "extra_distance_pct": extra_dist_pct,
+        },
+    }

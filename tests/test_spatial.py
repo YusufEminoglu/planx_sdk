@@ -1742,3 +1742,118 @@ def test_bike_network_low_stress_connectivity():
         bike_network_low_stress_connectivity(lts, lengths, dense_adj, target_max_lts=5)
     with pytest.raises(ValueError):
         bike_network_low_stress_connectivity(lts[:4], lengths[:4], dense_adj)  # shape mismatch
+
+
+def test_microclimate_pedestrian_route_optimizer(sample_graph):
+    indptr, adj, weights, n, _ = sample_graph
+
+    # We need a full V x V matrix to represent the graph, or we can just pass the CSR matrix
+    import scipy.sparse as sp
+
+    csr = sp.csr_matrix((weights, adj, indptr), shape=(n, n))
+
+    # Sample weights are 1.5, 1.5, 2.5, 2.5
+    # node 0 -> 1: 1.5
+    # node 1 -> 0: 1.5
+    # node 1 -> 2: 2.5
+    # node 2 -> 1: 2.5
+
+    lengths = weights
+    shades = np.array([1.0, 1.0, 0.0, 0.0])  # fully shaded between 0 and 1
+    lsts = np.array([25.0, 25.0, 40.0, 40.0])  # cool between 0 and 1, hot between 1 and 2
+
+    from planx.spatial import microclimate_pedestrian_route_optimizer
+
+    res = microclimate_pedestrian_route_optimizer(
+        csr, lengths, shades, lsts, 0, 2, heat_sensitivity_weight=0.5
+    )
+
+    assert res["path_nodes"] == [0, 1, 2]
+    assert np.isclose(res["total_distance_m"], 4.0)
+    assert np.isclose(res["mean_shade_ratio"], 0.5)
+    assert np.isclose(res["mean_lst_temperature"], 32.5)
+    assert res["shortest_distance_comparison"]["shortest_dist_m"] == 4.0
+    assert res["shortest_distance_comparison"]["extra_distance_pct"] == 0.0
+
+
+def test_microclimate_pedestrian_route_optimizer_unreachable(disconnected_graph):
+    indptr, adj, weights, n = disconnected_graph
+    import scipy.sparse as sp
+
+    csr = sp.csr_matrix((weights, adj, indptr), shape=(n, n))
+    lengths = weights
+    shades = np.array([0.5, 0.5])
+    lsts = np.array([30.0, 30.0])
+
+    from planx.spatial import microclimate_pedestrian_route_optimizer
+
+    res = microclimate_pedestrian_route_optimizer(
+        csr, lengths, shades, lsts, 0, 2, heat_sensitivity_weight=0.5
+    )
+
+    assert res["path_nodes"] == []
+    assert np.isinf(res["thermal_impedance_score"])
+
+
+def test_microclimate_pedestrian_route_optimizer_alternative():
+    import scipy.sparse as sp
+
+    from planx.spatial import microclimate_pedestrian_route_optimizer
+    # 0 -> 1 -> 2 (short but hot/unshaded)
+    # 0 -> 3 -> 2 (long but cool/shaded)
+
+    indptr = np.array([0, 2, 3, 4, 5], dtype=np.int64)
+    adj = np.array([1, 3, 2, 2, 2], dtype=np.int64)
+    # E = 5
+    # 0->1, 0->3, 1->2, 2->2 (loop for padding if needed, wait no loop needed)
+    # actually:
+    # 0 -> 1, 0 -> 3
+    # 1 -> 2
+    # 2 -> none
+    # 3 -> 2
+    indptr = np.array([0, 2, 3, 3, 4], dtype=np.int64)
+    adj = np.array([1, 3, 2, 2], dtype=np.int64)
+    weights = np.array([10.0, 15.0, 10.0, 15.0])  # 0-1-2: 20m, 0-3-2: 30m
+    shades = np.array([0.0, 1.0, 0.0, 1.0])
+    lsts = np.array([40.0, 25.0, 40.0, 25.0])
+
+    csr = sp.csr_matrix((weights, adj, indptr), shape=(4, 4))
+
+    res = microclimate_pedestrian_route_optimizer(
+        csr, weights, shades, lsts, 0, 2, heat_sensitivity_weight=0.9
+    )
+
+    assert res["path_nodes"] == [0, 3, 2]
+    assert np.isclose(res["total_distance_m"], 30.0)
+    assert np.isclose(res["mean_shade_ratio"], 1.0)
+    assert np.isclose(res["mean_lst_temperature"], 25.0)
+    assert res["shortest_distance_comparison"]["shortest_dist_m"] == 20.0
+    assert np.isclose(res["shortest_distance_comparison"]["extra_distance_pct"], 50.0)
+
+
+def test_microclimate_pedestrian_route_optimizer_errors():
+    import pytest
+    import scipy.sparse as sp
+
+    from planx.spatial import microclimate_pedestrian_route_optimizer
+
+    csr = sp.csr_matrix(np.ones((2, 2)))
+    E = csr.nnz
+    lengths = np.ones(E)
+    shades = np.ones(E)
+    lsts = np.ones(E)
+
+    with pytest.raises(ValueError, match="square"):
+        microclimate_pedestrian_route_optimizer(
+            sp.csr_matrix(np.ones((2, 3))), lengths, shades, lsts, 0, 1
+        )
+    with pytest.raises(ValueError, match="edge_lengths_m must match"):
+        microclimate_pedestrian_route_optimizer(csr, np.ones(1), shades, lsts, 0, 1)
+    with pytest.raises(ValueError, match="origin_node out of bounds"):
+        microclimate_pedestrian_route_optimizer(csr, lengths, shades, lsts, -1, 1)
+    with pytest.raises(ValueError, match="heat_sensitivity_weight must be between"):
+        microclimate_pedestrian_route_optimizer(csr, lengths, shades, lsts, 0, 1, 1.5)
+    with pytest.raises(ValueError, match="edge_shade_ratios must be between"):
+        bad_shades = shades.copy()
+        bad_shades[0] = 1.5
+        microclimate_pedestrian_route_optimizer(csr, lengths, bad_shades, lsts, 0, 1)
