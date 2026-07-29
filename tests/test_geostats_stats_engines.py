@@ -42,6 +42,7 @@ from planx.geostats import (
     emerging_hotspot_analysis,
     fit_spatial_error_model,
     fit_spatial_lag_model,
+    fit_spatial_probit_panel,
     fit_spatial_sarma_model,
     fit_spatial_sarma_panel,
     fit_spatial_tobit_model,
@@ -1540,3 +1541,76 @@ def test_fit_spatial_sarma_panel_invalid():
 
     with pytest.raises(ValueError, match="independent_vars first dim"):
         fit_spatial_sarma_panel(np.zeros(8), X, W, time_periods=2)
+
+
+# ---------------------------------------------------------------------------
+# fit_spatial_probit_panel
+# ---------------------------------------------------------------------------
+
+
+def test_fit_spatial_probit_panel_normal():
+    np.random.seed(42)
+    N, T, K = 4, 3, 2
+    W = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.0, 0.5, 0.0, 0.5],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
+    X = np.random.randn(N * T, K)
+    y = np.random.randint(0, 2, N * T)
+
+    res = fit_spatial_probit_panel(y, X, W, T)
+
+    assert "coefficients" in res
+    assert "spatial_rho" in res
+    assert "std_errors" in res
+    assert "z_stat" in res
+    assert "p_values" in res
+    assert "pseudo_r_squared" in res
+    assert "log_likelihood" in res
+    assert "classification_accuracy" in res
+    assert "predicted_probabilities" in res
+
+    assert len(res["coefficients"]) == K
+    assert len(res["std_errors"]) == K
+    assert len(res["z_stat"]) == K
+    assert len(res["p_values"]) == K
+    assert len(res["predicted_probabilities"]) == N * T
+    assert isinstance(res["spatial_rho"], float)
+    assert isinstance(res["pseudo_r_squared"], float)
+    assert isinstance(res["log_likelihood"], float)
+    assert isinstance(res["classification_accuracy"], float)
+    assert 0.0 <= res["classification_accuracy"] <= 1.0
+
+
+def test_fit_spatial_probit_panel_invalid_t():
+    with pytest.raises(ValueError, match="time_periods must be >= 2"):
+        fit_spatial_probit_panel(np.array([0, 1, 0]), np.ones((3, 2)), np.eye(3), 1)
+
+
+def test_fit_spatial_probit_panel_invalid_w():
+    with pytest.raises(ValueError, match="weights_matrix must be a square 2D array"):
+        fit_spatial_probit_panel(np.zeros(6), np.ones((6, 2)), np.ones((3, 4)), 2)
+
+
+def test_fit_spatial_probit_panel_invalid_n():
+    with pytest.raises(ValueError, match="Number of spatial units \\(N\\) must be >= 3"):
+        fit_spatial_probit_panel(np.zeros(4), np.ones((4, 2)), np.eye(2), 2)
+
+
+def test_fit_spatial_probit_panel_invalid_y_binary():
+    with pytest.raises(ValueError, match="dependent_var must contain only binary 0/1 values"):
+        fit_spatial_probit_panel(np.array([0, 1, 2, 0, 1, 0]), np.ones((6, 2)), np.eye(3), 2)
+
+
+def test_fit_spatial_probit_panel_invalid_y_shape():
+    with pytest.raises(ValueError, match="dependent_var shape"):
+        fit_spatial_probit_panel(np.zeros((3, 3)), np.ones((6, 2)), np.eye(3), 2)
+
+
+def test_fit_spatial_probit_panel_invalid_x_shape():
+    with pytest.raises(ValueError, match="independent_vars shape"):
+        fit_spatial_probit_panel(np.zeros(6), np.ones((3, 3, 2)), np.eye(3), 2)

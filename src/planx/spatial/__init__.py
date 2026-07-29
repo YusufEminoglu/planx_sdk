@@ -16,6 +16,7 @@ from .accessibility import (
     huff_retail_market_share,
     kernel_density_2sfca,
     network_voronoi_allocation,
+    parking_spatial_mismatch_index,
     service_area_coverage,
     spatial_equity_gini,
     three_step_2sfca,
@@ -98,4 +99,5 @@ __all__ = [
     "pedestrian_level_of_service",
     "transit_frequency_accessibility",
     "network_voronoi_allocation",
+    "parking_spatial_mismatch_index",
 ]

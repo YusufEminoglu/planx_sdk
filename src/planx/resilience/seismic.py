@@ -233,3 +233,80 @@ def seismic_damage_loss_curve(
         "total_economic_loss": total_economic_loss,
         "building_collapse_count": building_collapse_count,
     }
+
+
+def seismic_road_blockage_simulation(
+    street_segment_coords: np.ndarray,
+    street_widths_m: np.ndarray,
+    adjacent_building_heights: np.ndarray,
+    building_collapse_probabilities: np.ndarray,
+    debris_expansion_factor: float = 0.5,
+) -> dict[str, Any]:
+    """Models post-earthquake structural collapse debris projection into street right-of-ways
+    and evaluates road blockage probabilities for emergency response.
+
+    Args:
+        street_segment_coords: NumPy array of shape (S, 2, 2) containing start and end point
+            coordinates per street segment.
+        street_widths_m: NumPy array of shape (S,) of street width in meters. Must be > 0.
+        adjacent_building_heights: NumPy array of shape (S,) of max height of adjacent
+            buildings (m).
+        building_collapse_probabilities: NumPy array of shape (S,) of probability of adjacent
+            building collapse [0, 1].
+        debris_expansion_factor: Fraction k of building height projected as debris radius.
+            Default is 0.5.
+
+    Returns:
+        Dict containing:
+          - blockage_probabilities: NumPy array of shape (S,) of float array P_block.
+          - debris_extents_m: NumPy array of shape (S,) of float array W_debris.
+          - blockage_ratios: NumPy array of shape (S,) of float array B_s.
+          - blocked_segments_count: Integer count of blocked segments.
+          - restricted_segments_count: Integer count of restricted segments.
+          - open_segments_count: Integer count of open segments.
+    """
+    coords = np.asarray(street_segment_coords, dtype=np.float64)
+    widths = np.asarray(street_widths_m, dtype=np.float64)
+    heights = np.asarray(adjacent_building_heights, dtype=np.float64)
+    probs = np.asarray(building_collapse_probabilities, dtype=np.float64)
+
+    s = len(widths)
+    if coords.shape != (s, 2, 2):
+        raise ValueError(f"street_segment_coords must have shape ({s}, 2, 2)")
+    if len(heights) != s or len(probs) != s:
+        raise ValueError(
+            "street_widths_m, adjacent_building_heights, and building_collapse_probabilities "
+            "must have identical length"
+        )
+    if np.any(widths <= 0):
+        raise ValueError("Street widths must be greater than 0.")
+    if np.any(heights < 0):
+        raise ValueError("Building heights cannot be negative.")
+    if np.any((probs < 0) | (probs > 1)):
+        raise ValueError("Building collapse probabilities must be in [0, 1].")
+
+    # Debris extent W_debris_s = adjacent_building_heights_s * debris_expansion_factor
+    debris_extents = heights * debris_expansion_factor
+
+    # Blockage Ratio B_s = W_debris_s / max(street_widths_m_s, 1.0)
+    safe_widths = np.maximum(widths, 1.0)
+    blockage_ratios = debris_extents / safe_widths
+
+    # Street Blockage Probability P_block_s = building_collapse_probabilities_s * min(1.0, B_s)
+    blockage_probabilities = probs * np.minimum(1.0, blockage_ratios)
+
+    # Street Status Classification
+    blocked_mask = (blockage_probabilities >= 0.70) | (blockage_ratios >= 1.0)
+    restricted_mask = (
+        (blockage_probabilities >= 0.30) & (blockage_probabilities < 0.70) & (~blocked_mask)
+    )
+    open_mask = (blockage_probabilities < 0.30) & (~blocked_mask)
+
+    return {
+        "blockage_probabilities": blockage_probabilities,
+        "debris_extents_m": debris_extents,
+        "blockage_ratios": blockage_ratios,
+        "blocked_segments_count": int(np.sum(blocked_mask)),
+        "restricted_segments_count": int(np.sum(restricted_mask)),
+        "open_segments_count": int(np.sum(open_mask)),
+    }
