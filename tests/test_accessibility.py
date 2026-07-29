@@ -366,3 +366,102 @@ def test_huff_retail_market_share_empty():
     assert res["store_captured_customers"].shape == (0,)
     assert res["store_market_shares"].shape == (0,)
     assert res["trade_area_zone_counts"].shape == (0,)
+
+
+def test_parking_spatial_mismatch_index_basic():
+    from planx.spatial.accessibility import parking_spatial_mismatch_index
+
+    demand_coords = np.array([[0.0, 0.0], [1000.0, 0.0]])
+    facility_coords = np.array([[100.0, 0.0], [900.0, 0.0]])
+    caps = np.array([50.0, 150.0])
+    demand = np.array([100.0, 100.0])
+
+    res = parking_spatial_mismatch_index(
+        demand_coords=demand_coords,
+        parking_facility_coords=facility_coords,
+        parking_capacities=caps,
+        zone_parking_demand=demand,
+        walk_threshold_m=400.0,
+    )
+
+    assert "mismatch_ratios" in res
+    assert "reachable_supply" in res
+    assert "deficit_zones_count" in res
+    assert "surplus_zones_count" in res
+    assert "total_parking_deficit" in res
+    assert "mismatch_gini" in res
+
+    assert res["mismatch_ratios"].shape == (2,)
+    assert res["reachable_supply"].shape == (2,)
+
+    # Distances:
+    # Zone 0 to Fac 0: 100m. W = 1 - (100/400)^2 = 1 - 1/16 = 15/16 = 0.9375
+    # Zone 0 to Fac 1: 900m. W = 0
+    # Zone 1 to Fac 0: 900m. W = 0
+    # Zone 1 to Fac 1: 100m. W = 0.9375
+
+    expected_S0 = 0.9375 * 50.0
+    expected_S1 = 0.9375 * 150.0
+
+    np.testing.assert_allclose(res["reachable_supply"], [expected_S0, expected_S1])
+    np.testing.assert_allclose(res["mismatch_ratios"], [expected_S0 / 100.0, expected_S1 / 100.0])
+
+    assert res["deficit_zones_count"] == 1  # Zone 0 is < 1
+    assert res["surplus_zones_count"] == 1  # Zone 1 is >= 1
+
+    expected_deficit = max(0.0, 100.0 - expected_S0) + max(0.0, 100.0 - expected_S1)
+    np.testing.assert_allclose(res["total_parking_deficit"], expected_deficit)
+
+    assert 0.0 <= res["mismatch_gini"] <= 1.0
+
+
+def test_parking_spatial_mismatch_index_validation():
+    from planx.spatial.accessibility import parking_spatial_mismatch_index
+
+    demand_coords = np.array([[0.0, 0.0]])
+    facility_coords = np.array([[100.0, 0.0]])
+    caps = np.array([50.0])
+    demand = np.array([100.0])
+
+    with pytest.raises(ValueError, match="demand_coords must be a 2D array"):
+        parking_spatial_mismatch_index(np.array([0.0, 0.0]), facility_coords, caps, demand)
+
+    with pytest.raises(ValueError, match="parking_facility_coords must be a 2D array"):
+        parking_spatial_mismatch_index(demand_coords, np.array([100.0, 0.0]), caps, demand)
+
+    with pytest.raises(ValueError, match="parking_capacities length"):
+        parking_spatial_mismatch_index(
+            demand_coords, facility_coords, np.array([50.0, 50.0]), demand
+        )
+
+    with pytest.raises(ValueError, match="parking_capacities must be positive"):
+        parking_spatial_mismatch_index(demand_coords, facility_coords, np.array([0.0]), demand)
+
+    with pytest.raises(ValueError, match="zone_parking_demand length"):
+        parking_spatial_mismatch_index(
+            demand_coords, facility_coords, caps, np.array([100.0, 100.0])
+        )
+
+    with pytest.raises(ValueError, match="zone_parking_demand must be positive"):
+        parking_spatial_mismatch_index(demand_coords, facility_coords, caps, np.array([-10.0]))
+
+    with pytest.raises(ValueError, match="walk_threshold_m must be positive"):
+        parking_spatial_mismatch_index(
+            demand_coords, facility_coords, caps, demand, walk_threshold_m=-10.0
+        )
+
+
+def test_parking_spatial_mismatch_index_empty():
+    from planx.spatial.accessibility import parking_spatial_mismatch_index
+
+    res1 = parking_spatial_mismatch_index(
+        np.empty((0, 2)), np.empty((0, 2)), np.empty((0,)), np.empty((0,))
+    )
+    assert res1["mismatch_ratios"].shape == (0,)
+    assert res1["total_parking_deficit"] == 0.0
+
+    res2 = parking_spatial_mismatch_index(
+        np.array([[0.0, 0.0]]), np.empty((0, 2)), np.empty((0,)), np.array([100.0])
+    )
+    assert res2["deficit_zones_count"] == 1
+    assert res2["total_parking_deficit"] == 100.0

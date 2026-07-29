@@ -3738,9 +3738,9 @@ def fit_spatial_sarma_panel(
 
     sig2 = np.sum(residuals_final**2) / (n_obs - k_vars)
 
-    cov_matrix = sig2 * np.linalg.inv(X_stage2_hat.T @ X_stage2_hat)
+    cov_matrix = sig2 * np.linalg.pinv(X_stage2_hat.T @ X_stage2_hat)
 
-    std_errors_all = np.sqrt(np.diag(cov_matrix))
+    std_errors_all = np.sqrt(np.maximum(np.diag(cov_matrix), 1e-12))
 
     std_errors = std_errors_all[:K]
 
@@ -3765,4 +3765,162 @@ def fit_spatial_sarma_panel(
         "p_values": p_values,
         "r_squared": float(r_squared),
         "residuals": residuals_final,
+    }
+
+
+def fit_spatial_probit_panel(
+    dependent_var: np.ndarray,
+    independent_vars: np.ndarray,
+    weights_matrix: np.ndarray,
+    time_periods: int,
+) -> dict[str, Any]:
+    """Spatial Panel Autoregressive Probit model for binary panel outcome.
+
+    Fits a spatial panel autoregressive probit model for binary outcomes using an
+    IRLS/GLM approximation followed by 2SLS to estimate the spatial lag parameter.
+
+    Args:
+        dependent_var: (N*T,) or (N, T) array of binary 0/1 values.
+        independent_vars: (N*T, K) array of K regressors.
+        weights_matrix: (N, N) spatial weights matrix (row-standardized).
+        time_periods: Number of time periods T (int >= 2).
+
+    Returns:
+        Dict with keys:
+        - coefficients: (K,) float array
+        - spatial_rho: float
+        - std_errors: (K,) float array
+        - z_stat: (K,) float array
+        - p_values: (K,) float array
+        - pseudo_r_squared: float
+        - log_likelihood: float
+        - classification_accuracy: float [0, 1]
+        - predicted_probabilities: (N*T,) float array
+    """
+    y = np.asarray(dependent_var, dtype=np.float64)
+    X = np.asarray(independent_vars, dtype=np.float64)
+    W = np.asarray(weights_matrix, dtype=np.float64)
+
+    if time_periods < 2:
+        raise ValueError("time_periods must be >= 2")
+
+    if W.ndim != 2 or W.shape[0] != W.shape[1]:
+        raise ValueError("weights_matrix must be a square 2D array")
+
+    N = W.shape[0]
+    T = time_periods
+
+    if N < 3:
+        raise ValueError("Number of spatial units (N) must be >= 3")
+
+    if y.ndim == 2:
+        if y.shape != (N, T):
+            raise ValueError(f"dependent_var shape {y.shape} does not match (N, T) = ({N}, {T})")
+        y = y.T.flatten()
+    elif y.ndim == 1:
+        if y.shape[0] != N * T:
+            raise ValueError(f"dependent_var length {y.shape[0]} does not match N*T = {N * T}")
+    else:
+        raise ValueError("dependent_var must be 1D or 2D array")
+
+    unique_vals = np.unique(y)
+    if not np.all(np.isin(unique_vals, [0, 1])):
+        raise ValueError("dependent_var must contain only binary 0/1 values")
+
+    if X.ndim == 3:
+        if X.shape[:2] != (N, T):
+            raise ValueError(f"independent_vars shape {X.shape} does not match (N, T, K)")
+        K = X.shape[2]
+        X = X.transpose((1, 0, 2)).reshape((N * T, K))
+    elif X.ndim == 2:
+        if X.shape[0] != N * T:
+            raise ValueError(
+                f"independent_vars first dim {X.shape[0]} does not match N*T = {N * T}"
+            )
+        K = X.shape[1]
+    else:
+        raise ValueError("independent_vars must be 2D or 3D array")
+
+    I_T = np.eye(T)
+    W_full = np.kron(I_T, W)
+
+    beta_glm = np.zeros(K)
+    for _ in range(10):
+        eta = X @ beta_glm
+        mu = stats.norm.cdf(eta)
+        mu = np.clip(mu, 1e-6, 1 - 1e-6)
+        phi = stats.norm.pdf(eta)
+        phi = np.clip(phi, 1e-6, None)
+
+        W_irls = (phi**2) / (mu * (1 - mu))
+        z = eta + (y - mu) / phi
+
+        W_sqrt = np.sqrt(W_irls)[:, np.newaxis]
+        X_w = X * W_sqrt
+        z_w = z * np.squeeze(W_sqrt)
+        beta_new = np.linalg.lstsq(X_w, z_w, rcond=None)[0]
+        if np.max(np.abs(beta_new - beta_glm)) < 1e-5:
+            beta_glm = beta_new
+            break
+        beta_glm = beta_new
+
+    eta = X @ beta_glm
+    mu = stats.norm.cdf(eta)
+    mu = np.clip(mu, 1e-6, 1 - 1e-6)
+    phi = stats.norm.pdf(eta)
+    phi = np.clip(phi, 1e-6, None)
+    y_latent = eta + (y - mu) / phi
+
+    W_y_latent = W_full @ y_latent
+    WX = W_full @ X
+    W2X = W_full @ WX
+    Z_inst = np.column_stack((X, WX, W2X))
+
+    Z_pinv = np.linalg.pinv(Z_inst)
+    W_y_latent_hat = Z_inst @ (Z_pinv @ W_y_latent)
+
+    X_stage2 = np.column_stack((X, W_y_latent_hat))
+    coef_2sls = np.linalg.lstsq(X_stage2, y_latent, rcond=None)[0]
+
+    beta_final = coef_2sls[:K]
+    rho_final = float(coef_2sls[K])
+
+    residuals = y_latent - rho_final * W_y_latent - X @ beta_final
+    dof = N * T - (K + 1)
+    sig2 = np.sum(residuals**2) / dof
+
+    cov_matrix = sig2 * np.linalg.inv(X_stage2.T @ X_stage2)
+    std_errors_all = np.sqrt(np.diag(cov_matrix))
+    std_errors = std_errors_all[:K]
+
+    z_stat = beta_final / std_errors
+    p_values = 2 * (1 - stats.norm.cdf(np.abs(z_stat)))
+
+    y_pred_latent = rho_final * W_y_latent + X @ beta_final
+    prob_pred = stats.norm.cdf(y_pred_latent)
+    prob_pred = np.clip(prob_pred, 1e-10, 1 - 1e-10)
+
+    ll_full = float(np.sum(y * np.log(prob_pred) + (1 - y) * np.log(1 - prob_pred)))
+
+    p_null = np.mean(y)
+    if 0 < p_null < 1:
+        ll_null = float(np.sum(y * np.log(p_null) + (1 - y) * np.log(1 - p_null)))
+    else:
+        ll_null = ll_full
+
+    pseudo_r2 = float(1 - (ll_full / ll_null)) if ll_null != 0 else 0.0
+
+    y_pred_class = (prob_pred >= 0.5).astype(float)
+    accuracy = float(np.mean(y_pred_class == y))
+
+    return {
+        "coefficients": beta_final,
+        "spatial_rho": rho_final,
+        "std_errors": std_errors,
+        "z_stat": z_stat,
+        "p_values": p_values,
+        "pseudo_r_squared": pseudo_r2,
+        "log_likelihood": ll_full,
+        "classification_accuracy": accuracy,
+        "predicted_probabilities": prob_pred,
     }

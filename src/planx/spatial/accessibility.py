@@ -1142,3 +1142,121 @@ def huff_retail_market_share(
         "store_market_shares": market_shares,
         "trade_area_zone_counts": trade_areas,
     }
+
+
+def parking_spatial_mismatch_index(
+    demand_coords: np.ndarray,
+    parking_facility_coords: np.ndarray,
+    parking_capacities: np.ndarray,
+    zone_parking_demand: np.ndarray,
+    walk_threshold_m: float = 400.0,
+) -> dict[str, Any]:
+    """Evaluates spatial mismatch between urban parking supply and parking demand.
+
+    Uses a walking distance decay and capacity-constrained occupancy modeling to
+    allocate effective reachable parking supply per zone.
+
+    Args:
+        demand_coords: NumPy array of shape (N, 2) containing origin/demand zone centroids.
+        parking_facility_coords: NumPy array of shape (M, 2) containing parking facility locations.
+        parking_capacities: NumPy array of shape (M,) containing total parking spaces
+            per facility (> 0).
+        zone_parking_demand: NumPy array of shape (N,) containing parking spaces
+            required per zone (> 0).
+        walk_threshold_m: Maximum comfortable walking distance in meters. Default is 400.0.
+
+    Returns:
+        Dictionary containing:
+            - 'mismatch_ratios': (N,) float array R_i (supply / demand)
+            - 'reachable_supply': (N,) float array S_i
+            - 'deficit_zones_count': int count of zones where R_i < 1.0
+            - 'surplus_zones_count': int count of zones where R_i >= 1.0
+            - 'total_parking_deficit': float sum of (demand - supply) for deficit zones
+            - 'mismatch_gini': float Gini coefficient of mismatch ratios [0, 1]
+    """
+    from scipy.spatial.distance import cdist
+
+    dem_coords = np.asarray(demand_coords, dtype=np.float64)
+    fac_coords = np.asarray(parking_facility_coords, dtype=np.float64)
+    caps = np.asarray(parking_capacities, dtype=np.float64)
+    demand = np.asarray(zone_parking_demand, dtype=np.float64)
+
+    if dem_coords.ndim != 2 or dem_coords.shape[1] != 2:
+        raise ValueError("demand_coords must be a 2D array of shape (N, 2)")
+    if fac_coords.ndim != 2 or fac_coords.shape[1] != 2:
+        raise ValueError("parking_facility_coords must be a 2D array of shape (M, 2)")
+
+    n_demands = dem_coords.shape[0]
+    m_facs = fac_coords.shape[0]
+
+    if caps.ndim != 1 or caps.shape[0] != m_facs:
+        raise ValueError(
+            f"parking_capacities length ({caps.shape[0]}) must match number of "
+            f"parking facilities ({m_facs})"
+        )
+    if np.any(caps <= 0):
+        raise ValueError("parking_capacities must be positive (> 0)")
+
+    if demand.ndim != 1 or demand.shape[0] != n_demands:
+        raise ValueError(
+            f"zone_parking_demand length ({demand.shape[0]}) must match number of "
+            f"demand zones ({n_demands})"
+        )
+    if np.any(demand <= 0):
+        raise ValueError("zone_parking_demand must be positive (> 0)")
+
+    if walk_threshold_m <= 0:
+        raise ValueError("walk_threshold_m must be positive (> 0)")
+
+    if n_demands == 0:
+        return {
+            "mismatch_ratios": np.array([], dtype=np.float64),
+            "reachable_supply": np.array([], dtype=np.float64),
+            "deficit_zones_count": 0,
+            "surplus_zones_count": 0,
+            "total_parking_deficit": 0.0,
+            "mismatch_gini": 0.0,
+        }
+
+    if m_facs == 0:
+        ratios = np.zeros(n_demands, dtype=np.float64)
+        reachable = np.zeros(n_demands, dtype=np.float64)
+        return {
+            "mismatch_ratios": ratios,
+            "reachable_supply": reachable,
+            "deficit_zones_count": n_demands,
+            "surplus_zones_count": 0,
+            "total_parking_deficit": float(np.sum(demand)),
+            "mismatch_gini": 0.0,
+        }
+
+    dists = cdist(dem_coords, fac_coords, metric="euclidean")
+
+    W = np.zeros_like(dists)
+    mask = dists <= walk_threshold_m
+    W[mask] = 1.0 - (dists[mask] / walk_threshold_m) ** 2
+
+    S_i = np.sum(W * caps[None, :], axis=1)
+
+    safe_demand = np.maximum(demand, 1e-6)
+    R_i = S_i / safe_demand
+
+    deficit_mask = R_i < 1.0
+    surplus_mask = R_i >= 1.0
+
+    deficit_zones_count = int(np.sum(deficit_mask))
+    surplus_zones_count = int(np.sum(surplus_mask))
+
+    deficits = np.maximum(0.0, demand - S_i)
+    total_parking_deficit = float(np.sum(deficits))
+
+    mismatch_gini = spatial_equity_gini(R_i, demand)
+
+    return {
+        "mismatch_ratios": R_i,
+        "reachable_supply": S_i,
+        "deficit_zones_count": deficit_zones_count,
+        "surplus_zones_count": surplus_zones_count,
+        "total_parking_deficit": total_parking_deficit,
+        "mismatch_gini": mismatch_gini,
+    }

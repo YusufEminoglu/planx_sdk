@@ -49,16 +49,22 @@ from .landslide import landslide_susceptibility
 from .seismic import (
     earthquake_building_collapse_casualty,
     seismic_damage_loss_curve,
+    seismic_road_blockage_simulation,
     simulate_seismic_debris,
 )
 from .social import social_vulnerability_index
 from .synthesis import compound_hazard_cascade, equity_adjusted_priority, multi_hazard_composite
-from .wildfire import wildfire_evacuation_encroachment, wildfire_risk_index
+from .wildfire import (
+    wildfire_evacuation_encroachment,
+    wildfire_evacuation_front_buffer,
+    wildfire_risk_index,
+)
 
 __all__ = [
     "simulate_seismic_debris",
     "earthquake_building_collapse_casualty",
     "seismic_damage_loss_curve",
+    "seismic_road_blockage_simulation",
     "pluvial_flood_susceptibility",
     "coastal_flood_inundation",
     "coastal_surge_inundation",
@@ -69,6 +75,7 @@ __all__ = [
     "landslide_susceptibility",
     "wildfire_risk_index",
     "wildfire_evacuation_encroachment",
+    "wildfire_evacuation_front_buffer",
     "social_vulnerability_index",
     "urban_heat_comfort_risk",
     "urban_heat_island_intensity",

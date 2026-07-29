@@ -27,6 +27,7 @@ from planx.resilience import (
     prioritize_debris_clearance,
     scs_unit_hydrograph,
     seismic_damage_loss_curve,
+    seismic_road_blockage_simulation,
     simulate_interdependent_infrastructure_cascade,
     simulate_network_disruption,
     simulate_seismic_debris,
@@ -39,6 +40,7 @@ from planx.resilience import (
     urban_heat_vulnerability_index,
     urban_stormwater_peak_runoff,
     wildfire_evacuation_encroachment,
+    wildfire_evacuation_front_buffer,
     wildfire_risk_index,
 )
 
@@ -77,6 +79,87 @@ def test_simulate_seismic_debris():
     # 2. Check dimension mismatch error
     with pytest.raises(ValueError, match="must have identical length"):
         simulate_seismic_debris(areas[:-1], floors, years, magnitude=7.0)
+
+
+def test_seismic_road_blockage_simulation():
+    # 3 segments
+    coords = np.array(
+        [
+            [[0, 0], [10, 0]],
+            [[10, 0], [20, 0]],
+            [[20, 0], [30, 0]],
+        ]
+    )
+    widths = np.array([10.0, 5.0, 8.0])
+    heights = np.array([10.0, 20.0, 0.0])
+    probs = np.array([0.5, 0.8, 0.1])
+
+    res = seismic_road_blockage_simulation(
+        street_segment_coords=coords,
+        street_widths_m=widths,
+        adjacent_building_heights=heights,
+        building_collapse_probabilities=probs,
+        debris_expansion_factor=0.5,
+    )
+
+    # Segment 0:
+    # W_debris = 10 * 0.5 = 5.0
+    # B = 5.0 / max(10, 1) = 0.5
+    # P_block = 0.5 * min(1.0, 0.5) = 0.25
+    # Status: P_block < 0.30 -> open
+
+    # Segment 1:
+    # W_debris = 20 * 0.5 = 10.0
+    # B = 10.0 / max(5, 1) = 2.0
+    # P_block = 0.8 * min(1.0, 2.0) = 0.8
+    # Status: B >= 1.0 or P_block >= 0.70 -> blocked
+
+    # Segment 2:
+    # W_debris = 0.0
+    # B = 0.0
+    # P_block = 0.0
+    # Status: open
+
+    np.testing.assert_allclose(res["blockage_probabilities"], [0.25, 0.8, 0.0])
+    np.testing.assert_allclose(res["debris_extents_m"], [5.0, 10.0, 0.0])
+    np.testing.assert_allclose(res["blockage_ratios"], [0.5, 2.0, 0.0])
+    assert res["blocked_segments_count"] == 1
+    assert res["restricted_segments_count"] == 0
+    assert res["open_segments_count"] == 2
+
+    # Test restricted segment (0.30 <= P_block < 0.70 and not blocked)
+    # P_block needs to be e.g. 0.5 -> let B = 0.5, probs = 1.0
+    # W_debris = 5.0, widths = 10.0 -> B = 0.5
+    # probs = 1.0, P_block = 1.0 * 0.5 = 0.5
+    coords_r = np.array([[[0, 0], [10, 0]]])
+    res_r = seismic_road_blockage_simulation(
+        coords_r, np.array([10.0]), np.array([10.0]), np.array([1.0]), 0.5
+    )
+    assert res_r["restricted_segments_count"] == 1
+    assert res_r["blocked_segments_count"] == 0
+    assert res_r["open_segments_count"] == 0
+
+
+def test_seismic_road_blockage_simulation_errors():
+    coords = np.zeros((2, 2, 2))
+    widths = np.array([10.0, 5.0])
+    heights = np.array([10.0, 20.0])
+    probs = np.array([0.5, 0.8])
+
+    with pytest.raises(ValueError, match="must have shape"):
+        seismic_road_blockage_simulation(np.zeros((2, 2)), widths, heights, probs)
+
+    with pytest.raises(ValueError, match="must have identical length"):
+        seismic_road_blockage_simulation(coords, widths, heights[:-1], probs)
+
+    with pytest.raises(ValueError, match="Street widths must be greater than 0"):
+        seismic_road_blockage_simulation(coords, np.array([0.0, 5.0]), heights, probs)
+
+    with pytest.raises(ValueError, match="Building heights cannot be negative"):
+        seismic_road_blockage_simulation(coords, widths, np.array([-1.0, 20.0]), probs)
+
+    with pytest.raises(ValueError, match="Building collapse probabilities must be in"):
+        seismic_road_blockage_simulation(coords, widths, heights, np.array([1.5, 0.8]))
 
 
 def test_pluvial_flood_susceptibility():
@@ -1744,3 +1827,51 @@ def test_stormwater_retention_basin_design_edge_cases():
     # 1.0 impervious ratio
     res2 = stormwater_retention_basin_design(1.0, 1.0, 50.0, 10.0)
     assert np.isclose(res2["runoff_coefficient"], 0.95)
+
+
+def test_wildfire_evacuation_front_buffer():
+    ignition_coords = np.array([10.0, 20.0])
+    res = wildfire_evacuation_front_buffer(
+        ignition_coords=ignition_coords,
+        wind_speed_kmh=20.0,
+        wind_direction_deg=90.0,
+        terrain_slope_deg=np.array([10.0]),
+        time_elapsed_hours=2.0,
+        buffer_safety_factor=1.5,
+    )
+
+    assert isinstance(res, dict)
+    assert "forward_rate_of_spread_m_min" in res
+    assert "forward_distance_m" in res
+    assert "flank_distance_m" in res
+    assert "safety_buffer_distance_m" in res
+    assert "fire_ellipse_axes" in res
+
+    assert res["forward_rate_of_spread_m_min"] > 0
+    assert res["forward_distance_m"] > 0
+    assert res["flank_distance_m"] > 0
+    np.testing.assert_allclose(res["safety_buffer_distance_m"], res["forward_distance_m"] * 1.5)
+
+    axes = res["fire_ellipse_axes"]
+    assert axes["semi_major_m"] > 0
+    assert axes["semi_minor_m"] > 0
+
+
+def test_wildfire_evacuation_front_buffer_validation():
+    ignition = np.array([10.0, 20.0])
+    slope = np.array([10.0])
+
+    with pytest.raises(ValueError, match="must be non-negative"):
+        wildfire_evacuation_front_buffer(ignition, -10.0, 90.0, slope, 2.0)
+
+    with pytest.raises(ValueError, match="time_elapsed_hours must be greater than 0"):
+        wildfire_evacuation_front_buffer(ignition, 20.0, 90.0, slope, 0.0)
+
+    with pytest.raises(ValueError, match="must be in"):
+        wildfire_evacuation_front_buffer(ignition, 20.0, 400.0, slope, 2.0)
+
+    with pytest.raises(ValueError, match="buffer_safety_factor must be positive"):
+        wildfire_evacuation_front_buffer(ignition, 20.0, 90.0, slope, 2.0, -1.0)
+
+    with pytest.raises(ValueError, match="ignition_coords must be of shape"):
+        wildfire_evacuation_front_buffer(np.array([10.0]), 20.0, 90.0, slope, 2.0)
