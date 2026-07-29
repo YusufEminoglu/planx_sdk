@@ -38,6 +38,7 @@ from planx.geostats import (
     calculate_spatial_lag,
     calculate_standard_distance,
     calculate_weighted_kde,
+    emerging_hotspot_analysis,
     fit_spatial_error_model,
     fit_spatial_lag_model,
     fit_spatial_sarma_model,
@@ -1152,3 +1153,62 @@ def test_calculate_gwpca_bisquare():
 
     assert res["local_eigenvalues"].shape == (4, 2)
     assert np.all(res["total_local_variance"] >= 0.0)
+
+
+def test_emerging_hotspot_analysis_normal():
+    # Setup simple line network
+    coords = np.array([[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]])
+    W = np.array(
+        [
+            [1.0, 1.0, 0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.5, 0.0, 0.0],
+            [0.0, 0.5, 0.5, 0.5, 0.0],
+            [0.0, 0.0, 0.5, 0.5, 0.5],
+            [0.0, 0.0, 0.0, 1.0, 1.0],
+        ]
+    )
+
+    # Values that are high on the left and decreasing, to create a hotspot on the left
+    values = np.array([[10, 10, 10, 10], [8, 9, 8, 9], [5, 5, 5, 5], [2, 2, 2, 2], [1, 1, 1, 1]])
+
+    ts = np.array([0, 1, 2, 3])
+
+    res = emerging_hotspot_analysis(coords, values, ts, W, significance_level=0.1)
+
+    assert "pattern" in res
+    assert "z_scores" in res
+    assert "p_values_gi" in res
+    assert "mann_kendall_z" in res
+    assert "mann_kendall_p" in res
+    assert "kendall_tau" in res
+    assert "hot_spot_count" in res
+    assert "cold_spot_count" in res
+
+    assert res["pattern"].shape == (5,)
+    assert res["z_scores"].shape == (5, 4)
+    # The left side (index 0) should be persistent or intensifying hotspot
+    assert res["hot_spot_count"][0] > 0
+    # The right side (index 4) should be cold spot
+    assert res["cold_spot_count"][4] > 0
+
+
+def test_emerging_hotspot_analysis_validation():
+    coords = np.array([[0, 0], [1, 0]])
+    values = np.random.randn(2, 2)
+    ts = np.arange(2)
+    W = np.eye(2)
+
+    with pytest.raises(ValueError, match="Need at least 3 time steps"):
+        emerging_hotspot_analysis(coords, values, ts, W)
+
+    ts3 = np.arange(3)
+    values3 = np.random.randn(2, 3)
+
+    with pytest.raises(ValueError, match="shape \\(N, 2\\)"):
+        emerging_hotspot_analysis(coords[:, 0:1], values3, ts3, W)
+
+    with pytest.raises(ValueError, match="length"):
+        emerging_hotspot_analysis(coords, values3, np.arange(4), W)
+
+    with pytest.raises(ValueError, match="weights_matrix"):
+        emerging_hotspot_analysis(coords, values3, ts3, np.eye(3))

@@ -578,3 +578,107 @@ def calculate_15m_city_score(
     scores = np.sum(within_threshold * col_weights[None, :], axis=1) * 100.0
 
     return np.clip(scores, 0.0, 100.0)
+
+
+def transit_frequency_accessibility(
+    demand_coords: np.ndarray,
+    stop_coords: np.ndarray,
+    headways_minutes: np.ndarray,
+    num_routes: np.ndarray,
+    catchment_radius: float = 800.0,
+    decay_function: str = "gaussian",
+    headway_benchmark: float = 10.0,
+    route_diversity_weight: float = 0.3,
+) -> dict[str, np.ndarray]:
+    """Calculates the Public Transit Frequency Accessibility Index.
+
+    Args:
+        demand_coords: NumPy array of shape (N, 2) containing demand point coordinates.
+        stop_coords: NumPy array of shape (S, 2) containing transit stop coordinates.
+        headways_minutes: NumPy array of shape (S,) containing average headway in minutes per stop.
+        num_routes: NumPy array of shape (S,) containing number of distinct routes
+            serving each stop.
+        catchment_radius: Maximum distance threshold in coordinate units.
+        decay_function: One of 'gaussian', 'exponential', or 'linear'.
+        headway_benchmark: Ideal headway in minutes.
+        route_diversity_weight: Weight for route diversity component, between 0.0 and 1.0.
+
+    Returns:
+        A dictionary containing:
+            - 'accessibility_index': (N,) float array in [0, 1]
+            - 'num_stops_in_catchment': (N,) int array
+            - 'nearest_stop_distance': (N,) float array
+            - 'mean_headway_in_catchment': (N,) float array, NaN if no stops reachable
+    """
+    from scipy.spatial.distance import cdist
+
+    dem = np.asarray(demand_coords, dtype=np.float64)
+    stops = np.asarray(stop_coords, dtype=np.float64)
+    headways = np.asarray(headways_minutes, dtype=np.float64)
+    routes = np.asarray(num_routes, dtype=np.int64)
+
+    if dem.ndim != 2 or dem.shape[1] != 2:
+        raise ValueError(f"demand_coords must be a 2D array of shape (N, 2), got {dem.shape}")
+    if stops.ndim != 2 or stops.shape[1] != 2:
+        raise ValueError(f"stop_coords must be a 2D array of shape (S, 2), got {stops.shape}")
+
+    s_count = stops.shape[0]
+    if headways.ndim != 1 or headways.shape[0] != s_count:
+        raise ValueError(
+            f"headways_minutes length ({headways.shape[0]}) must match number of stops ({s_count})"
+        )
+    if routes.ndim != 1 or routes.shape[0] != s_count:
+        raise ValueError(
+            f"num_routes length ({routes.shape[0]}) must match number of stops ({s_count})"
+        )
+    if np.any(headways <= 0):
+        raise ValueError("headways_minutes must be > 0")
+    if np.any(routes < 1):
+        raise ValueError("num_routes must be >= 1")
+    if catchment_radius <= 0:
+        raise ValueError("catchment_radius must be > 0")
+    if headway_benchmark <= 0:
+        raise ValueError("headway_benchmark must be > 0")
+    if not (0.0 <= route_diversity_weight <= 1.0):
+        raise ValueError("route_diversity_weight must be between 0 and 1")
+
+    if s_count == 0:
+        n_count = dem.shape[0]
+        return {
+            "accessibility_index": np.zeros(n_count, dtype=np.float64),
+            "num_stops_in_catchment": np.zeros(n_count, dtype=int),
+            "nearest_stop_distance": np.full(n_count, np.inf),
+            "mean_headway_in_catchment": np.full(n_count, np.nan),
+        }
+
+    dists = cdist(dem, stops, metric="euclidean")
+    w = np.zeros_like(dists)
+    decay_lower = decay_function.lower().replace(" ", "_").replace("-", "_")
+    beta = catchment_radius / 3.0
+    mask = dists <= catchment_radius
+
+    if decay_lower == "gaussian":
+        w = np.exp(-0.5 * (dists / beta) ** 2)
+    elif decay_lower == "exponential":
+        w = np.exp(-dists / beta)
+    elif decay_lower == "linear":
+        w = np.clip(1.0 - (dists / catchment_radius), 0.0, 1.0)
+    else:
+        raise ValueError(f"Unknown decay_function: {decay_function}")
+
+    w[~mask] = 0.0
+    f_s = np.clip(headway_benchmark / headways, 0.0, 1.0)
+    r_s = 1.0 - np.exp(-routes / 3.0)
+    q_s = (1.0 - route_diversity_weight) * f_s + route_diversity_weight * r_s
+    sum_w = np.sum(w, axis=1)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        a_i = np.where(sum_w > 0, np.sum(w * q_s[None, :], axis=1) / sum_w, 0.0)
+        mean_headway = np.where(sum_w > 0, np.sum(w * headways[None, :], axis=1) / sum_w, np.nan)
+
+    return {
+        "accessibility_index": a_i,
+        "num_stops_in_catchment": np.sum(mask, axis=1).astype(int),
+        "nearest_stop_distance": np.min(dists, axis=1),
+        "mean_headway_in_catchment": mean_headway,
+    }

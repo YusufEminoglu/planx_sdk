@@ -19,6 +19,7 @@ from .flood import (
     coastal_surge_inundation,
     detention_basin_sizing,
     pluvial_flood_susceptibility,
+    scs_unit_hydrograph,
     socio_economic_flood_risk,
     urban_stormwater_peak_runoff,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "coastal_flood_inundation",
     "coastal_surge_inundation",
     "detention_basin_sizing",
+    "scs_unit_hydrograph",
     "socio_economic_flood_risk",
     "urban_stormwater_peak_runoff",
     "landslide_susceptibility",

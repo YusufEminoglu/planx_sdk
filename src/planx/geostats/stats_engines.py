@@ -9,6 +9,7 @@ import math
 from typing import Optional, cast
 
 import numpy as np
+from scipy import stats
 
 logger = logging.getLogger("PlanX GeoStats Lab")
 
@@ -2988,4 +2989,193 @@ def fit_spatial_durbin_model(
         "fitted": fitted,
         "residuals": residuals,
         "r2": r2,
+    }
+
+
+def emerging_hotspot_analysis(
+    coordinates: np.ndarray,
+    values: np.ndarray,
+    time_steps: np.ndarray,
+    weights_matrix: np.ndarray,
+    significance_level: float = 0.05,
+) -> dict[str, np.ndarray]:
+    """Combines Getis-Ord Gi* hot spot analysis at each time step with Mann-Kendall trend testing
+    to classify spatio-temporal patterns.
+
+    Args:
+        coordinates: (N, 2) spatial coordinates of locations.
+        values: (N, T) matrix - N locations x T time steps.
+        time_steps: (T,) array of time indices or labels.
+        weights_matrix: (N, N) spatial weights matrix (row-standardized).
+        significance_level: threshold for statistical significance.
+
+    Returns:
+        Dictionary containing pattern classifications and statistics.
+    """
+    coords = np.asarray(coordinates, dtype=np.float64)
+    vals = np.asarray(values, dtype=np.float64)
+    times = np.asarray(time_steps)
+    W = np.asarray(weights_matrix, dtype=np.float64)
+
+    N, T = vals.shape
+    if coords.shape != (N, 2):
+        raise ValueError(f"coordinates must have shape (N, 2), got {coords.shape}")
+    if len(times) != T:
+        raise ValueError(f"time_steps length ({len(times)}) must match values columns ({T})")
+    if W.shape != (N, N):
+        raise ValueError(f"weights_matrix must have shape (N, N), got {W.shape}")
+    if N < 2:
+        raise ValueError("Need at least 2 locations.")
+    if T < 3:
+        raise ValueError("Need at least 3 time steps for Mann-Kendall test.")
+    if not (0 < significance_level < 1):
+        raise ValueError("significance_level must be between 0 and 1.")
+
+    # Precompute Gi* denominator components
+    w_sum = W.sum(axis=1)
+    w_sq_sum = (W**2).sum(axis=1)
+    # denominator factor inside sqrt
+    denom_inner = (N * w_sq_sum - w_sum**2) / (N - 1)
+    denom_inner[denom_inner < 0] = 0.0
+    denom_factor = np.sqrt(denom_inner)
+
+    z_scores = np.zeros((N, T))
+    p_values_gi = np.ones((N, T))
+
+    for t in range(T):
+        x = vals[:, t]
+        x_mean = np.mean(x)
+        s = np.std(x)
+
+        wx = W @ x
+        num = wx - x_mean * w_sum
+        den = s * denom_factor
+
+        valid = den > 0
+        z_t = np.zeros(N)
+        z_t[valid] = num[valid] / den[valid]
+        p_t = np.ones(N)
+        p_t[valid] = 2.0 * stats.norm.sf(np.abs(z_t[valid]))
+
+        z_scores[:, t] = z_t
+        p_values_gi[:, t] = p_t
+
+    # Step 2: Mann-Kendall Trend Test per location
+    mk_z = np.zeros(N)
+    mk_p = np.ones(N)
+    kendall_tau = np.zeros(N)
+
+    var_S = T * (T - 1) * (2 * T + 5) / 18.0
+    sqrt_var_S = np.sqrt(var_S)
+    denom_tau = (T * (T - 1)) / 2.0
+
+    for i in range(N):
+        z_series = z_scores[i, :]
+
+        # Calculate S
+        S = 0.0
+        for j in range(T - 1):
+            S += np.sum(np.sign(z_series[j + 1 :] - z_series[j]))
+
+        tau = S / denom_tau
+        kendall_tau[i] = tau
+
+        if S > 0:
+            z_val = (S - 1.0) / sqrt_var_S
+        elif S < 0:
+            z_val = (S + 1.0) / sqrt_var_S
+        else:
+            z_val = 0.0
+
+        mk_z[i] = z_val
+        mk_p[i] = 2.0 * stats.norm.sf(np.abs(z_val))
+
+    # Step 3: Pattern Classification
+    is_hot = (z_scores > 0) & (p_values_gi < significance_level)
+    is_cold = (z_scores < 0) & (p_values_gi < significance_level)
+
+    hot_counts = is_hot.sum(axis=1)
+    cold_counts = is_cold.sum(axis=1)
+
+    patterns = np.full(N, "no_pattern", dtype=object)
+
+    for i in range(N):
+        hot_series = is_hot[i, :]
+        cold_series = is_cold[i, :]
+
+        h_count = hot_counts[i]
+        c_count = cold_counts[i]
+
+        is_hot_latest = hot_series[-1]
+        is_cold_latest = cold_series[-1]
+
+        is_hot_all = h_count == T
+        is_cold_all = c_count == T
+
+        trend_sig = mk_p[i] < significance_level
+        trend_inc = kendall_tau[i] > 0
+        trend_dec = kendall_tau[i] < 0
+
+        pct_hot = h_count / T
+        pct_cold = c_count / T
+
+        # Run lengths at end
+        def get_run_length(series: np.ndarray) -> int:
+            run = 0
+            for val in reversed(series):
+                if val:
+                    run += 1
+                else:
+                    break
+            return run
+
+        hot_run = get_run_length(hot_series)
+        cold_run = get_run_length(cold_series)
+
+        # Classification for HOT
+        if is_hot_latest and (pct_hot < 0.5) and not trend_sig:
+            patterns[i] = "new_hot_spot"
+        elif hot_run >= 3 and not is_hot_all and not trend_sig:
+            patterns[i] = "consecutive_hot_spot"
+        elif pct_hot >= 0.9 and trend_sig and trend_inc:
+            patterns[i] = "intensifying_hot_spot"
+        elif pct_hot == 1.0 and not trend_sig:
+            patterns[i] = "persistent_hot_spot"
+        elif pct_hot >= 0.9 and trend_sig and trend_dec:
+            patterns[i] = "diminishing_hot_spot"
+        elif is_hot_latest and (0.25 <= pct_hot <= 0.5) and not trend_sig:
+            patterns[i] = "sporadic_hot_spot"
+        elif is_hot_latest and (c_count > 0):
+            patterns[i] = "oscillating_hot_spot"
+        elif pct_hot >= 0.25 and not is_hot_latest:
+            patterns[i] = "historical_hot_spot"
+
+        # Classification for COLD (only if not already classified as hot spot)
+        if patterns[i] == "no_pattern":
+            if is_cold_latest and (pct_cold < 0.5) and not trend_sig:
+                patterns[i] = "new_cold_spot"
+            elif cold_run >= 3 and not is_cold_all and not trend_sig:
+                patterns[i] = "consecutive_cold_spot"
+            elif pct_cold >= 0.9 and trend_sig and trend_dec:
+                patterns[i] = "intensifying_cold_spot"
+            elif pct_cold == 1.0 and not trend_sig:
+                patterns[i] = "persistent_cold_spot"
+            elif pct_cold >= 0.9 and trend_sig and trend_inc:
+                patterns[i] = "diminishing_cold_spot"
+            elif is_cold_latest and (0.25 <= pct_cold <= 0.5) and not trend_sig:
+                patterns[i] = "sporadic_cold_spot"
+            elif is_cold_latest and (h_count > 0):
+                patterns[i] = "oscillating_cold_spot"
+            elif pct_cold >= 0.25 and not is_cold_latest:
+                patterns[i] = "historical_cold_spot"
+
+    return {
+        "pattern": patterns,
+        "z_scores": z_scores,
+        "p_values_gi": p_values_gi,
+        "mann_kendall_z": mk_z,
+        "mann_kendall_p": mk_p,
+        "kendall_tau": kendall_tau,
+        "hot_spot_count": hot_counts,
+        "cold_spot_count": cold_counts,
     }
