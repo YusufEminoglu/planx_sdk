@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
 import numpy as np
 
@@ -226,4 +227,75 @@ def wildfire_evacuation_encroachment(
         "burn_arrival_time": arrival_time,
         "flame_encroachment_mask": mask,
         "safe_evacuation_buffer_m": buffer_m,
+    }
+
+
+def wildfire_evacuation_front_buffer(
+    ignition_coords: np.ndarray,
+    wind_speed_kmh: float,
+    wind_direction_deg: float,
+    terrain_slope_deg: np.ndarray,
+    time_elapsed_hours: float,
+    buffer_safety_factor: float = 1.5,
+) -> dict[str, Any]:
+    """Simulates dynamic wildfire front expansion and safety buffer zones for evacuation corridors.
+
+    Args:
+        ignition_coords: (2,) or (I, 2) ignition point coordinates.
+        wind_speed_kmh: Wind velocity in km/h (>= 0).
+        wind_direction_deg: Compass direction wind is blowing TO in degrees (0=North,
+            90=East, 180=South, 270=West).
+        terrain_slope_deg: Slope in degrees at ignition sites.
+        time_elapsed_hours: Hours of fire growth (> 0).
+        buffer_safety_factor: Multiplier for safety perimeter (default 1.5).
+
+    Returns:
+        Dict with keys:
+        - forward_rate_of_spread_m_min: float
+        - forward_distance_m: float
+        - flank_distance_m: float
+        - safety_buffer_distance_m: float
+        - fire_ellipse_axes: dict with keys 'semi_major_m', 'semi_minor_m'
+    """
+    ig_arr = np.asarray(ignition_coords, dtype=np.float64)
+    if ig_arr.ndim not in (1, 2) or ig_arr.shape[-1] != 2:
+        raise ValueError("ignition_coords must be of shape (2,) or (I, 2).")
+    slope_arr = np.asarray(terrain_slope_deg, dtype=np.float64)
+
+    if wind_speed_kmh < 0:
+        raise ValueError("wind_speed_kmh must be non-negative.")
+    if time_elapsed_hours <= 0:
+        raise ValueError("time_elapsed_hours must be greater than 0.")
+    if not (0 <= wind_direction_deg < 360):
+        raise ValueError("wind_direction_deg must be in [0, 360).")
+    if buffer_safety_factor <= 0:
+        raise ValueError("buffer_safety_factor must be positive.")
+
+    # Convert slope to float (taking max slope if an array is passed)
+    slope_val = float(np.max(slope_arr))
+
+    # Base ROS
+    r_0 = 0.5 + 0.1 * wind_speed_kmh
+    # Slope multiplier
+    phi_s = 1.0 + 0.05 * math.tan(math.radians(slope_val))
+    # Forward ROS
+    r_forward = r_0 * phi_s * (1.0 + 0.02 * wind_speed_kmh)
+
+    r_flank = r_forward * 0.4
+    r_back = r_forward * 0.1
+
+    d_forward = r_forward * 60.0 * time_elapsed_hours
+    d_flank = r_flank * 60.0 * time_elapsed_hours
+    d_back = r_back * 60.0 * time_elapsed_hours
+    d_buffer = d_forward * buffer_safety_factor
+
+    return {
+        "forward_rate_of_spread_m_min": float(r_forward),
+        "forward_distance_m": float(d_forward),
+        "flank_distance_m": float(d_flank),
+        "safety_buffer_distance_m": float(d_buffer),
+        "fire_ellipse_axes": {
+            "semi_major_m": float((d_forward + d_back) / 2.0),
+            "semi_minor_m": float(d_flank),
+        },
     }

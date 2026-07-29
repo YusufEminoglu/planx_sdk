@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0] - 2026-07-29
+### Added
+- **Spatial Panel Probit Model** (`fit_spatial_probit_panel`) in `planx.geostats` for binary outcome (0/1) spatio-temporal panel data regression using Probit GLM latent variable approximation and 2SLS Spatial Lag parameter estimation.
+- **Parking Spatial Mismatch Index** (`parking_spatial_mismatch_index`) in `planx.spatial.accessibility` evaluating urban parking supply-demand spatial mismatch ratios, walking threshold distance decay, and deficit/surplus zone Gini equity.
+- **Wildfire Evacuation Front & Buffer Simulator** (`wildfire_evacuation_front_buffer`) in `planx.resilience.wildfire` using Rothermel Rate of Spread (ROS) formulas with wind and slope multipliers for dynamic fire front expansion and safety perimeter buffers.
+- **Structural Earthquake Debris & Road Blockage Simulator** (`seismic_road_blockage_simulation`) in `planx.resilience.seismic` modeling building collapse debris projection onto street right-of-ways and street blockage probabilities for disaster response corridors.
+
+---
+
 ## [1.7.0] - 2026-07-29
 ### Added
 - **Spatial Panel SARMA Model** (`fit_spatial_sarma_panel`) in `planx.geostats` for joint Spatial Lag + Spatial Error panel data regression using 2SLS stage 1 lag parameter estimation and GS2SLS stage 2 error transformation.
