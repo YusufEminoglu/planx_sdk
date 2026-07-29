@@ -190,3 +190,51 @@ def test_network_voronoi_allocation_validation():
 
     with pytest.raises(ValueError):
         network_voronoi_allocation(adj, fac, impedance_cutoff=-5.0)
+
+
+def test_healthcare_equity_index_basic():
+    from planx.spatial.accessibility import healthcare_equity_index
+
+    demand = np.array([[0.0, 0.0], [0.0, 1000.0]])
+    facs = np.array([[0.0, 500.0]])
+    caps = np.array([100.0])
+    pops = np.array([[50.0, 50.0], [20.0, 80.0]])
+    weights = np.array([1.0, 2.0])
+
+    res = healthcare_equity_index(demand, facs, caps, pops, weights, 2000.0)
+
+    assert "accessibility_scores" in res
+    assert "weighted_accessibility" in res
+    assert "gini_coefficient" in res
+    assert "group_accessibility_mean" in res
+    assert "group_deficit" in res
+    assert "equity_index" in res
+
+    np.testing.assert_allclose(res["accessibility_scores"], [0.5, 0.5])
+    assert res["gini_coefficient"] == 0.0
+    assert res["equity_index"] == 1.0
+
+
+def test_healthcare_equity_index_validation():
+    from planx.spatial.accessibility import healthcare_equity_index
+
+    demand = np.array([[0.0, 0.0]])
+    facs = np.array([[0.0, 500.0]])
+    caps = np.array([100.0])
+    pops = np.array([[50.0, 50.0]])
+    weights = np.array([1.0, 2.0])
+
+    with pytest.raises(ValueError, match="demand_coords must be of shape"):
+        healthcare_equity_index(np.array([0.0, 0.0]), facs, caps, pops, weights)
+
+    with pytest.raises(ValueError, match="facility_coords must be of shape"):
+        healthcare_equity_index(demand, np.array([0.0]), caps, pops, weights)
+
+    with pytest.raises(ValueError, match="facility_capacities must be positive"):
+        healthcare_equity_index(demand, facs, np.array([-10.0]), pops, weights)
+
+    with pytest.raises(ValueError, match="population_groups must be of shape"):
+        healthcare_equity_index(demand, facs, caps, np.array([50.0, 50.0]), weights)
+
+    with pytest.raises(ValueError, match="catchment_distance must be positive"):
+        healthcare_equity_index(demand, facs, caps, pops, weights, catchment_distance=-10.0)

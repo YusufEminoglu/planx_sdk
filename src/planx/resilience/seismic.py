@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -142,4 +142,94 @@ def earthquake_building_collapse_casualty(
         "expected_collapsed_buildings": exp_collapsed,
         "estimated_fatalities": fatalities,
         "estimated_injuries": injuries,
+    }
+
+
+def seismic_damage_loss_curve(
+    pga_values_g: np.ndarray,
+    building_counts: np.ndarray,
+    replacement_values: np.ndarray,
+    building_type: str = "c2_medium",
+) -> dict[str, Any]:
+    """Computes Hazus-compatible lognormal building damage state probabilities and loss curves.
+
+    Args:
+        pga_values_g: NumPy array of shape (P,) of PGA ground shaking values in g
+            (e.g. 0.05 to 1.5g).
+        building_counts: NumPy array of shape (N,) of number of buildings per asset class / region.
+        replacement_values: NumPy array of shape (N,) of replacement cost ($) per asset class
+            / region.
+        building_type: Structural type key (e.g. 'c2_medium', 'w1', 'rm1', 's1', 'urm').
+
+    Returns:
+        Dict containing:
+          - pga_values: (P,) copy of input PGA values
+          - damage_state_probabilities: (P, 5) array of [None, Slight, Moderate, Extensive,
+            Complete] probabilities
+          - expected_loss_ratio: (P,) array of expected building loss ratio [0, 1]
+          - total_economic_loss: (P,) array of total monetary losses ($)
+          - building_collapse_count: (P,) expected count of collapsed buildings (Complete DS *
+            building_counts)
+    """
+    pga_values = np.asarray(pga_values_g, dtype=np.float64)
+    counts = np.asarray(building_counts, dtype=np.float64)
+    values = np.asarray(replacement_values, dtype=np.float64)
+
+    if np.any(pga_values < 0):
+        raise ValueError("PGA values cannot be negative.")
+    if np.any(counts < 0) or np.any(values < 0):
+        raise ValueError("Building counts and replacement values cannot be negative.")
+
+    params = {
+        "w1": ([0.15, 0.25, 0.40, 0.70], 0.60),
+        "c2_medium": ([0.20, 0.35, 0.60, 0.90], 0.64),
+        "s1": ([0.22, 0.38, 0.65, 0.95], 0.62),
+        "rm1": ([0.18, 0.30, 0.50, 0.80], 0.65),
+        "urm": ([0.10, 0.18, 0.32, 0.55], 0.70),
+    }
+
+    if building_type not in params:
+        raise ValueError(f"Unknown building_type: {building_type}")
+
+    medians, beta = params[building_type]
+
+    import scipy.stats as stats
+
+    # Safe log of PGA to avoid log(0)
+    pga_safe = np.where(pga_values > 0, pga_values, 1e-10)
+    ln_pga = np.log(pga_safe)
+
+    # Compute P(DS >= ds | PGA)
+    p_ds = np.zeros((len(pga_values), 4), dtype=np.float64)
+    for i, median in enumerate(medians):
+        p_ds[:, i] = stats.norm.cdf((ln_pga - np.log(median)) / beta)
+
+    # If PGA was 0, probabilities should be 0
+    p_ds[pga_values == 0, :] = 0.0
+
+    p_complete = p_ds[:, 3]
+    p_extensive = p_ds[:, 2] - p_ds[:, 3]
+    p_moderate = p_ds[:, 1] - p_ds[:, 2]
+    p_slight = p_ds[:, 0] - p_ds[:, 1]
+    p_none = 1.0 - p_ds[:, 0]
+
+    damage_state_probabilities = np.column_stack(
+        (p_none, p_slight, p_moderate, p_extensive, p_complete)
+    )
+
+    damage_ratios = np.array([0.0, 0.02, 0.10, 0.50, 1.00], dtype=np.float64)
+    expected_loss_ratio = np.sum(damage_state_probabilities * damage_ratios, axis=1)
+
+    total_asset_value = np.sum(counts * values)
+    total_economic_loss = expected_loss_ratio * total_asset_value
+
+    total_buildings = np.sum(counts)
+    building_collapse_count = p_complete * total_buildings
+
+    return {
+        "pga_values": pga_values.copy(),
+        "damage_state_probabilities": damage_state_probabilities,
+        "expected_loss_ratio": expected_loss_ratio,
+        "total_economic_loss": total_economic_loss,
+        "building_collapse_count": building_collapse_count,
     }
