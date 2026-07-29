@@ -52,7 +52,7 @@ from .seismic import (
     seismic_road_blockage_simulation,
     simulate_seismic_debris,
 )
-from .social import social_vulnerability_index
+from .social import social_vulnerability_index, urban_energy_vulnerability_index
 from .synthesis import compound_hazard_cascade, equity_adjusted_priority, multi_hazard_composite
 from .wildfire import (
     wildfire_evacuation_encroachment,
@@ -105,4 +105,5 @@ __all__ = [
     "calculate_building_solar_radiation",
     "urban_heat_vulnerability_index",
     "stormwater_retention_basin_design",
+    "urban_energy_vulnerability_index",
 ]

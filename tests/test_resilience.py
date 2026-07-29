@@ -798,6 +798,7 @@ def test_pluvial_flood_susceptibility_edge_cases():
     # Uniform elevation -> elev_range <= 0 fallback
     dem_uniform = np.full((3, 3), 5.0)
     scores_u, _ = pluvial_flood_susceptibility(dem_uniform, cell_size=10.0)
+
     assert np.all(np.isfinite(scores_u))
 
     # All weights zero -> weight_sum <= 0 fallback

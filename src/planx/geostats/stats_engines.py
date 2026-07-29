@@ -9,7 +9,8 @@ import math
 from typing import Any, Optional, cast
 
 import numpy as np
-from scipy import stats
+from scipy import sparse, stats
+from scipy.optimize import linprog
 
 logger = logging.getLogger("PlanX GeoStats Lab")
 
@@ -3923,4 +3924,125 @@ def fit_spatial_probit_panel(
         "log_likelihood": ll_full,
         "classification_accuracy": accuracy,
         "predicted_probabilities": prob_pred,
+    }
+
+
+def fit_spatial_quantile_panel(
+    dependent_var: np.ndarray,
+    independent_vars: np.ndarray,
+    weights_matrix: np.ndarray,
+    time_periods: int,
+    quantile: float = 0.5,
+) -> dict[str, Any]:
+    """Fits a Spatial Panel Autoregressive Quantile Regression model.
+
+    Args:
+        dependent_var: 1D or 2D array of dependent variables, shape (N*T,) or (N, T).
+        independent_vars: 2D array of K regressors, shape (N*T, K).
+        weights_matrix: 2D spatial weights matrix (row-standardized), shape (N, N).
+        time_periods: Number of time periods (T >= 2).
+        quantile: Quantile to fit, strictly between 0 and 1. Default is 0.5 (median).
+
+    Returns:
+        A dictionary containing:
+            - 'coefficients': (K,) array of fitted regression coefficients.
+            - 'spatial_rho': Spatial lag coefficient (float).
+            - 'quantile': The fitted quantile (float).
+            - 'pinball_loss': Sum of the pinball loss (float).
+            - 'pseudo_r_squared': Pseudo R-squared (float).
+            - 'residuals': (N*T,) array of residuals.
+    """
+    if not (0.0 < quantile < 1.0):
+        raise ValueError("Quantile must be strictly between 0 and 1.")
+
+    if time_periods < 2:
+        raise ValueError("time_periods must be >= 2.")
+
+    y = np.asarray(dependent_var, dtype=np.float64).ravel()
+    X = np.asarray(independent_vars, dtype=np.float64)
+    W = np.asarray(weights_matrix, dtype=np.float64)
+
+    n = W.shape[0]
+    if n < 3:
+        raise ValueError("Number of spatial units must be >= 3.")
+
+    if W.shape != (n, n):
+        raise ValueError("weights_matrix must be a square (N, N) array.")
+
+    if len(y) != n * time_periods:
+        raise ValueError("Length of dependent_var must equal N * T.")
+
+    if X.ndim != 2:
+        raise ValueError("independent_vars must be a 2D array.")
+
+    if X.shape[0] != n * time_periods:
+        raise ValueError("Number of rows in independent_vars must equal N * T.")
+
+    # W_full = I_T \otimes W_spatial
+    W_full = np.kron(np.eye(time_periods), W)
+
+    Wy = W_full @ y
+
+    # Instruments Z = [X, W_full @ X, W_full^2 @ X]
+    WX = W_full @ X
+    WWX = W_full @ WX
+    Z = np.hstack((X, WX, WWX))
+
+    # 2SLS fitted Wy_hat = Z @ pinv(Z) @ Wy
+    beta_z, _, _, _ = np.linalg.lstsq(Z, Wy, rcond=None)
+    Wy_hat = Z @ beta_z
+
+    # Quantile Regression of y on [X, Wy_hat]
+    X_aug = np.hstack((X, Wy_hat.reshape(-1, 1)))
+    n_obs, p = X_aug.shape
+
+    # Linear programming formulation for quantile regression
+    c = np.concatenate([np.zeros(p), quantile * np.ones(n_obs), (1 - quantile) * np.ones(n_obs)])
+    A_eq = sparse.hstack([X_aug, sparse.eye(n_obs), -sparse.eye(n_obs)])
+    b_eq = y
+
+    # Variables: beta (unbounded), u+ (>=0), u- (>=0)
+    bounds = [(None, None)] * p + [(0, None)] * (2 * n_obs)
+
+    try:
+        res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method="highs")
+    except Exception as e:
+        logger.error("Optimization failed in fit_spatial_quantile_panel: %s", e)
+        raise ValueError(f"Quantile regression optimization failed: {e}") from e
+
+    if not res.success:
+        raise ValueError(f"Quantile regression optimization failed: {res.message}")
+
+    params = res.x[:p]
+    beta_tau = params[:-1]
+    rho_tau = float(params[-1])
+
+    # Residuals and Pinball Loss
+    fitted_vals = X_aug @ params
+    residuals = y - fitted_vals
+
+    pinball_loss = float(
+        np.sum(np.where(residuals >= 0, quantile * residuals, (quantile - 1) * residuals))
+    )
+
+    # Null model: y = alpha
+    y_tau = float(np.quantile(y, quantile))
+    null_residuals = y - y_tau
+    pinball_loss_null = float(
+        np.sum(
+            np.where(
+                null_residuals >= 0, quantile * null_residuals, (quantile - 1) * null_residuals
+            )
+        )
+    )
+
+    pseudo_r2 = 1.0 - (pinball_loss / pinball_loss_null) if pinball_loss_null > 0 else 0.0
+
+    return {
+        "coefficients": beta_tau,
+        "spatial_rho": rho_tau,
+        "quantile": float(quantile),
+        "pinball_loss": pinball_loss,
+        "pseudo_r_squared": float(pseudo_r2),
+        "residuals": residuals,
     }

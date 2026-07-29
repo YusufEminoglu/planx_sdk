@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0] - 2026-07-29
+### Added
+- **Spatial Panel Quantile Regression Engine** (`fit_spatial_quantile_panel`) in `planx.geostats` for quantile-specific spatio-temporal panel data regression using 2SLS instrumental variable stage 1 and HiGHS linear programming pinball loss minimization stage 2.
+- **Urban Energy Vulnerability & Fuel Poverty Index** (`urban_energy_vulnerability_index`) in `planx.resilience.social` evaluating neighborhood fuel poverty risks, building efficiency burdens, income inelasticity, and climate temperature exposure.
+- **Transit-Oriented Development (TOD) Node Evaluation Engine** (`evaluate_tod_node_suitability`) in `planx.suitability.facility` for multi-criteria 5D TOD node assessment across density, diversity, design, transit frequency, and parking supply penalty factors.
+- **Microclimate Pedestrian Heat Route Optimizer** (`microclimate_pedestrian_route_optimizer`) in `planx.spatial.walkability` evaluating heatwave-resilient pedestrian paths using tree canopy shade ratios, Land Surface Temperature (LST) discomfort multipliers, and Dijkstra shortest path routing.
+
+---
+
 ## [1.8.0] - 2026-07-29
 ### Added
 - **Spatial Panel Probit Model** (`fit_spatial_probit_panel`) in `planx.geostats` for binary outcome (0/1) spatio-temporal panel data regression using Probit GLM latent variable approximation and 2SLS Spatial Lag parameter estimation.

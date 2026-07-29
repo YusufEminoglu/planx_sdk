@@ -17,6 +17,7 @@ from planx.suitability import (
     electre_i_method,
     electre_iii_method,
     entropy_weights,
+    evaluate_tod_node_suitability,
     fucom_weights,
     fuzzy_ahp_weights,
     greedy_lscp,
@@ -1136,3 +1137,57 @@ def test_edas_method_cost_criteria():
 
     assert len(scores) == 3
     assert ranks[0] == 1  # alt 0 has highest benefit, lowest cost
+
+
+def test_evaluate_tod_node_suitability():
+    freq = np.array([10.0, 50.0, 100.0])
+    density = np.array([20.0, 100.0, 200.0])
+    entropy = np.array([0.2, 0.5, 0.8])
+    walk = np.array([30.0, 60.0, 90.0])
+    parking = np.array([0.5, 0.2, 0.1])
+
+    res = evaluate_tod_node_suitability(
+        station_transit_frequency=freq,
+        surrounding_population_density=density,
+        land_use_mix_entropy=entropy,
+        walkability_pedestrian_score=walk,
+        parking_supply_ratio=parking,
+    )
+
+    assert "tod_scores" in res
+    assert "tier_1_count" in res
+    assert "tier_2_count" in res
+    assert "tier_3_count" in res
+    assert "tod_ranking" in res
+
+    assert res["tod_scores"].shape == (3,)
+    assert len(res["tod_ranking"]) == 3
+
+    # rank 1 should be the 3rd element as it has highest freq, density, entropy, walk
+    assert res["tod_ranking"][2] == 1
+
+    # Error checking
+    with pytest.raises(ValueError, match="must be > 0"):
+        evaluate_tod_node_suitability(
+            np.array([0.0]), np.array([1.0]), np.array([0.5]), np.array([50.0]), np.array([0.2])
+        )
+
+    with pytest.raises(ValueError, match="must be > 0"):
+        evaluate_tod_node_suitability(
+            np.array([1.0]), np.array([0.0]), np.array([0.5]), np.array([50.0]), np.array([0.2])
+        )
+
+    with pytest.raises(ValueError, match="must be in"):
+        evaluate_tod_node_suitability(
+            np.array([1.0]), np.array([1.0]), np.array([1.5]), np.array([50.0]), np.array([0.2])
+        )
+
+    with pytest.raises(ValueError, match="must be in"):
+        evaluate_tod_node_suitability(
+            np.array([1.0]), np.array([1.0]), np.array([0.5]), np.array([150.0]), np.array([0.2])
+        )
+
+    with pytest.raises(ValueError, match="must be a 1D array"):
+        evaluate_tod_node_suitability(
+            np.array([[1.0]]), np.array([1.0]), np.array([0.5]), np.array([50.0]), np.array([0.2])
+        )
