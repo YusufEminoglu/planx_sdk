@@ -15,6 +15,7 @@ from .accessibility import (
     service_area_coverage,
     spatial_equity_gini,
     three_step_2sfca,
+    transit_frequency_accessibility,
 )
 from .centrality import (
     angular_segment_centrality,
@@ -84,4 +85,5 @@ __all__ = [
     "cul_de_sac_isolation_index",
     "street_orientation_rose_spectrum",
     "pedestrian_level_of_service",
+    "transit_frequency_accessibility",
 ]

@@ -24,6 +24,7 @@ from planx.resilience import (
     optimize_canopy_placement,
     pluvial_flood_susceptibility,
     prioritize_debris_clearance,
+    scs_unit_hydrograph,
     simulate_interdependent_infrastructure_cascade,
     simulate_network_disruption,
     simulate_seismic_debris,
@@ -1435,3 +1436,65 @@ def test_detention_basin_sizing():
 
     with pytest.raises(ValueError, match="cn_post"):
         detention_basin_sizing(5.0, 65.0, 101.0, 80.0)
+
+
+def test_scs_unit_hydrograph():
+    # 1. Normal run with positive runoff
+    res = scs_unit_hydrograph(
+        watershed_area_km2=10.0,
+        curve_number=75.0,
+        rainfall_mm=100.0,
+        storm_duration_hr=6.0,
+        time_of_concentration_hr=2.5,
+        dt_minutes=5.0,
+    )
+
+    assert "time_minutes" in res
+    assert "discharge_m3s" in res
+    assert "peak_discharge_m3s" in res
+    assert "total_volume_m3" in res
+    assert res["peak_discharge_m3s"] > 0.0
+    assert res["total_runoff_mm"] > 0.0
+    assert res["total_volume_m3"] > 0.0
+
+    # Discharge should start at 0, rise to a peak, and fall to 0
+    q = res["discharge_m3s"]
+    assert np.isclose(q[0], 0.0)
+    assert np.isclose(q[-1], 0.0)
+    assert np.isclose(np.max(q), res["peak_discharge_m3s"], rtol=0.05)
+
+    # 2. No runoff case (rainfall <= initial abstraction)
+    # For CN=75, S = 25400/75 - 254 = 84.66 mm
+    # Ia = 0.2 * S = 16.93 mm
+    res_no_runoff = scs_unit_hydrograph(
+        watershed_area_km2=10.0,
+        curve_number=75.0,
+        rainfall_mm=10.0,  # less than 16.93
+        storm_duration_hr=6.0,
+        time_of_concentration_hr=2.5,
+    )
+    assert np.isclose(res_no_runoff["total_runoff_mm"], 0.0)
+    assert np.isclose(res_no_runoff["peak_discharge_m3s"], 0.0)
+    assert np.allclose(res_no_runoff["discharge_m3s"], 0.0)
+
+    # 3. Validation errors
+    with pytest.raises(ValueError, match="watershed_area_km2"):
+        scs_unit_hydrograph(-5.0, 75.0, 100.0, 6.0, 2.5)
+
+    with pytest.raises(ValueError, match="curve_number"):
+        scs_unit_hydrograph(10.0, 150.0, 100.0, 6.0, 2.5)
+
+    with pytest.raises(ValueError, match="rainfall_mm"):
+        scs_unit_hydrograph(10.0, 75.0, -10.0, 6.0, 2.5)
+
+    with pytest.raises(ValueError, match="storm_duration_hr"):
+        scs_unit_hydrograph(10.0, 75.0, 100.0, 0.0, 2.5)
+
+    with pytest.raises(ValueError, match="time_of_concentration_hr"):
+        scs_unit_hydrograph(10.0, 75.0, 100.0, 6.0, 0.0)
+
+    with pytest.raises(ValueError, match="dt_minutes"):
+        scs_unit_hydrograph(10.0, 75.0, 100.0, 6.0, 2.5, dt_minutes=-5.0)
+
+    with pytest.raises(ValueError, match="peak_rate_factor"):
+        scs_unit_hydrograph(10.0, 75.0, 100.0, 6.0, 2.5, peak_rate_factor=0.0)
