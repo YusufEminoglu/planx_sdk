@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-07-29
+### Added
+- **Emerging Hot Spot Analysis** (`emerging_hotspot_analysis`) in `planx.geostats` for spatio-temporal trend detection combining Getis-Ord Gi* hot spot z-scores with Mann-Kendall trend testing to classify 17 space-time patterns (new, consecutive, intensifying, persistent, diminishing, sporadic, oscillating, historical hot/cold spots).
+- **Fuzzy TOPSIS MCDA Method** (`fuzzy_topsis_method`) in `planx.suitability.mcda` for Triangular Fuzzy Number (TFN) extension of TOPSIS handling linguistic/uncertain evaluations with fuzzy normalization, weighted vertex distance to FPIS/FNIS, and closeness coefficient ranking.
+- **Public Transit Frequency Accessibility Index** (`transit_frequency_accessibility`) in `planx.spatial.accessibility` for gravity-model transit accessibility combining stop proximity distance decay (Gaussian/exponential/linear), service headway frequency scoring, and route diversity weighting.
+- **SCS Unit Hydrograph** (`scs_unit_hydrograph`) in `planx.resilience.flood` for NRCS dimensionless unit hydrograph storm runoff routing with SCS Curve Number excess rainfall, triangular peak discharge, and time-interpolated discharge hydrograph generation.
+
+---
+
 ## [1.2.0] - 2026-07-28
 ### Added
 - **Geographically Weighted PCA (GWPCA)** (`calculate_gwpca`) in `planx.geostats` for spatially varying Principal Components Analysis with local eigenvalue decomposition and kernel-weighted covariance matrices.

@@ -977,3 +977,154 @@ def edas_method(
     rank_order[ranks] = np.arange(1, m + 1)
 
     return appraisal, rank_order
+
+
+def fuzzy_topsis_method(
+    decision_matrix_l: np.ndarray,
+    decision_matrix_m: np.ndarray,
+    decision_matrix_u: np.ndarray,
+    weights_l: np.ndarray,
+    weights_m: np.ndarray,
+    weights_u: np.ndarray,
+    criteria_types: np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Calculates suitability ranking scores using the Fuzzy TOPSIS method.
+
+    Fuzzy TOPSIS handles uncertainty in decision making by using Triangular Fuzzy Numbers (TFN).
+
+    Args:
+        decision_matrix_l: (M, N) array of lower bounds of TFNs for M alternatives, N criteria.
+        decision_matrix_m: (M, N) array of middle bounds.
+        decision_matrix_u: (M, N) array of upper bounds.
+        weights_l: (N,) array of lower bounds for criteria weights.
+        weights_m: (N,) array of middle bounds.
+        weights_u: (N,) array of upper bounds.
+        criteria_types: (N,) array indicating benefit (1) or cost (-1) criteria.
+
+    Returns:
+        Dict containing:
+            - closeness_coefficients: (M,) array of CC values
+            - ranking: (M,) array of 1-based ranks (1=best)
+            - distance_positive: (M,) distances to FPIS
+            - distance_negative: (M,) distances to FNIS
+            - weighted_matrix_l: (M, N) weighted lower bounds
+            - weighted_matrix_m: (M, N) weighted middle bounds
+            - weighted_matrix_u: (M, N) weighted upper bounds
+    """
+    l_mat = np.asarray(decision_matrix_l, dtype=np.float64)
+    m_mat = np.asarray(decision_matrix_m, dtype=np.float64)
+    u_mat = np.asarray(decision_matrix_u, dtype=np.float64)
+
+    wl = np.asarray(weights_l, dtype=np.float64)
+    wm = np.asarray(weights_m, dtype=np.float64)
+    wu = np.asarray(weights_u, dtype=np.float64)
+
+    ctype = np.asarray(criteria_types, dtype=np.int64)
+
+    # Validation
+    if l_mat.ndim != 2 or m_mat.ndim != 2 or u_mat.ndim != 2:
+        raise ValueError("Decision matrices must be 2-dimensional.")
+    if l_mat.shape != m_mat.shape or m_mat.shape != u_mat.shape:
+        raise ValueError("Decision matrices must have the same shape.")
+
+    n_alt, n_crit = l_mat.shape
+    if n_alt == 0 or n_crit == 0:
+        raise ValueError("Matrices must have >0 rows and >0 columns.")
+
+    if wl.shape != (n_crit,) or wm.shape != (n_crit,) or wu.shape != (n_crit,):
+        raise ValueError("Weight arrays must have length equal to the number of criteria.")
+
+    if ctype.shape != (n_crit,):
+        raise ValueError("criteria_types length must match number of criteria.")
+
+    if not np.all(np.isin(ctype, [1, -1])):
+        raise ValueError("criteria_types must contain only 1 (benefit) or -1 (cost).")
+
+    if not np.all((wl <= wm) & (wm <= wu)):
+        raise ValueError("Weight arrays must satisfy l <= m <= u.")
+
+    if not np.all((wl >= 0) & (wm >= 0) & (wu >= 0)):
+        raise ValueError("Weight values must be non-negative.")
+
+    if not np.all((l_mat <= m_mat) & (m_mat <= u_mat)):
+        raise ValueError("Decision matrices must satisfy l <= m <= u.")
+
+    cost_mask = ctype == -1
+    if np.any(cost_mask):
+        if (
+            np.any(l_mat[:, cost_mask] == 0)
+            or np.any(m_mat[:, cost_mask] == 0)
+            or np.any(u_mat[:, cost_mask] == 0)
+        ):
+            raise ValueError("Cost criteria cannot have zero values (division by zero).")
+
+    # 2. Fuzzy Normalization
+    r_l = np.zeros_like(l_mat)
+    r_m = np.zeros_like(m_mat)
+    r_u = np.zeros_like(u_mat)
+
+    for j in range(n_crit):
+        if ctype[j] == 1:
+            max_u = max(np.max(u_mat[:, j]), 1e-12)
+            r_l[:, j] = l_mat[:, j] / max_u
+            r_m[:, j] = m_mat[:, j] / max_u
+            r_u[:, j] = u_mat[:, j] / max_u
+        else:
+            min_l = np.min(l_mat[:, j])
+            r_l[:, j] = min_l / u_mat[:, j]
+            r_m[:, j] = min_l / m_mat[:, j]
+            r_u[:, j] = min_l / l_mat[:, j]
+
+    # 3. Weighted Fuzzy Matrix
+    v_l = r_l * wl[None, :]
+    v_m = r_m * wm[None, :]
+    v_u = r_u * wu[None, :]
+
+    # 4. FPIS and FNIS
+    A_plus_l = np.max(v_l, axis=0)
+    A_plus_m = np.max(v_m, axis=0)
+    A_plus_u = np.max(v_u, axis=0)
+
+    A_minus_l = np.min(v_l, axis=0)
+    A_minus_m = np.min(v_m, axis=0)
+    A_minus_u = np.min(v_u, axis=0)
+
+    # 5. Distance Calculation
+    d_plus = np.zeros(n_alt)
+    d_minus = np.zeros(n_alt)
+
+    for i in range(n_alt):
+        dist_p = np.sqrt(
+            1.0
+            / 3.0
+            * ((v_l[i] - A_plus_l) ** 2 + (v_m[i] - A_plus_m) ** 2 + (v_u[i] - A_plus_u) ** 2)
+        )
+        d_plus[i] = np.sum(dist_p)
+
+        dist_m = np.sqrt(
+            1.0
+            / 3.0
+            * ((v_l[i] - A_minus_l) ** 2 + (v_m[i] - A_minus_m) ** 2 + (v_u[i] - A_minus_u) ** 2)
+        )
+        d_minus[i] = np.sum(dist_m)
+
+    # 6. Closeness Coefficient
+    denom = d_plus + d_minus
+    cc = np.zeros(n_alt)
+    mask = denom > 0
+    cc[mask] = d_minus[mask] / denom[mask]
+
+    # 7. Ranking
+    ranks = np.argsort(-cc)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, n_alt + 1)
+
+    return {
+        "closeness_coefficients": cc,
+        "ranking": rank_order,
+        "distance_positive": d_plus,
+        "distance_negative": d_minus,
+        "weighted_matrix_l": v_l,
+        "weighted_matrix_m": v_m,
+        "weighted_matrix_u": v_u,
+    }

@@ -493,3 +493,169 @@ def detention_basin_sizing(
         "detention_volume_m3": round(volume_m3, 2),
         "peak_inflow_m3_s": round(peak_inflow, 6),
     }
+
+
+def scs_unit_hydrograph(
+    watershed_area_km2: float,
+    curve_number: float,
+    rainfall_mm: float,
+    storm_duration_hr: float,
+    time_of_concentration_hr: float,
+    dt_minutes: float = 5.0,
+    peak_rate_factor: float = 484.0,
+) -> dict:
+    """Calculates the SCS Unit Hydrograph for storm runoff routing.
+
+    Args:
+        watershed_area_km2: Watershed area in square kilometers.
+        curve_number: SCS Curve Number (30 to 100).
+        rainfall_mm: Total rainfall depth in millimeters.
+        storm_duration_hr: Duration of the storm event in hours.
+        time_of_concentration_hr: Time of concentration in hours.
+        dt_minutes: Time step for the hydrograph in minutes (default 5.0).
+        peak_rate_factor: Peak rate factor (default 484.0).
+
+    Returns:
+        Dict containing:
+          - time_minutes: 1D NumPy array of time steps in minutes.
+          - discharge_m3s: 1D NumPy array of discharge at each time step in m^3/s.
+          - peak_discharge_m3s: Float peak discharge in m^3/s.
+          - time_to_peak_hr: Float time to peak in hours.
+          - total_runoff_mm: Float total runoff depth in mm.
+          - total_volume_m3: Float total runoff volume in m^3.
+          - lag_time_hr: Float lag time in hours.
+          - retention_mm: Float potential maximum retention in mm.
+    """
+    if watershed_area_km2 <= 0:
+        raise ValueError("watershed_area_km2 must be positive.")
+    if not (30.0 <= curve_number <= 100.0):
+        raise ValueError("curve_number must be between 30 and 100.")
+    if rainfall_mm < 0:
+        raise ValueError("rainfall_mm must be non-negative.")
+    if storm_duration_hr <= 0:
+        raise ValueError("storm_duration_hr must be positive.")
+    if time_of_concentration_hr <= 0:
+        raise ValueError("time_of_concentration_hr must be positive.")
+    if dt_minutes <= 0:
+        raise ValueError("dt_minutes must be positive.")
+    if peak_rate_factor <= 0:
+        raise ValueError("peak_rate_factor must be positive.")
+
+    # 2. Potential Maximum Retention
+    s_retention = (25400.0 / curve_number) - 254.0
+
+    # 3. Excess Rainfall (SCS CN Method)
+    ia = 0.2 * s_retention
+    if rainfall_mm <= ia:
+        q_total = 0.0
+    else:
+        q_total = ((rainfall_mm - ia) ** 2) / (rainfall_mm - ia + s_retention)
+
+    # 4. Time Parameters
+    t_lag = 0.6 * time_of_concentration_hr
+    dt_hr = dt_minutes / 60.0
+    tp = (dt_hr / 2.0) + t_lag
+
+    # 5. Peak Discharge
+    qp = (peak_rate_factor / 484.0) * 0.208 * watershed_area_km2 * q_total / tp
+
+    # 6. SCS Dimensionless Unit Hydrograph Ordinates
+    t_ratio = np.array(
+        [
+            0.0,
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+            1.0,
+            1.1,
+            1.2,
+            1.3,
+            1.4,
+            1.5,
+            1.6,
+            1.7,
+            1.8,
+            1.9,
+            2.0,
+            2.2,
+            2.4,
+            2.6,
+            2.8,
+            3.0,
+            3.2,
+            3.4,
+            3.6,
+            3.8,
+            4.0,
+            4.5,
+            5.0,
+        ],
+        dtype=np.float64,
+    )
+
+    q_ratio = np.array(
+        [
+            0.000,
+            0.030,
+            0.100,
+            0.190,
+            0.310,
+            0.470,
+            0.660,
+            0.820,
+            0.930,
+            0.990,
+            1.000,
+            0.990,
+            0.930,
+            0.860,
+            0.780,
+            0.680,
+            0.560,
+            0.460,
+            0.390,
+            0.330,
+            0.280,
+            0.207,
+            0.147,
+            0.107,
+            0.077,
+            0.055,
+            0.040,
+            0.029,
+            0.021,
+            0.015,
+            0.011,
+            0.005,
+            0.000,
+        ],
+        dtype=np.float64,
+    )
+
+    # 7. Hydrograph Generation
+    t_max_min = 5.0 * tp * 60.0
+    time_minutes = np.arange(0.0, t_max_min + dt_minutes * 0.5, dt_minutes)
+
+    t_over_tp = (time_minutes / 60.0) / tp
+
+    q_interp = np.interp(t_over_tp, t_ratio, q_ratio, left=0.0, right=0.0)
+    discharge_m3s = q_interp * qp
+
+    total_volume_m3 = q_total * watershed_area_km2 * 1000.0
+
+    return {
+        "time_minutes": time_minutes,
+        "discharge_m3s": discharge_m3s,
+        "peak_discharge_m3s": float(qp),
+        "time_to_peak_hr": float(tp),
+        "total_runoff_mm": float(q_total),
+        "total_volume_m3": float(total_volume_m3),
+        "lag_time_hr": float(t_lag),
+        "retention_mm": float(s_retention),
+    }
