@@ -513,8 +513,8 @@ def simulate_interdependent_infrastructure_cascade(
 
         for p_idx in list(failed_p):
             dependent_w_nodes = np.where(dep[p_idx, :] > 0)[0]
-            for w_idx in dependent_w_nodes:
-                failed_w.add(int(w_idx))
+            for dep_w_idx in dependent_w_nodes:
+                failed_w.add(int(dep_w_idx))
 
         for w_idx in range(nw_nodes):
             if w_idx not in failed_w:
