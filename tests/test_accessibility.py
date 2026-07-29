@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
+from scipy.sparse import csr_matrix
 
-from planx.spatial.accessibility import transit_frequency_accessibility
+from planx.spatial.accessibility import (
+    network_voronoi_allocation,
+    transit_frequency_accessibility,
+)
 
 
 def test_transit_frequency_accessibility_basic():
@@ -119,3 +123,70 @@ def test_transit_frequency_accessibility_validation():
 
     with pytest.raises(ValueError):
         transit_frequency_accessibility(demand, stops, headways, routes, decay_function="unknown")
+
+
+def test_network_voronoi_allocation_basic():
+    # 3-node linear graph: 0 --(10)-- 1 --(5)-- 2
+    adj = np.array([[0, 10, 0], [10, 0, 5], [0, 5, 0]], dtype=float)
+    graph_sparse = csr_matrix(adj)
+
+    # Facilities at node 0 and 2
+    facility_indices = np.array([0, 2])
+
+    # uniform demand
+    res = network_voronoi_allocation(graph_sparse, facility_indices)
+
+    np.testing.assert_array_equal(res["assigned_facility"], [0, 1, 1])
+    np.testing.assert_allclose(res["travel_cost"], [0, 5, 0])
+    np.testing.assert_array_equal(res["facility_node_count"], [1, 2])
+    np.testing.assert_allclose(res["facility_demand"], [1, 2])
+    np.testing.assert_allclose(res["facility_mean_cost"], [0.0, 2.5])
+    np.testing.assert_allclose(res["facility_max_cost"], [0.0, 5.0])
+    assert res["coverage_ratio"] == 1.0
+
+
+def test_network_voronoi_allocation_cutoff():
+    # 4-node linear graph: 0 --(10)-- 1 --(10)-- 2 --(10)-- 3
+    adj = np.array([[0, 10, 0, 0], [10, 0, 10, 0], [0, 10, 0, 10], [0, 0, 10, 0]], dtype=float)
+
+    facility_indices = np.array([0])
+    demand = np.array([10, 20, 30, 40])
+
+    res = network_voronoi_allocation(
+        adj, facility_indices, demand_values=demand, impedance_cutoff=15.0
+    )
+
+    # Node 0, 1 within 15. Node 2 is at 20, Node 3 is at 30.
+    np.testing.assert_array_equal(res["assigned_facility"], [0, 0, -1, -1])
+
+    assert res["travel_cost"][0] == 0.0
+    assert res["travel_cost"][1] == 10.0
+    assert np.isinf(res["travel_cost"][2])
+
+    np.testing.assert_array_equal(res["facility_node_count"], [2])
+    np.testing.assert_allclose(res["facility_demand"], [30.0])  # 10 + 20
+    np.testing.assert_allclose(res["facility_max_cost"], [10.0])
+    assert res["coverage_ratio"] == 0.3  # 30 / 100
+
+
+def test_network_voronoi_allocation_validation():
+    adj = np.eye(3)
+    fac = np.array([0])
+
+    with pytest.raises(ValueError):
+        network_voronoi_allocation(np.array([1, 2]), fac)
+
+    with pytest.raises(ValueError):
+        network_voronoi_allocation(adj, np.array([[0], [1]]))
+
+    with pytest.raises(ValueError):
+        network_voronoi_allocation(adj, np.array([]))
+
+    with pytest.raises(ValueError):
+        network_voronoi_allocation(adj, np.array([-1]))
+
+    with pytest.raises(ValueError):
+        network_voronoi_allocation(adj, fac, demand_values=np.array([1, 2]))
+
+    with pytest.raises(ValueError):
+        network_voronoi_allocation(adj, fac, impedance_cutoff=-5.0)

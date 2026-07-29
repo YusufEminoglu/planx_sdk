@@ -1128,3 +1128,168 @@ def fuzzy_topsis_method(
         "weighted_matrix_m": v_m,
         "weighted_matrix_u": v_u,
     }
+
+
+def fuzzy_vikor_method(
+    decision_matrix_l: np.ndarray,
+    decision_matrix_m: np.ndarray,
+    decision_matrix_u: np.ndarray,
+    weights_l: np.ndarray,
+    weights_m: np.ndarray,
+    weights_u: np.ndarray,
+    criteria_types: np.ndarray,
+    v: float = 0.5,
+) -> dict[str, Union[np.ndarray, list[int]]]:
+    """Calculates compromise ranking scores using the Fuzzy VIKOR method.
+
+    Fuzzy VIKOR extends classical VIKOR to handle uncertain/linguistic evaluations
+    using Triangular Fuzzy Numbers (TFN).
+
+    Args:
+        decision_matrix_l: (M, N) array of lower bounds of TFNs for M alternatives, N criteria.
+        decision_matrix_m: (M, N) array of middle bounds.
+        decision_matrix_u: (M, N) array of upper bounds.
+        weights_l: (N,) array of lower bounds for criteria weights.
+        weights_m: (N,) array of middle bounds.
+        weights_u: (N,) array of upper bounds.
+        criteria_types: (N,) array indicating benefit (1) or cost (-1) criteria.
+        v: Weight of the strategy of "majority of criteria" (usually 0.5).
+
+    Returns:
+        Dict containing:
+            - Q: (M,) array of Q values (lower is better)
+            - S: (M,) array of S values (group utility)
+            - R: (M,) array of R values (individual regret)
+            - ranking: (M,) array of 1-based ranks by Q (1=best)
+            - compromise_set: list of 0-based indices of compromise solutions
+            - defuzzified_matrix: (M, N) defuzzified decision matrix
+    """
+    l_mat = np.asarray(decision_matrix_l, dtype=np.float64)
+    m_mat = np.asarray(decision_matrix_m, dtype=np.float64)
+    u_mat = np.asarray(decision_matrix_u, dtype=np.float64)
+
+    wl = np.asarray(weights_l, dtype=np.float64)
+    wm = np.asarray(weights_m, dtype=np.float64)
+    wu = np.asarray(weights_u, dtype=np.float64)
+
+    ctype = np.asarray(criteria_types, dtype=np.int64)
+
+    # Validation
+    if l_mat.ndim != 2 or m_mat.ndim != 2 or u_mat.ndim != 2:
+        raise ValueError("Decision matrices must be 2-dimensional.")
+    if l_mat.shape != m_mat.shape or m_mat.shape != u_mat.shape:
+        raise ValueError("Decision matrices must have the same shape.")
+
+    n_alt, n_crit = l_mat.shape
+    if n_alt == 0 or n_crit == 0:
+        raise ValueError("Matrices must have >0 rows and >0 columns.")
+
+    if wl.shape != (n_crit,) or wm.shape != (n_crit,) or wu.shape != (n_crit,):
+        raise ValueError("Weight arrays must have length equal to the number of criteria.")
+
+    if ctype.shape != (n_crit,):
+        raise ValueError("criteria_types length must match number of criteria.")
+
+    if not np.all(np.isin(ctype, [1, -1])):
+        raise ValueError("criteria_types must contain only 1 (benefit) or -1 (cost).")
+
+    if not np.all((wl <= wm) & (wm <= wu)):
+        raise ValueError("Weight arrays must satisfy l <= m <= u.")
+
+    if not np.all((wl >= 0) & (wm >= 0) & (wu >= 0)):
+        raise ValueError("Weight values must be non-negative.")
+
+    if not np.all((l_mat <= m_mat) & (m_mat <= u_mat)):
+        raise ValueError("Decision matrices must satisfy l <= m <= u.")
+
+    if not (0.0 <= v <= 1.0):
+        raise ValueError("v must be between 0.0 and 1.0.")
+
+    # Defuzzify weights
+    w_def = (wl + wm + wu) / 3.0
+
+    # Defuzzify matrix
+    defuzz_mat = (l_mat + m_mat + u_mat) / 3.0
+
+    # Find crisp f*_j and f-_j using defuzzified values
+    f_star = np.zeros(n_crit)
+    f_minus = np.zeros(n_crit)
+
+    for j in range(n_crit):
+        if ctype[j] == 1:
+            f_star[j] = np.max(defuzz_mat[:, j])
+            f_minus[j] = np.min(defuzz_mat[:, j])
+        else:
+            f_star[j] = np.min(defuzz_mat[:, j])
+            f_minus[j] = np.max(defuzz_mat[:, j])
+
+    # Compute S_i and R_i
+    S = np.zeros(n_alt)
+    R = np.zeros(n_alt)
+
+    diff = np.abs(f_star - f_minus)
+    diff = np.where(diff > 0, diff, 1e-9)
+
+    for i in range(n_alt):
+        term = w_def * np.abs(f_star - defuzz_mat[i, :]) / diff
+        S[i] = np.sum(term)
+        R[i] = np.max(term)
+
+    # Compute Q_i
+    S_star, S_minus = np.min(S), np.max(S)
+    R_star, R_minus = np.min(R), np.max(R)
+
+    S_range = S_minus - S_star
+    R_range = R_minus - R_star
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        term_S = (S - S_star) / np.where(S_range > 0, S_range, 1e-9)
+        term_S = np.where(S_range > 0, term_S, 0.0)
+
+        term_R = (R - R_star) / np.where(R_range > 0, R_range, 1e-9)
+        term_R = np.where(R_range > 0, term_R, 0.0)
+
+    Q = v * term_S + (1.0 - v) * term_R
+
+    # Ranking
+    ranks = np.argsort(Q)
+    rank_order = np.empty_like(ranks)
+    rank_order[ranks] = np.arange(1, n_alt + 1)
+
+    # Compromise conditions check
+    # C1: Acceptable advantage
+    Q_sorted = Q[ranks]
+    DQ = 1.0 / (n_alt - 1) if n_alt > 1 else 0.0
+
+    c1_met = False
+    if n_alt > 1:
+        c1_met = (Q_sorted[1] - Q_sorted[0]) >= DQ
+
+    # C2: Acceptable stability
+    best_S = np.argmin(S)
+    best_R = np.argmin(R)
+    best_idx = ranks[0]
+    c2_met = (best_idx == best_S) or (best_idx == best_R)
+
+    compromise_set = []
+    if c1_met and c2_met:
+        compromise_set.append(int(best_idx))
+    elif not c1_met:
+        for idx in ranks:
+            if (Q[idx] - Q_sorted[0]) < DQ:
+                compromise_set.append(int(idx))
+    elif not c2_met:
+        compromise_set.append(int(ranks[0]))
+        if n_alt > 1:
+            compromise_set.append(int(ranks[1]))
+
+    compromise_set = sorted(set(compromise_set))
+
+    return {
+        "Q": Q,
+        "S": S,
+        "R": R,
+        "ranking": rank_order,
+        "compromise_set": compromise_set,
+        "defuzzified_matrix": defuzz_mat,
+    }

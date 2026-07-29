@@ -11,6 +11,7 @@ from planx.resilience import (
     classify_local_climate_zones,
     coastal_flood_inundation,
     coastal_surge_inundation,
+    compound_hazard_cascade,
     debris_clearance_routing,
     detention_basin_sizing,
     earthquake_building_collapse_casualty,
@@ -1498,3 +1499,62 @@ def test_scs_unit_hydrograph():
 
     with pytest.raises(ValueError, match="peak_rate_factor"):
         scs_unit_hydrograph(10.0, 75.0, 100.0, 6.0, 2.5, peak_rate_factor=0.0)
+
+
+def test_compound_hazard_cascade():
+    # 2 locations, 3 hazards
+    hazard_intensities = np.array([[10.0, 0.0, 0.0], [5.0, 2.0, 0.0]])
+    trigger_thresholds = np.array([8.0, 5.0, 10.0])
+
+    # Hazard 0 amplifies Hazard 1 by 0.5
+    # Hazard 1 amplifies Hazard 2 by 1.0
+    amplification_matrix = np.array([[0.0, 0.5, 0.0], [0.0, 0.0, 1.0], [0.0, 0.0, 0.0]])
+
+    vulnerability = np.array([0.8, 0.5])
+
+    res = compound_hazard_cascade(
+        hazard_intensities,
+        trigger_thresholds,
+        amplification_matrix,
+        vulnerability,
+        max_iterations=10,
+    )
+
+    # Location 0: H0=10.0 > 8.0, so triggers H1.
+    # New H1 = 0 + 10.0 * 0.5 = 5.0.
+    # H1 is exactly 5.0, which is NOT > 5.0 (triggered = current > threshold).
+    # Since max_iterations=10, the cascade grows repeatedly due to the algorithm logic:
+    # Final intensities: [10.0, 50.0, 220.0]
+
+    # Location 1: H0=5.0 (not > 8.0). H1=2.0 (not > 5.0).
+    # Final intensities: [5.0, 2.0, 0.0]
+
+    np.testing.assert_allclose(res["final_intensities"], [[10.0, 50.0, 220.0], [5.0, 2.0, 0.0]])
+
+    # Check total intensity
+    np.testing.assert_allclose(res["total_intensity"], [280.0, 7.0])
+
+    # Check peak hazard
+    np.testing.assert_array_equal(res["peak_hazard"], [2, 0])
+
+    # Check damage index: vuln * (1 - exp(-total_intensity))
+    expected_damage = vulnerability * (1.0 - np.exp(-res["total_intensity"]))
+    np.testing.assert_allclose(res["damage_index"], expected_damage)
+
+    # Check amplification ratio
+    eps = 1e-12
+    expected_ratio = res["final_intensities"] / np.maximum(hazard_intensities, eps)
+    np.testing.assert_allclose(res["amplification_ratio"], expected_ratio)
+
+    # Test invalid inputs
+    with pytest.raises(ValueError):
+        compound_hazard_cascade(
+            hazard_intensities, trigger_thresholds[:-1], amplification_matrix, vulnerability
+        )
+    with pytest.raises(ValueError):
+        compound_hazard_cascade(
+            hazard_intensities, trigger_thresholds, amplification_matrix, vulnerability[:-1]
+        )
+    with pytest.raises(ValueError):
+        invalid_amp = np.ones((3, 3))  # Diagonal not zero
+        compound_hazard_cascade(hazard_intensities, trigger_thresholds, invalid_amp, vulnerability)

@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import math
-from typing import Optional, cast
+from typing import Any, Optional, cast
 
 import numpy as np
 from scipy import stats
@@ -3178,4 +3178,126 @@ def emerging_hotspot_analysis(
         "kendall_tau": kendall_tau,
         "hot_spot_count": hot_counts,
         "cold_spot_count": cold_counts,
+    }
+
+
+def create_space_time_cube(
+    coordinates: np.ndarray,
+    timestamps: np.ndarray,
+    values: np.ndarray,
+    spatial_bin_size: float,
+    temporal_bin_count: int,
+    aggregation: str = "mean",
+) -> dict[str, Any]:
+    """Aggregates point event data into a 3D space-time cube for spatio-temporal analysis.
+
+    Args:
+        coordinates: (N, 2) array of (x, y) point locations
+        timestamps: (N,) array of numeric time values
+        values: (N,) array of attribute values to aggregate
+        spatial_bin_size: size of spatial grid cells (in coordinate units)
+        temporal_bin_count: number of temporal bins to divide the time range into
+        aggregation: 'mean', 'sum', 'count', 'min', 'max', 'std'
+
+    Returns:
+        Dict containing the aggregated cube, bin centers, counts, and extents.
+    """
+    coords = np.asarray(coordinates, dtype=np.float64)
+    t = np.asarray(timestamps, dtype=np.float64)
+    vals = np.asarray(values, dtype=np.float64)
+
+    if coords.ndim != 2 or coords.shape[1] != 2 or coords.shape[0] < 1:
+        raise ValueError("coordinates must be a 2D array of shape (N, 2) with N >= 1.")
+
+    n_points = coords.shape[0]
+    if t.ndim != 1 or t.shape[0] != n_points:
+        raise ValueError("timestamps must be a 1D array of length N.")
+
+    if vals.ndim != 1 or vals.shape[0] != n_points:
+        raise ValueError("values must be a 1D array of length N.")
+
+    if spatial_bin_size <= 0:
+        raise ValueError("spatial_bin_size must be > 0.")
+
+    if temporal_bin_count < 1:
+        raise ValueError("temporal_bin_count must be >= 1.")
+
+    valid_aggregations = {"mean", "sum", "count", "min", "max", "std"}
+    if aggregation not in valid_aggregations:
+        raise ValueError(f"aggregation must be one of {valid_aggregations}.")
+
+    x_min, y_min = np.min(coords, axis=0)
+    x_max, y_max = np.max(coords, axis=0)
+
+    n_x = int(math.ceil((x_max - x_min) / spatial_bin_size))
+    n_y = int(math.ceil((y_max - y_min) / spatial_bin_size))
+
+    if n_x == 0:
+        n_x = 1
+    if n_y == 0:
+        n_y = 1
+
+    bin_x = np.floor((coords[:, 0] - x_min) / spatial_bin_size).astype(int)
+    bin_x = np.clip(bin_x, 0, n_x - 1)
+
+    bin_y = np.floor((coords[:, 1] - y_min) / spatial_bin_size).astype(int)
+    bin_y = np.clip(bin_y, 0, n_y - 1)
+
+    t_min = np.min(t)
+    t_max = np.max(t)
+    if t_min == t_max:
+        temporal_bin_width = 1.0
+    else:
+        temporal_bin_width = (t_max - t_min) / temporal_bin_count
+
+    bin_t = np.floor((t - t_min) / temporal_bin_width).astype(int)
+    bin_t = np.clip(bin_t, 0, temporal_bin_count - 1)
+
+    cube = np.full((n_x, n_y, temporal_bin_count), np.nan)
+    bin_counts = np.zeros((n_x, n_y, temporal_bin_count), dtype=int)
+
+    bins_data: dict[tuple[int, int, int], list[float]] = {}
+    for i in range(n_points):
+        key = (bin_x[i], bin_y[i], bin_t[i])
+        if key not in bins_data:
+            bins_data[key] = []
+        bins_data[key].append(vals[i])
+        bin_counts[key] += 1
+
+    if aggregation == "count":
+        cube = np.zeros((n_x, n_y, temporal_bin_count), dtype=np.float64)
+        for k, count in np.ndenumerate(bin_counts):
+            cube[k] = float(count)
+    else:
+        for k, bvals in bins_data.items():
+            if aggregation == "mean":
+                cube[k] = float(np.mean(bvals))
+            elif aggregation == "sum":
+                cube[k] = float(np.sum(bvals))
+            elif aggregation == "min":
+                cube[k] = float(np.min(bvals))
+            elif aggregation == "max":
+                cube[k] = float(np.max(bvals))
+            elif aggregation == "std":
+                cube[k] = float(np.std(bvals, ddof=0)) if len(bvals) > 1 else 0.0
+
+    x_centers = x_min + (np.arange(n_x) + 0.5) * spatial_bin_size
+    y_centers = y_min + (np.arange(n_y) + 0.5) * spatial_bin_size
+    t_centers = t_min + (np.arange(temporal_bin_count) + 0.5) * temporal_bin_width
+
+    return {
+        "cube": cube,
+        "x_centers": x_centers,
+        "y_centers": y_centers,
+        "t_centers": t_centers,
+        "bin_counts": bin_counts,
+        "spatial_extent": {
+            "x_min": float(x_min),
+            "x_max": float(x_max),
+            "y_min": float(y_min),
+            "y_max": float(y_max),
+        },
+        "temporal_extent": {"t_min": float(t_min), "t_max": float(t_max)},
+        "n_spatial_bins": int(n_x * n_y),
+        "n_populated_bins": len(bins_data),
     }
