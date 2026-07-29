@@ -2921,3 +2921,71 @@ def calculate_gwpca(
         "winning_variable": winning_var,
         "total_local_variance": total_var,
     }
+
+
+def fit_spatial_durbin_model(
+    y: np.ndarray,
+    X: np.ndarray,
+    neighbors: dict,
+    weights: dict,
+    id_order: list,
+) -> dict:
+    """Fits a Spatial Durbin Model (SDM) with spatially lagged dependent and explanatory variables.
+
+    SDM extends the Spatial Lag Model by also including spatially lagged
+    explanatory variables WX, estimated via Two-Stage Least Squares (2SLS).
+
+    Args:
+        y: 1D NumPy array of dependent variable values of shape (N,).
+        X: 2D NumPy array of independent explanatory features of shape (N, K).
+        neighbors: Adjacency dictionary mapping node_id -> list of neighbor node_ids.
+        weights: Spatial weights dictionary mapping node_id -> list of weight floats.
+        id_order: List of node_ids defining array row ordering.
+
+    Returns:
+        Dict containing model fit parameters:
+          - rho: Float estimated spatial autoregressive parameter.
+          - beta: 1D NumPy array of coefficients for X (K,).
+          - theta: 1D NumPy array of coefficients for WX (K,).
+          - fitted: 1D NumPy array of fitted values (N,).
+          - residuals: 1D NumPy array of residual errors (N,).
+          - r2: Float coefficient of determination.
+    """
+    y_arr = np.asarray(y, dtype=np.float64)
+    X_mat = np.asarray(X, dtype=np.float64)
+    n = len(y_arr)
+    k = X_mat.shape[1]
+
+    if len(X_mat) != n:
+        raise ValueError("Length of y must match number of rows in X.")
+
+    W_y = calculate_spatial_lag(y_arr, neighbors, weights, id_order)
+
+    # Compute spatially lagged explanatory variables WX
+    WX = np.zeros_like(X_mat)
+    for col in range(k):
+        WX[:, col] = calculate_spatial_lag(X_mat[:, col], neighbors, weights, id_order)
+
+    # 2SLS: augmented design matrix [X, WX, Wy]
+    Z = np.column_stack([X_mat, WX, W_y])
+    coefs, _, _, _ = np.linalg.lstsq(Z, y_arr, rcond=None)
+
+    beta = coefs[:k]
+    theta = coefs[k : 2 * k]
+    rho = float(coefs[-1])
+
+    fitted = Z @ coefs
+    residuals = y_arr - fitted
+
+    ss_res = float(np.sum(residuals**2))
+    ss_tot = float(np.sum((y_arr - np.mean(y_arr)) ** 2))
+    r2 = 1.0 - ss_res / max(ss_tot, 1e-12)
+
+    return {
+        "rho": rho,
+        "beta": beta,
+        "theta": theta,
+        "fitted": fitted,
+        "residuals": residuals,
+        "r2": r2,
+    }
