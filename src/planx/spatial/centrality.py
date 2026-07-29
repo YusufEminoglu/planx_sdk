@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import heapq
 import math
+from typing import Any
 
 import numpy as np
 
@@ -647,3 +648,170 @@ def axial_to_segment_conversion(
                 segments.append((seg_start, seg_end))
 
     return segments
+
+
+def calculate_building_solar_envelope(
+    building_footprints_coords: np.ndarray,
+    building_heights: np.ndarray,
+    solar_altitude_deg: float,
+    solar_azimuth_deg: float,
+    ground_grid_resolution: float = 2.0,
+) -> dict[str, Any]:
+    """Calculates 3D building mass shadow projection and solar access envelope.
+
+    Args:
+        building_footprints_coords: (N, 4, 2) bounding box or 4-corner coordinates per building.
+        building_heights: (N,) height of buildings in meters.
+        solar_altitude_deg: Solar elevation angle in degrees above horizon (0 to 90].
+        solar_azimuth_deg: Solar compass azimuth angle in degrees [0, 360).
+        ground_grid_resolution: Grid cell size for shadow mapping.
+
+    Returns:
+        Dict with keys:
+          - shadow_lengths_m: (N,) float array of shadow lengths per building.
+          - building_solar_access_scores: (N,) float array [0, 100].
+          - total_shadow_area_m2: float.
+          - building_footprint_area_m2: float total building area.
+    """
+    building_footprints_coords = np.asarray(building_footprints_coords, dtype=np.float64)
+    building_heights = np.asarray(building_heights, dtype=np.float64)
+
+    if not (0.0 < solar_altitude_deg <= 90.0):
+        raise ValueError("solar_altitude_deg must be in range (0, 90]")
+    if not (0.0 <= solar_azimuth_deg < 360.0):
+        raise ValueError("solar_azimuth_deg must be in range [0, 360)")
+    if np.any(building_heights <= 0):
+        raise ValueError("building_heights must be positive")
+    if ground_grid_resolution <= 0:
+        raise ValueError("ground_grid_resolution must be positive")
+    if building_footprints_coords.ndim != 3 or building_footprints_coords.shape[1:] != (4, 2):
+        raise ValueError("building_footprints_coords must have shape (N, 4, 2)")
+    if (
+        building_heights.ndim != 1
+        or building_heights.shape[0] != building_footprints_coords.shape[0]
+    ):
+        raise ValueError("building_heights shape must match building_footprints_coords")
+
+    n_buildings = building_heights.shape[0]
+
+    if n_buildings == 0:
+        return {
+            "shadow_lengths_m": np.zeros(0, dtype=np.float64),
+            "building_solar_access_scores": np.zeros(0, dtype=np.float64),
+            "total_shadow_area_m2": 0.0,
+            "building_footprint_area_m2": 0.0,
+        }
+
+    # 3D Shadow Projection Vector
+    if solar_altitude_deg == 90.0:
+        shadow_lengths = np.zeros(n_buildings, dtype=np.float64)
+    else:
+        alt_rad = math.radians(solar_altitude_deg)
+        shadow_lengths = building_heights / math.tan(alt_rad)
+
+    az_rad = math.radians(solar_azimuth_deg)
+    dx_factor = -math.sin(az_rad)
+    dy_factor = -math.cos(az_rad)
+
+    shadow_dx = shadow_lengths * dx_factor
+    shadow_dy = shadow_lengths * dy_factor
+
+    min_x = np.inf
+    max_x = -np.inf
+    min_y = np.inf
+    max_y = -np.inf
+
+    shadow_polygons = []
+    footprint_areas = np.zeros(n_buildings, dtype=np.float64)
+
+    for i in range(n_buildings):
+        coords = building_footprints_coords[i]
+
+        x = coords[:, 0]
+        y = coords[:, 1]
+        area = 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+        footprint_areas[i] = area
+
+        sx = x + shadow_dx[i]
+        sy = y + shadow_dy[i]
+
+        all_x = np.concatenate([x, sx])
+        all_y = np.concatenate([y, sy])
+
+        min_x = min(min_x, np.min(all_x))
+        max_x = max(max_x, np.max(all_x))
+        min_y = min(min_y, np.min(all_y))
+        max_y = max(max_y, np.max(all_y))
+
+        pts = np.column_stack((all_x, all_y))
+        shadow_polygons.append(pts)
+
+    min_x -= ground_grid_resolution
+    max_x += ground_grid_resolution
+    min_y -= ground_grid_resolution
+    max_y += ground_grid_resolution
+
+    width = int(np.ceil((max_x - min_x) / ground_grid_resolution))
+    height = int(np.ceil((max_y - min_y) / ground_grid_resolution))
+
+    if width <= 0 or height <= 0:
+        return {
+            "shadow_lengths_m": shadow_lengths,
+            "building_solar_access_scores": np.full(n_buildings, 100.0, dtype=np.float64),
+            "total_shadow_area_m2": 0.0,
+            "building_footprint_area_m2": float(np.sum(footprint_areas)),
+        }
+
+    grid_x = min_x + (np.arange(width) + 0.5) * ground_grid_resolution
+    grid_y = min_y + (np.arange(height) + 0.5) * ground_grid_resolution
+
+    GX, GY = np.meshgrid(grid_x, grid_y)
+    grid_pts = np.column_stack((GX.ravel(), GY.ravel()))
+
+    from scipy.spatial import Delaunay
+
+    def in_convex_hull(points, hull_points):
+        try:
+            hull = Delaunay(hull_points)
+            return hull.find_simplex(points) >= 0
+        except Exception:
+            return np.zeros(len(points), dtype=bool)
+
+    global_shadow_mask = np.zeros(len(grid_pts), dtype=bool)
+    building_shadow_masks = []
+    building_footprint_masks = []
+
+    for i in range(n_buildings):
+        pts = shadow_polygons[i]
+        in_shadow = in_convex_hull(grid_pts, pts)
+        building_shadow_masks.append(in_shadow)
+        global_shadow_mask |= in_shadow
+
+        in_footprint = in_convex_hull(grid_pts, building_footprints_coords[i])
+        building_footprint_masks.append(in_footprint)
+
+    solar_access_scores = np.zeros(n_buildings, dtype=np.float64)
+    for i in range(n_buildings):
+        other_shadow = np.zeros(len(grid_pts), dtype=bool)
+        for j in range(n_buildings):
+            if i != j:
+                other_shadow |= building_shadow_masks[j]
+
+        footprint_pts = building_footprint_masks[i]
+        n_footprint_cells = np.sum(footprint_pts)
+        if n_footprint_cells > 0:
+            n_shaded = np.sum(footprint_pts & other_shadow)
+            unshaded_fraction = 1.0 - (n_shaded / n_footprint_cells)
+            solar_access_scores[i] = max(0.0, min(100.0, unshaded_fraction * 100.0))
+        else:
+            solar_access_scores[i] = 100.0
+
+    total_shadow_area = float(np.sum(global_shadow_mask)) * (ground_grid_resolution**2)
+    total_footprint_area = float(np.sum(footprint_areas))
+
+    return {
+        "shadow_lengths_m": shadow_lengths,
+        "building_solar_access_scores": solar_access_scores,
+        "total_shadow_area_m2": total_shadow_area,
+        "building_footprint_area_m2": total_footprint_area,
+    }
