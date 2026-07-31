@@ -1127,3 +1127,88 @@ def rank_sites(
     if top_n > 0:
         sites = sites[:top_n]
     return sites
+
+
+def gen_dikdortgen(
+    w: float,
+    h: float,
+    shrink_w: float = 0.9,
+) -> dict[str, Any]:
+    """Generates rectangular building macroform polygon coordinates.
+
+    Args:
+        w: Width of bounding footprint.
+        h: Height of bounding footprint.
+        shrink_w: Width ratio shrink factor (0.5 to 1.0).
+
+    Returns:
+        Dict containing polygon 'coordinates' list and 'type_name' string.
+    """
+    bw = max(5.0, w * shrink_w)
+    ox = (w - bw) / 2.0
+    coords = [(ox, 0.0), (ox + bw, 0.0), (ox + bw, h), (ox, h), (ox, 0.0)]
+    return {"coordinates": coords, "type_name": "dikdortgen"}
+
+
+def gen_L(
+    w: float,
+    h: float,
+    main_w_ratio: float = 0.45,
+    wing_h_ratio: float = 0.4,
+) -> dict[str, Any]:
+    """Generates L-shaped building macroform polygon coordinates.
+
+    Args:
+        w: Width of bounding footprint.
+        h: Height of bounding footprint.
+        main_w_ratio: Main stem width ratio.
+        wing_h_ratio: Side wing height ratio.
+
+    Returns:
+        Dict containing polygon 'coordinates' list and 'type_name' string.
+    """
+    main_w = max(7.0, w * main_w_ratio)
+    wing_h = max(7.0, h * wing_h_ratio)
+    coords = [
+        (0.0, 0.0),
+        (w, 0.0),
+        (w, wing_h),
+        (main_w, wing_h),
+        (main_w, h),
+        (0.0, h),
+        (0.0, 0.0),
+    ]
+    return {"coordinates": coords, "type_name": "L"}
+
+
+def gen_U(
+    w: float,
+    h: float,
+    arm_w_ratio: float = 0.3,
+    base_h_ratio: float = 0.3,
+) -> dict[str, Any]:
+    """Generates U-shaped building macroform polygon coordinates.
+
+    Args:
+        w: Width of bounding footprint.
+        h: Height of bounding footprint.
+        arm_w_ratio: Arm width ratio.
+        base_h_ratio: Base height ratio.
+
+    Returns:
+        Dict containing polygon 'coordinates' list and 'type_name' string.
+    """
+    arm_w = max(7.0, w * arm_w_ratio)
+    base_h = max(7.0, h * base_h_ratio)
+    coords = [
+        (0.0, 0.0),
+        (w, 0.0),
+        (w, h),
+        (w - arm_w, h),
+        (w - arm_w, base_h),
+        (arm_w, base_h),
+        (arm_w, h),
+        (0.0, h),
+        (0.0, 0.0),
+    ]
+    return {"coordinates": coords, "type_name": "U"}

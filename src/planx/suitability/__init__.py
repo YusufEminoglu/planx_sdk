@@ -11,6 +11,9 @@ from .facility import (
     capacitated_location_allocation,
     ev_fleet_charging_location_allocation,
     evaluate_tod_node_suitability,
+    gen_dikdortgen,
+    gen_L,
+    gen_U,
     greedy_lscp,
     greedy_mclp,
     greedy_p_median,
@@ -116,4 +119,7 @@ __all__ = [
     "calculate_pca_weights",
     "label_components",
     "rank_sites",
+    "gen_dikdortgen",
+    "gen_L",
+    "gen_U",
 ]

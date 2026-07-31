@@ -81,7 +81,13 @@ from .stats_engines import (
     sen_intercept,
     skater_spatial_clustering,
 )
-from .weights import create_distance_band_weights, create_knn_weights
+from .weights import (
+    auto_distance_band,
+    build_weights,
+    create_distance_band_weights,
+    create_knn_weights,
+    neighbour_counts,
+)
 
 __all__ = [
     "calculate_getis_ord",
@@ -162,4 +168,7 @@ __all__ = [
     "backtest_series",
     "residual_spatial_autocorrelation_summary",
     "regression_quality_summary",
+    "auto_distance_band",
+    "build_weights",
+    "neighbour_counts",
 ]
