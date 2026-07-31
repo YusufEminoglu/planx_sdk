@@ -22,6 +22,7 @@ from .flood import (
     pluvial_flash_flood_simulator,
     pluvial_flood_susceptibility,
     scs_unit_hydrograph,
+    seismic_landslide_susceptibility_engine,
     socio_economic_flood_risk,
     stormwater_retention_basin_design,
     tsunami_evacuation_routing_engine,
@@ -120,4 +121,5 @@ __all__ = [
     "heatwave_health_vulnerability_engine",
     "wui_ember_transport_simulator",
     "tsunami_evacuation_routing_engine",
+    "seismic_landslide_susceptibility_engine",
 ]

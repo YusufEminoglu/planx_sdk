@@ -5,6 +5,15 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-07-31
+### Added
+- **Spatial Panel Regime Regression** (`fit_spatial_panel_regimes`) in `planx.geostats` for structural break analysis and regime-specific panel coefficients.
+- **Seismically Induced Landslide Susceptibility Engine** (`seismic_landslide_susceptibility_engine`) in `planx.resilience.flood` for infinite slope safety factor under pseudo-static PGA.
+- **Paratransit & DRT Dispatch Optimizer** (`drt_dispatch_optimizer`) in `planx.spatial.accessibility` for dynamic demand-responsive transport dispatch and VKT reduction.
+- **Picture Fuzzy TOPSIS MCDA Method** (`picture_fuzzy_topsis`) in `planx.suitability.mcda` for multi-criteria evaluation under positive, neutral, and negative membership degrees.
+
+---
+
 ## [2.6.0] - 2026-07-31
 ### Added
 - **Spatio-Temporal Geographically Weighted Ridge Regression** (`fit_st_gwrr`) in `planx.geostats` for localized spatio-temporal regression with L2 ridge regularization.

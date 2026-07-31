@@ -2051,6 +2051,23 @@ def test_tsunami_evacuation_routing_engine():
     assert 0.0 <= res["survival_rate"] <= 1.0
 
 
+def test_seismic_landslide_susceptibility_engine():
+    from planx.resilience import seismic_landslide_susceptibility_engine
+
+    slope = np.array([[10.0, 35.0], [20.0, 45.0]])
+    c = np.array([[10.0, 5.0], [15.0, 2.0]])
+    phi = np.array([[30.0, 25.0], [28.0, 20.0]])
+    pga = np.array([[0.1, 0.4], [0.2, 0.5]])
+
+    res = seismic_landslide_susceptibility_engine(slope, c, phi, pga)
+
+    assert "factor_of_safety_grid" in res
+    assert "unstable_cells_count" in res
+    assert "unstable_area_ratio" in res
+    assert res["factor_of_safety_grid"].shape == (2, 2)
+
+
+
 
 
 

@@ -925,4 +925,49 @@ def tsunami_evacuation_routing_engine(
     }
 
 
+def seismic_landslide_susceptibility_engine(
+    slope_deg_grid: np.ndarray,
+    cohesion_kpa_grid: np.ndarray,
+    friction_angle_deg_grid: np.ndarray,
+    pga_g_grid: np.ndarray,
+    unit_weight_kn_m3: float = 20.0,
+    soil_thickness_m: float = 3.0,
+) -> dict[str, Any]:
+    """Seismically Induced Landslide Susceptibility Engine.
+
+    Calculates infinite slope Factor of Safety (FS) under horizontal pseudo-static seismic PGA.
+
+    Args:
+        slope_deg_grid: Slope angle grid in degrees.
+        cohesion_kpa_grid: Soil effective cohesion c' grid (kPa).
+        friction_angle_deg_grid: Internal friction angle phi' grid (degrees).
+        pga_g_grid: Peak Ground Acceleration in g (horizontal seismic coefficient k_h).
+        unit_weight_kn_m3: Soil unit weight (kN/m^3).
+        soil_thickness_m: Soil regolith depth (m).
+
+    Returns:
+        Dict containing Factor of Safety grid, unstable cell count, and high risk ratio.
+    """
+    theta = np.radians(np.clip(slope_deg_grid, 0.1, 89.0))
+    phi = np.radians(friction_angle_deg_grid)
+    c_prime = cohesion_kpa_grid
+    kh = pga_g_grid
+
+    gamma_z = unit_weight_kn_m3 * soil_thickness_m
+
+    resisting = c_prime + gamma_z * (np.cos(theta) ** 2) * np.tan(phi)
+    driving = gamma_z * np.sin(theta) * np.cos(theta) + kh * gamma_z * (np.cos(theta) ** 2) + 1e-12
+
+    fs_grid = resisting / driving
+    unstable_mask = fs_grid < 1.0
+
+    return {
+        "factor_of_safety_grid": fs_grid,
+        "unstable_cells_count": int(np.sum(unstable_mask)),
+        "unstable_area_ratio": float(np.mean(unstable_mask)),
+        "mean_factor_of_safety": float(np.mean(fs_grid)),
+    }
+
+
+
 

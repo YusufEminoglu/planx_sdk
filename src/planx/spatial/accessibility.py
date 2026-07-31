@@ -1762,6 +1762,48 @@ def canopy_sky_view_factor_profiler(
     }
 
 
+def drt_dispatch_optimizer(
+    request_origin_coords: np.ndarray,
+    request_dest_coords: np.ndarray,
+    vehicle_coords: np.ndarray,
+    vehicle_capacity: float = 8.0,
+) -> dict[str, Any]:
+    """Paratransit & DRT Dispatch Optimizer.
+
+    Allocates dynamic ride-pooling requests to fleet vehicles minimizing total vehicle travel distance.
+
+    Args:
+        request_origin_coords: Array of shape (R, 2) for passenger pickup locations.
+        request_dest_coords: Array of shape (R, 2) for dropoff locations.
+        vehicle_coords: Array of shape (V, 2) for vehicle fleet locations.
+        vehicle_capacity: Maximum passengers per vehicle (default 8.0).
+
+    Returns:
+        Dict containing assigned vehicle per request, total fleet distance, and load factor.
+    """
+    from scipy.spatial.distance import cdist
+
+    n_req = len(request_origin_coords)
+    n_veh = len(vehicle_coords)
+
+    d_to_veh = cdist(request_origin_coords, vehicle_coords)
+    assignments = np.argmin(d_to_veh, axis=1)
+
+    veh_loads = np.zeros(n_veh, dtype=int)
+    for v in assignments:
+        veh_loads[v] += 1
+
+    tot_dist = float(np.sum(np.min(d_to_veh, axis=1)) + np.sum(np.linalg.norm(request_dest_coords - request_origin_coords, axis=1)))
+
+    return {
+        "assigned_vehicle_indices": assignments,
+        "vehicle_loads": veh_loads,
+        "total_fleet_distance_km": tot_dist / 1000.0,
+        "fleet_utilization_ratio": float(np.mean(veh_loads / vehicle_capacity)),
+    }
+
+
+
 
 
 

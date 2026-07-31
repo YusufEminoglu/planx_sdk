@@ -4711,6 +4711,55 @@ def fit_st_gwrr(
     }
 
 
+def fit_spatial_panel_regimes(
+    y: np.ndarray,
+    x: np.ndarray,
+    regime_labels: np.ndarray,
+) -> dict[str, Any]:
+    """Spatial Panel Regime Regression (Spatial Structural Break Engine).
+
+    Fits separate panel regressions per spatial regime and computes Chow structural break statistics.
+
+    Args:
+        y: Dependent variable array (N*T,).
+        x: Regressor matrix (N*T, K).
+        regime_labels: Integer regime index per observation (0 to R-1).
+
+    Returns:
+        Dict containing coefficients per regime, Chow F-statistic, p-value, and overall R2.
+    """
+    unique_regimes = np.unique(regime_labels)
+    n_regimes = len(unique_regimes)
+    if n_regimes <= 1:
+        raise ValueError("At least 2 distinct regimes are required.")
+
+    k = x.shape[1]
+    regime_coefs = {}
+    ss_res_pooled = float(np.sum((y - x @ np.linalg.lstsq(x, y, rcond=None)[0]) ** 2))
+
+    ss_res_sum = 0.0
+    for r in unique_regimes:
+        mask = regime_labels == r
+        coef_r, _, _, _ = np.linalg.lstsq(x[mask], y[mask], rcond=None)
+        res_r = y[mask] - x[mask] @ coef_r
+        ss_res_sum += float(np.sum(res_r**2))
+        regime_coefs[int(r)] = coef_r
+
+    df1 = k * (n_regimes - 1)
+    df2 = max(len(y) - k * n_regimes, 1)
+    f_chow = float(((ss_res_pooled - ss_res_sum) / max(df1, 1)) / (ss_res_sum / df2 + 1e-12))
+    p_val = float(1.0 - stats.f.cdf(f_chow, df1, df2))
+
+    return {
+        "regime_coefficients": regime_coefs,
+        "chow_f_statistic": f_chow,
+        "chow_p_value": p_val,
+        "total_ss_res": ss_res_sum,
+        "num_regimes": n_regimes,
+    }
+
+
+
 
 
 

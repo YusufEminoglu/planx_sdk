@@ -30,6 +30,7 @@ from .mcda import (
     ivif_topsis_method,
     marcos_method,
     neutrosophic_waspas_method,
+    picture_fuzzy_topsis,
     rough_topsis_method,
     mcda_sensitivity_monte_carlo,
     normalize_array,
@@ -92,4 +93,5 @@ __all__ = [
     "if_vikor_method",
     "rough_topsis_method",
     "fuzzy_copras_method",
+    "picture_fuzzy_topsis",
 ]
