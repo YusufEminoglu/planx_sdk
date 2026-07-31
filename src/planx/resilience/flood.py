@@ -1004,12 +1004,63 @@ def compound_hazard_risk_aggregator(
         compound_hazard * (exposure_density_grid / (np.max(exposure_density_grid) + 1e-6)) * 100.0
     )
 
-    high_risk_count = int(np.sum(compound_risk_grid > 50.0))
-
     return {
         "compound_risk_grid": compound_risk_grid,
         "mean_compound_risk": float(np.mean(compound_risk_grid)),
-        "max_compound_risk": float(np.max(compound_risk_grid)),
-        "high_compound_risk_cell_count": high_risk_count,
-        "high_risk_ratio": float(np.mean(compound_risk_grid > 50.0)),
+        "high_compound_risk_cell_count": int(np.sum(compound_risk_grid >= 70.0)),
+        "high_risk_ratio": float(np.mean(compound_risk_grid >= 70.0)),
     }
+
+
+def composite_risk_class(score: float) -> str:
+    """Classifies composite risk score [0, 100] into text category.
+
+    Args:
+        score: Risk score [0, 100].
+
+    Returns:
+        String classification label.
+    """
+    if score >= 75:
+        return "Very High"
+    if score >= 55:
+        return "High"
+    if score >= 35:
+        return "Moderate"
+    return "Low"
+
+
+def accessibility_deficit_class(score: float) -> str:
+    """Classifies accessibility deficit score [0, 100] (higher = worse).
+
+    Args:
+        score: Deficit score [0, 100].
+
+    Returns:
+        String deficit label.
+    """
+    if score >= 75:
+        return "Critical"
+    if score >= 55:
+        return "Underserved"
+    if score >= 35:
+        return "Watch"
+    return "Covered"
+
+
+def intervention_priority_class(score: float) -> str:
+    """Classifies adaptation intervention priority score.
+
+    Args:
+        score: Priority score [0, 100].
+
+    Returns:
+        String intervention priority category.
+    """
+    if score >= 75:
+        return "Immediate"
+    if score >= 55:
+        return "High"
+    if score >= 35:
+        return "Medium"
+    return "Monitor"

@@ -731,3 +731,20 @@ def test_edge_criticality():
     assert "criticality" in res
     assert "extra_cost" in res
     assert len(res["criticality"]) == 3
+
+
+def test_space_syntax_and_landuse_entropy():
+    from planx.spatial import (
+        calculate_landuse_entropy_balance,
+        calculate_space_syntax_integration,
+    )
+
+    adj = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+    ss_res = calculate_space_syntax_integration(adj)
+    assert "global_integration" in ss_res
+    assert len(ss_res["global_integration"]) == 3
+
+    lu_counts = np.array([[100.0, 200.0, 50.0], [50.0, 50.0, 50.0]])
+    lu_res = calculate_landuse_entropy_balance(lu_counts)
+    assert "entropy_index" in lu_res
+    assert len(lu_res["entropy_index"]) == 2

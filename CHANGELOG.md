@@ -5,6 +5,15 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.13.0] - 2026-07-31
+### Added
+- **Urban Resilience Accessibility Deficit & Intervention Priority Classifier** (`accessibility_deficit_class`, `composite_risk_class`, `intervention_priority_class`) in `planx.resilience.flood`.
+- **Space Syntax Urban Integration & Choice Engine** (`calculate_space_syntax_integration`) in `planx.spatial.accessibility`.
+- **Urban Sprawl & Land Use Entropy Balancer Engine** (`calculate_landuse_entropy_balance`) in `planx.spatial.accessibility`.
+- **Solar Surface Radiation & Insolation Engine** (`calculate_solar_radiation_surface`) in `planx.resilience.heat`.
+
+---
+
 ## [2.12.0] - 2026-07-31
 ### Added
 - **Spatial Weights Auto-Band & Adjacency Builder** (`auto_distance_band`, `build_weights`, `neighbour_counts`) in `planx.geostats.weights`.
