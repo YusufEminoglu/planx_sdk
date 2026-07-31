@@ -310,3 +310,52 @@ def seismic_road_blockage_simulation(
         "restricted_segments_count": int(np.sum(restricted_mask)),
         "open_segments_count": int(np.sum(open_mask)),
     }
+
+
+def seismic_liquefaction_potential_index(
+    pga_g: float,
+    groundwater_depth_m: float,
+    spt_n_values: np.ndarray,
+    layer_depths_m: np.ndarray,
+) -> dict[str, Any]:
+    """Calculates Iwasaki Seismic Liquefaction Potential Index (LPI).
+
+    LPI = sum_0^20 (10 - 0.5*z) * F_L * dz
+
+    Args:
+        pga_g: Peak Ground Acceleration in g units.
+        groundwater_depth_m: Water table depth in meters.
+        spt_n_values: 1D array of SPT-N soil blow counts at layer depths.
+        layer_depths_m: 1D array of layer depths in meters (0 to 20m).
+
+    Returns:
+        Dict containing LPI score, severity classification, and liquefaction risk category.
+    """
+    n_vals = np.asarray(spt_n_values, dtype=np.float64)
+    depths = np.asarray(layer_depths_m, dtype=np.float64)
+
+    lpi = 0.0
+    for i in range(len(depths)):
+        z = depths[i]
+        if z > 20.0 or z < groundwater_depth_m:
+            continue
+
+        w_z = 10.0 - 0.5 * z
+        f_L = max(0.0, 1.0 - (n_vals[i] / max(1.0, pga_g * 100.0)))
+        lpi += w_z * f_L
+
+    lpi_val = float(lpi)
+    if lpi_val >= 15.0:
+        risk_class = "Very High"
+    elif lpi_val >= 5.0:
+        risk_class = "High"
+    elif lpi_val > 0.0:
+        risk_class = "Low"
+    else:
+        risk_class = "Very Low"
+
+    return {
+        "liquefaction_potential_index": lpi_val,
+        "risk_classification": risk_class,
+        "is_high_liquefaction_risk": lpi_val >= 5.0,
+    }
