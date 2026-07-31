@@ -1872,13 +1872,15 @@ def test_fit_spatial_panel_sur():
 
     np.random.seed(42)
     N, T = 5, 4
-    W = np.array([
-        [0.0, 0.5, 0.5, 0.0, 0.0],
-        [0.5, 0.0, 0.5, 0.0, 0.0],
-        [0.3, 0.3, 0.0, 0.4, 0.0],
-        [0.0, 0.0, 0.5, 0.0, 0.5],
-        [0.0, 0.0, 0.0, 1.0, 0.0],
-    ])
+    W = np.array(
+        [
+            [0.0, 0.5, 0.5, 0.0, 0.0],
+            [0.5, 0.0, 0.5, 0.0, 0.0],
+            [0.3, 0.3, 0.0, 0.4, 0.0],
+            [0.0, 0.0, 0.5, 0.0, 0.5],
+            [0.0, 0.0, 0.0, 1.0, 0.0],
+        ]
+    )
 
     y1 = np.random.randn(N, T)
     y2 = np.random.randn(N, T)
@@ -1897,12 +1899,14 @@ def test_fit_spatial_panel_tobit_lag():
 
     np.random.seed(42)
     N, T = 4, 3
-    W = np.array([
-        [0.0, 0.5, 0.5, 0.0],
-        [0.5, 0.0, 0.5, 0.0],
-        [0.3, 0.3, 0.0, 0.4],
-        [0.0, 0.0, 1.0, 0.0],
-    ])
+    W = np.array(
+        [
+            [0.0, 0.5, 0.5, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.3, 0.3, 0.0, 0.4],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
     x = np.random.randn(N * T, 2)
     y = np.maximum(0.0, np.random.randn(N * T))
 
@@ -1921,12 +1925,14 @@ def test_fit_spatial_panel_sem():
 
     np.random.seed(42)
     N, T = 4, 3
-    W = np.array([
-        [0.0, 0.5, 0.5, 0.0],
-        [0.5, 0.0, 0.5, 0.0],
-        [0.3, 0.3, 0.0, 0.4],
-        [0.0, 0.0, 1.0, 0.0],
-    ])
+    W = np.array(
+        [
+            [0.0, 0.5, 0.5, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.3, 0.3, 0.0, 0.4],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
     x = np.random.randn(N * T, 2)
     y = np.random.randn(N * T)
 
@@ -1949,7 +1955,9 @@ def test_fit_st_gwrr():
     x = np.random.randn(N, K)
     y = np.random.randn(N)
 
-    res = fit_st_gwrr(coords, times, y, x, bandwidth_spatial=50.0, bandwidth_temporal=2.0, ridge_lambda=0.1)
+    res = fit_st_gwrr(
+        coords, times, y, x, bandwidth_spatial=50.0, bandwidth_temporal=2.0, ridge_lambda=0.1
+    )
 
     assert "local_coefficients" in res
     assert "mean_r_squared" in res
@@ -1980,12 +1988,14 @@ def test_fit_spatial_panel_probit_lag():
 
     np.random.seed(42)
     N, T = 4, 3
-    W = np.array([
-        [0.0, 0.5, 0.5, 0.0],
-        [0.5, 0.0, 0.5, 0.0],
-        [0.3, 0.3, 0.0, 0.4],
-        [0.0, 0.0, 1.0, 0.0],
-    ])
+    W = np.array(
+        [
+            [0.0, 0.5, 0.5, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.3, 0.3, 0.0, 0.4],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
     x = np.random.randn(N * T, 2)
     y = np.array([1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0])
 
@@ -2003,12 +2013,14 @@ def test_fit_spatial_pvar():
 
     np.random.seed(42)
     N, T = 4, 5
-    W = np.array([
-        [0.0, 0.5, 0.5, 0.0],
-        [0.5, 0.0, 0.5, 0.0],
-        [0.3, 0.3, 0.0, 0.4],
-        [0.0, 0.0, 1.0, 0.0],
-    ])
+    W = np.array(
+        [
+            [0.0, 0.5, 0.5, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.3, 0.3, 0.0, 0.4],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
     y1 = np.random.randn(N, T)
     y2 = np.random.randn(N, T)
 
@@ -2018,13 +2030,3 @@ def test_fit_spatial_pvar():
     assert "residual_covariance" in res
     assert res["num_variables"] == 2
     assert res["residual_covariance"].shape == (2, 2)
-
-
-
-
-
-
-
-
-
-

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 import numpy as np
 
@@ -1405,7 +1405,8 @@ def ivif_topsis_method(
     IVIF values [[mu_L, mu_U], [nu_L, nu_U]].
 
     Args:
-        ivif_matrix: 3D array of shape (M, N, 4) containing IVIF values for M alternatives across N criteria.
+        ivif_matrix: 3D array of shape (M, N, 4) containing IVIF values for M alternatives
+                     across N criteria.
                      The last dimension specifies [mu_L, mu_U, nu_L, nu_U].
         weights: List or 1D array of length N containing criteria weights (summing to 1.0).
         types: List or array of criteria types (1 / "+" for benefit, 0 / "-" for cost).
@@ -1465,19 +1466,39 @@ def ivif_topsis_method(
     w_grid = w_norm[None, :]
     w_mu_L = 1.0 - (1.0 - mu_L) ** w_grid
     w_mu_U = 1.0 - (1.0 - mu_U) ** w_grid
-    w_nu_L = nu_L ** w_grid
-    w_nu_U = nu_U ** w_grid
+    w_nu_L = nu_L**w_grid
+    w_nu_U = nu_U**w_grid
 
     pis = np.zeros((n_crit, 4), dtype=np.float64)
     nis = np.zeros((n_crit, 4), dtype=np.float64)
 
     for j in range(n_crit):
         if t_arr[j] == 1:
-            pis[j] = [np.max(w_mu_L[:, j]), np.max(w_mu_U[:, j]), np.min(w_nu_L[:, j]), np.min(w_nu_U[:, j])]
-            nis[j] = [np.min(w_mu_L[:, j]), np.min(w_mu_U[:, j]), np.max(w_nu_L[:, j]), np.max(w_nu_U[:, j])]
+            pis[j] = [
+                np.max(w_mu_L[:, j]),
+                np.max(w_mu_U[:, j]),
+                np.min(w_nu_L[:, j]),
+                np.min(w_nu_U[:, j]),
+            ]
+            nis[j] = [
+                np.min(w_mu_L[:, j]),
+                np.min(w_mu_U[:, j]),
+                np.max(w_nu_L[:, j]),
+                np.max(w_nu_U[:, j]),
+            ]
         else:
-            pis[j] = [np.min(w_mu_L[:, j]), np.min(w_mu_U[:, j]), np.max(w_nu_L[:, j]), np.max(w_nu_U[:, j])]
-            nis[j] = [np.max(w_mu_L[:, j]), np.max(w_mu_U[:, j]), np.min(w_nu_L[:, j]), np.min(w_nu_U[:, j])]
+            pis[j] = [
+                np.min(w_mu_L[:, j]),
+                np.min(w_mu_U[:, j]),
+                np.max(w_nu_L[:, j]),
+                np.max(w_nu_U[:, j]),
+            ]
+            nis[j] = [
+                np.max(w_mu_L[:, j]),
+                np.max(w_mu_U[:, j]),
+                np.min(w_nu_L[:, j]),
+                np.min(w_nu_U[:, j]),
+            ]
 
     d_pis = np.zeros(m_alt, dtype=np.float64)
     d_nis = np.zeros(m_alt, dtype=np.float64)
@@ -1536,11 +1557,11 @@ def neutrosophic_waspas_method(
 
     t_deg = norm_matrix
     i_deg = 1.0 - norm_matrix
-    f_deg = 1.0 - (norm_matrix ** 2)
+    f_deg = 1.0 - (norm_matrix**2)
     s_scores = (2.0 + t_deg - i_deg - f_deg) / 3.0
 
     wsm = np.sum(s_scores * weights_norm, axis=1)
-    wpm = np.prod(s_scores ** weights_norm, axis=1)
+    wpm = np.prod(s_scores**weights_norm, axis=1)
 
     q_score = lambda_param * wsm + (1.0 - lambda_param) * wpm
     ranks = np.argsort(-q_score).argsort() + 1
@@ -1589,7 +1610,9 @@ def if_vikor_method(
     s_star, s_minus = np.min(s_i), np.max(s_i)
     r_star, r_minus = np.min(r_i), np.max(r_i)
 
-    q_i = v_preference * (s_i - s_star) / (s_minus - s_star + 1e-12) + (1.0 - v_preference) * (r_i - r_star) / (r_minus - r_star + 1e-12)
+    q_i = v_preference * (s_i - s_star) / (s_minus - s_star + 1e-12) + (1.0 - v_preference) * (
+        r_i - r_star
+    ) / (r_minus - r_star + 1e-12)
     ranks = np.argsort(q_i).argsort() + 1
 
     return {
@@ -1683,7 +1706,9 @@ def fuzzy_copras_method(
             s_minus += weighted_mat[:, j]
 
     s_minus_min = np.min(s_minus) if np.min(s_minus) > 0 else 1e-6
-    q_i = s_plus + (np.sum(s_minus) * s_minus_min) / (s_minus * np.sum(s_minus_min / (s_minus + 1e-12)) + 1e-12)
+    q_i = s_plus + (np.sum(s_minus) * s_minus_min) / (
+        s_minus * np.sum(s_minus_min / (s_minus + 1e-12)) + 1e-12
+    )
 
     utility = (q_i / np.max(q_i)) * 100.0
     ranks = np.argsort(-utility).argsort() + 1
@@ -1703,7 +1728,8 @@ def picture_fuzzy_topsis(
 ) -> dict[str, Any]:
     """Picture Fuzzy TOPSIS MCDA Engine.
 
-    Ranks alternatives using Picture Fuzzy Sets (mu: positive, eta: neutral, nu: negative membership).
+    Ranks alternatives using Picture Fuzzy Sets (mu: positive, eta: neutral,
+    nu: negative membership).
 
     Args:
         picture_fuzzy_matrix: Array of shape (n_alt, n_crit, 3) containing (mu, eta, nu).
@@ -1746,13 +1772,15 @@ def hesitant_fuzzy_dematel(
 ) -> dict[str, Any]:
     """Hesitant Fuzzy DEMATEL Causal Mapping Engine.
 
-    Aggregates expert evaluation matrices under hesitant fuzzy environments and calculates cause/effect groups.
+    Aggregates expert evaluation matrices under hesitant fuzzy environments and calculates
+    cause/effect groups.
 
     Args:
         direct_influence_matrices: List of K matrices of shape (N, N) from expert evaluations.
 
     Returns:
-        Dict containing direct relation matrix, total relation matrix, D+R, D-R, and causal classification.
+        Dict containing direct relation matrix, total relation matrix, D+R, D-R,
+        and causal classification.
     """
     k_exp = len(direct_influence_matrices)
     if k_exp == 0:
@@ -1789,7 +1817,8 @@ def spherical_fuzzy_topsis(
 ) -> dict[str, Any]:
     """Spherical Fuzzy TOPSIS Method.
 
-    Ranks decision alternatives using Spherical Fuzzy Sets (mu, nu, pi) satisfying mu^2 + nu^2 + pi^2 <= 1.
+    Ranks decision alternatives using Spherical Fuzzy Sets (mu, nu, pi) satisfying
+    mu^2 + nu^2 + pi^2 <= 1.
 
     Args:
         spherical_fuzzy_matrix: Array of shape (n_alt, n_crit, 3) containing (mu, nu, pi).
@@ -1825,12 +1854,3 @@ def spherical_fuzzy_topsis(
         "distance_to_pis": d_pis,
         "distance_to_nis": d_nis,
     }
-
-
-
-
-
-
-
-
-

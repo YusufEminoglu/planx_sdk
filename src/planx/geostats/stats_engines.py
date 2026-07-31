@@ -4060,7 +4060,8 @@ def fit_spatial_count_panel(
     """Fits a Spatial Panel Poisson or Negative Binomial Count Regression model.
 
     Args:
-        dependent_var: 1D or 2D array of non-negative count response variables, shape (N*T,) or (N, T).
+        dependent_var: 1D or 2D array of non-negative count response variables,
+            shape (N*T,) or (N, T).
         independent_vars: 2D array of K regressors, shape (N*T, K).
         weights_matrix: 2D spatial weights matrix (row-standardized), shape (N, N).
         time_periods: Number of time periods (T >= 2).
@@ -4072,7 +4073,8 @@ def fit_spatial_count_panel(
         A dictionary containing:
             - 'coefficients': (K,) array of regression coefficients.
             - 'spatial_rho': Spatial lag parameter float.
-            - 'dispersion_alpha': Estimated negative binomial dispersion parameter float (0.0 for Poisson).
+            - 'dispersion_alpha': Estimated negative binomial dispersion parameter float
+              (0.0 for Poisson).
             - 'log_likelihood': Model log-likelihood float.
             - 'deviance': Model deviance float.
             - 'pseudo_r_squared': McFadden's pseudo R-squared float.
@@ -4132,7 +4134,9 @@ def fit_spatial_count_panel(
         if model_type_clean in ("negative_binomial", "nb"):
             var = mu + dispersion_alpha * (mu**2)
             pearson = ((y - mu) ** 2) / var
-            dispersion_alpha = max(1e-4, float(dispersion_alpha * (np.sum(pearson) / max(n_obs - p, 1))))
+            dispersion_alpha = max(
+                1e-4, float(dispersion_alpha * (np.sum(pearson) / max(n_obs - p, 1)))
+            )
             var = mu + dispersion_alpha * (mu**2)
         else:
             var = mu
@@ -4162,7 +4166,9 @@ def fit_spatial_count_panel(
     if model_type_clean == "poisson":
         ll_i = y * np.log(np.maximum(mu, 1e-10)) - mu
         ll_model = float(np.sum(ll_i))
-        deviance = float(2.0 * np.sum(np.where(y > 0, y * np.log(y / np.maximum(mu, 1e-10)) - (y - mu), mu)))
+        deviance = float(
+            2.0 * np.sum(np.where(y > 0, y * np.log(y / np.maximum(mu, 1e-10)) - (y - mu), mu))
+        )
 
         y_mean = max(np.mean(y), 1e-10)
         ll_null = float(np.sum(y * np.log(y_mean) - y_mean))
@@ -4170,7 +4176,11 @@ def fit_spatial_count_panel(
         r = 1.0 / dispersion_alpha
         ll_i = stats.nbinom.logpmf(np.floor(y).astype(int), r, r / (r + mu))
         ll_model = float(np.sum(ll_i))
-        deviance = float(np.sum(2.0 * ((y + r) * np.log((y + r) / (mu + r)) - y * np.log(np.maximum(y, 1e-10) / mu))))
+        deviance = float(
+            np.sum(
+                2.0 * ((y + r) * np.log((y + r) / (mu + r)) - y * np.log(np.maximum(y, 1e-10) / mu))
+            )
+        )
 
         y_mean = max(np.mean(y), 1e-10)
         ll_null = float(np.sum(stats.nbinom.logpmf(np.floor(y).astype(int), r, r / (r + y_mean))))
@@ -4275,7 +4285,7 @@ def fit_spatial_zip_panel(
     beta_aug, _, _, _ = np.linalg.lstsq(X_aug, np.log(np.maximum(y, 0.1)), rcond=None)
     dispersion_alpha = 0.5 if dist_clean in ("negative_binomial", "zinb") else 0.0
 
-    zero_mask = (y == 0)
+    zero_mask = y == 0
 
     for _ in range(max_iter):
         logit_pi = np.clip(Z_zero @ gamma, -30.0, 30.0)
@@ -4418,12 +4428,9 @@ def fit_spatial_dynamic_panel_gmm(
         delta_Y_target = (Y_mat[:, 2] - Y_mat[:, 1])[:, None]
         delta_X = (X_cube[:, 2, :] - X_cube[:, 1, :])[:, None, :]
         delta_WY_target = (W @ delta_Y_target[:, 0])[:, None]
-        Z_inst_0 = np.hstack((
-            Y_mat[:, 0:1],
-            (W @ Y_mat[:, 0])[:, None],
-            X_cube[:, 0, :],
-            W @ X_cube[:, 0, :]
-        ))
+        Z_inst_0 = np.hstack(
+            (Y_mat[:, 0:1], (W @ Y_mat[:, 0])[:, None], X_cube[:, 0, :], W @ X_cube[:, 0, :])
+        )
     else:
         delta_Y_target = Y_mat[:, 2:] - Y_mat[:, 1:-1]
         delta_Y_lag = Y_mat[:, 1:-1] - Y_mat[:, :-2]
@@ -4434,12 +4441,14 @@ def fit_spatial_dynamic_panel_gmm(
 
         Z_inst_list = []
         for t_idx in range(delta_Y_target.shape[1]):
-            z_t = np.hstack((
-                Y_mat[:, t_idx:t_idx+1],
-                (W @ Y_mat[:, t_idx])[:, None],
-                X_cube[:, t_idx, :],
-                W @ X_cube[:, t_idx, :]
-            ))
+            z_t = np.hstack(
+                (
+                    Y_mat[:, t_idx : t_idx + 1],
+                    (W @ Y_mat[:, t_idx])[:, None],
+                    X_cube[:, t_idx, :],
+                    W @ X_cube[:, t_idx, :],
+                )
+            )
             Z_inst_list.append(z_t)
         Z_inst_0 = np.vstack(Z_inst_list)
 
@@ -4591,7 +4600,9 @@ def fit_spatial_panel_tobit_lag(
 
     residuals = y - regressors @ coefs
     sigma = float(np.std(residuals))
-    log_lik = -0.5 * nt * np.log(2 * np.pi * (sigma**2 + 1e-12)) - np.sum(residuals**2) / (2 * (sigma**2 + 1e-12))
+    log_lik = -0.5 * nt * np.log(2 * np.pi * (sigma**2 + 1e-12)) - np.sum(residuals**2) / (
+        2 * (sigma**2 + 1e-12)
+    )
 
     return {
         "spatial_rho": rho_est,
@@ -4668,7 +4679,8 @@ def fit_st_gwrr(
 ) -> dict[str, Any]:
     """Spatio-Temporal Geographically Weighted Ridge Regression (ST-GWRR).
 
-    Fits localized spatio-temporal regressions with L2 ridge regularization to stabilize parameter estimates.
+    Fits localized spatio-temporal regressions with L2 ridge regularization to
+    stabilize parameter estimates.
 
     Args:
         coords: Array of shape (N, 2) for spatial coordinates.
@@ -4718,7 +4730,8 @@ def fit_spatial_panel_regimes(
 ) -> dict[str, Any]:
     """Spatial Panel Regime Regression (Spatial Structural Break Engine).
 
-    Fits separate panel regressions per spatial regime and computes Chow structural break statistics.
+    Fits separate panel regressions per spatial regime and computes Chow structural
+    break statistics.
 
     Args:
         y: Dependent variable array (N*T,).
@@ -4824,7 +4837,8 @@ def fit_spatial_pvar(
         lag_order: Time lag order p (default 1).
 
     Returns:
-        Dict containing PVAR coefficient matrices, spatial rho per variable, and residual covariance.
+        Dict containing PVAR coefficient matrices, spatial rho per variable,
+        and residual covariance.
     """
     m_vars = len(y_var_list)
     if m_vars == 0:
@@ -4863,13 +4877,3 @@ def fit_spatial_pvar(
         "num_variables": m_vars,
         "lag_order": lag_order,
     }
-
-
-
-
-
-
-
-
-
-

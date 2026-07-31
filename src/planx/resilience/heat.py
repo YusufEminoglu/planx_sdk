@@ -837,7 +837,8 @@ def surface_cool_island_simulator(
           - 'mean_cooling_c': Float mean LST reduction across modified cells.
           - 'max_cooling_c': Float peak LST reduction in deg C.
           - 'total_heat_mitigated_mwh': Float total energy reflection equivalent in MWh.
-          - 'pet_comfort_improvement_c': 2D float array of estimated PET comfort improvement in deg C.
+          - 'pet_comfort_improvement_c': 2D float array of estimated PET comfort
+            improvement in deg C.
     """
     alb_base = np.asarray(albedo_grid, dtype=np.float64)
     alb_targ = np.asarray(target_albedo_grid, dtype=np.float64)
@@ -910,7 +911,8 @@ def wind_canopy_aerodynamic_drag_simulator(
     Args:
         inflow_wind_speed_ms: Open-terrain baseline wind speed in m/s at 10m height (> 0).
         tree_lai_grid: 2D NumPy array of Leaf Area Index (LAI) values [0.0, 10.0].
-        building_frontal_density_grid: 2D NumPy array of building frontal area density lambda_f [0.0, 1.0].
+        building_frontal_density_grid: 2D NumPy array of building frontal area density
+            lambda_f [0.0, 1.0].
         tree_height_m: Mean canopy height in meters (default 10.0).
         drag_coefficient: Canopy aerodynamic drag coefficient Cd (default 0.2).
 
@@ -990,12 +992,23 @@ def heatwave_health_vulnerability_engine(
         ac_coverage_ratio_grid: Fraction of households with air conditioning per cell (0-1).
 
     Returns:
-        Dict containing heat index grid, vulnerability score grid, mean heat index, and severe risk ratio.
+        Dict containing heat index grid, vulnerability score grid, mean heat index,
+        and severe risk ratio.
     """
     tf = temp_c_grid * 1.8 + 32.0
     rh = humidity_pct_grid
 
-    hi_f = -42.379 + 2.04901523 * tf + 10.14333127 * rh - 0.22475541 * tf * rh - 0.00683783 * (tf**2) - 0.05481717 * (rh**2) + 0.00122874 * (tf**2) * rh + 0.00085282 * tf * (rh**2) - 0.00000199 * (tf**2) * (rh**2)
+    hi_f = (
+        -42.379
+        + 2.04901523 * tf
+        + 10.14333127 * rh
+        - 0.22475541 * tf * rh
+        - 0.00683783 * (tf**2)
+        - 0.05481717 * (rh**2)
+        + 0.00122874 * (tf**2) * rh
+        + 0.00085282 * tf * (rh**2)
+        - 0.00000199 * (tf**2) * (rh**2)
+    )
     hi_c = (hi_f - 32.0) / 1.8
     hi_c = np.where(temp_c_grid < 25.0, temp_c_grid, hi_c)
 
@@ -1010,7 +1023,9 @@ def heatwave_health_vulnerability_engine(
         "mean_heat_index_c": float(np.mean(hi_c)),
         "max_heat_index_c": float(np.max(hi_c)),
         "severe_vulnerability_ratio": severe_ratio,
-        "alert_level": "EXTREME" if severe_ratio > 0.3 else ("WARNING" if severe_ratio > 0.1 else "ADVISORY"),
+        "alert_level": "EXTREME"
+        if severe_ratio > 0.3
+        else ("WARNING" if severe_ratio > 0.1 else "ADVISORY"),
     }
 
 
@@ -1038,7 +1053,7 @@ def wui_ember_transport_simulator(
     if wind_speed_ms <= 0:
         raise ValueError("wind_speed_ms must be positive.")
 
-    d_spot_max = 0.05 * (wind_speed_ms ** 1.2) * (canopy_height_m ** 0.8) * 10.0
+    d_spot_max = 0.05 * (wind_speed_ms**1.2) * (canopy_height_m**0.8) * 10.0
 
     diffs = target_grid_coords[:, None, :] - fire_line_coords[None, :, :]
     dists = np.sqrt(np.sum(diffs**2, axis=2))
@@ -1097,8 +1112,3 @@ def green_infra_cooling_engine(
         "max_cooling_c": float(np.max(cooling_grid)),
         "cooled_area_ratio": float(np.mean(cooling_grid > 0.5)),
     }
-
-
-
-
-

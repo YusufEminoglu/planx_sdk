@@ -748,7 +748,8 @@ def coastal_storm_surge_inundation_engine(
           - 'mean_depth_m': Mean water depth across flooded cells in meters.
           - 'volume_m3': Total inundated water volume in m^3.
           - 'connectivity_mask': 2D boolean array of hydrologically connected flooded cells.
-          - 'hazard_classification_counts': Dict with cell counts for low (<0.5m), medium (0.5-1.5m), high (>1.5m).
+          - 'hazard_classification_counts': Dict with cell counts for low (<0.5m),
+            medium (0.5-1.5m), high (>1.5m).
     """
     dem = np.asarray(dem_grid, dtype=np.float64)
     c_mask = np.asarray(coastal_mask, dtype=bool)
@@ -771,6 +772,7 @@ def coastal_storm_surge_inundation_engine(
     connected = np.zeros((rows, cols), dtype=bool)
 
     from collections import deque
+
     queue = deque()
 
     for r in range(rows):
@@ -871,7 +873,9 @@ def pluvial_flash_flood_simulator(
         "max_ponding_depth_mm": float(np.max(ponding_depth_mm)),
         "mean_ponding_depth_mm": float(np.mean(ponding_depth_mm)),
         "inundated_area_ratio": inundated_ratio,
-        "hazard_level": "HIGH" if inundated_ratio > 0.3 else ("MODERATE" if inundated_ratio > 0.1 else "LOW"),
+        "hazard_level": "HIGH"
+        if inundated_ratio > 0.3
+        else ("MODERATE" if inundated_ratio > 0.1 else "LOW"),
     }
 
 
@@ -885,7 +889,8 @@ def tsunami_evacuation_routing_engine(
 ) -> dict[str, Any]:
     """Urban Tsunami Inundation & Vertical Evacuation Router.
 
-    Models tsunami wave attenuation and evaluates vertical refuge building allocation and capacity deficit.
+    Models tsunami wave attenuation and evaluates vertical refuge building allocation
+    and capacity deficit.
 
     Args:
         coastline_coords: Array of shape (C, 2) for coast line seed coordinates.
@@ -977,7 +982,8 @@ def compound_hazard_risk_aggregator(
 ) -> dict[str, Any]:
     """Urban Resilience Multi-Hazard Compound Risk Aggregator.
 
-    Calculates joint probability and compound exposure risk scores across flood, heat, and seismic hazards.
+    Calculates joint probability and compound exposure risk scores across flood,
+    heat, and seismic hazards.
 
     Args:
         flood_depth_grid: Flood water depth grid (meters).
@@ -986,14 +992,17 @@ def compound_hazard_risk_aggregator(
         exposure_density_grid: Asset / population exposure density grid.
 
     Returns:
-        Dict containing compound risk score grid [0, 100], mean risk, and high compound risk cell count.
+        Dict containing compound risk score grid [0, 100], mean risk, and high
+        compound risk cell count.
     """
     f_norm = np.clip(flood_depth_grid / 2.0, 0.0, 1.0)
     h_norm = np.clip((heat_index_grid - 25.0) / 20.0, 0.0, 1.0)
     s_norm = np.clip(seismic_pga_grid / 0.5, 0.0, 1.0)
 
     compound_hazard = 1.0 - (1.0 - f_norm) * (1.0 - h_norm) * (1.0 - s_norm)
-    compound_risk_grid = compound_hazard * (exposure_density_grid / (np.max(exposure_density_grid) + 1e-6)) * 100.0
+    compound_risk_grid = (
+        compound_hazard * (exposure_density_grid / (np.max(exposure_density_grid) + 1e-6)) * 100.0
+    )
 
     high_risk_count = int(np.sum(compound_risk_grid > 50.0))
 
@@ -1004,8 +1013,3 @@ def compound_hazard_risk_aggregator(
         "high_compound_risk_cell_count": high_risk_count,
         "high_risk_ratio": float(np.mean(compound_risk_grid > 50.0)),
     }
-
-
-
-
-

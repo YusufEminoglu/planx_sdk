@@ -684,8 +684,8 @@ def ev_fleet_charging_location_allocation(
 ) -> dict[str, Any]:
     """EV Fleet Charging Station Multi-Objective Location-Allocation Engine.
 
-    Selects optimal charging depots from candidates to serve fleet trips, minimizing detour distances
-    and honoring depot power capacity constraints.
+    Selects optimal charging depots from candidates to serve fleet trips, minimizing
+    detour distances and honoring depot power capacity constraints.
 
     Args:
         fleet_origins: 2D array (N, 2) of trip origin coordinates.
@@ -699,10 +699,12 @@ def ev_fleet_charging_location_allocation(
     Returns:
         Dict containing:
           - 'selected_depot_indices': 1D int array of selected candidate indices.
-          - 'trip_allocations': 1D int array (N,) mapping each trip to selected depot index (-1 if unassigned).
+          - 'trip_allocations': 1D int array (N,) mapping each trip to selected depot index
+            (-1 if unassigned).
           - 'fleet_coverage_ratio': Float fraction of trips successfully allocated.
           - 'mean_detour_km': Float mean detour distance for allocated trips.
-          - 'depot_power_utilization_kw': 1D float array of allocated charging power per selected depot.
+          - 'depot_power_utilization_kw': 1D float array of allocated charging power
+            per selected depot.
           - 'total_detour_km': Float total extra detour distance across fleet.
     """
     f_orig = np.asarray(fleet_origins, dtype=np.float64)
@@ -733,6 +735,7 @@ def ev_fleet_charging_location_allocation(
         p_cap = np.full(m_candidates, 1e9, dtype=np.float64)
 
     from scipy.spatial.distance import cdist
+
     d_orig_dep = cdist(f_orig, c_dep, metric="euclidean")
     d_dep_dest = cdist(c_dep, f_dest, metric="euclidean").T
     d_base = np.sqrt(np.sum((f_orig - f_dest) ** 2, axis=1))
@@ -821,7 +824,8 @@ def tod_spatial_diversity_index(
         transit_distances: Array of shape (N,) containing distance (meters) to transit station.
 
     Returns:
-        Dict containing Shannon entropy scores, TOD diversity index scores, and high-readiness count.
+        Dict containing Shannon entropy scores, TOD diversity index scores, and
+        high-readiness count.
     """
     n, k = landuse_ratios_matrix.shape
     p = np.clip(landuse_ratios_matrix, 1e-12, 1.0)
@@ -831,7 +835,11 @@ def tod_spatial_diversity_index(
 
     transit_score = np.exp(-transit_distances / 400.0)
 
-    tod_score = entropy * 0.4 + (far_intensities / (np.max(far_intensities) + 1e-6)) * 0.3 + transit_score * 0.3
+    tod_score = (
+        entropy * 0.4
+        + (far_intensities / (np.max(far_intensities) + 1e-6)) * 0.3
+        + transit_score * 0.3
+    )
 
     return {
         "shannon_entropy_scores": entropy,
@@ -850,7 +858,8 @@ def logistics_microhub_location_allocation(
 ) -> dict[str, Any]:
     """Urban Logistics Last-Mile Micro-Hub Location-Allocation Engine.
 
-    Selects optimal cargo bike distribution micro-hubs minimizing delivery distances under LEZ constraints.
+    Selects optimal cargo bike distribution micro-hubs minimizing delivery distances
+    under LEZ constraints.
 
     Args:
         demand_coords: Array of shape (N, 2) for delivery destination points.
@@ -899,6 +908,3 @@ def logistics_microhub_location_allocation(
         "total_delivery_vkt": tot_dist,
         "cargo_bike_range_coverage_ratio": in_range_ratio,
     }
-
-
-
