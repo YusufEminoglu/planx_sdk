@@ -14,6 +14,7 @@ from .accessibility import (
     enhanced_2sfca,
     ev_charging_accessibility_index,
     ev_cvrp_multi_depot_routing,
+    fifteen_minute_city_equity_analyzer,
     gravity_accessibility,
     healthcare_equity_index,
     micromobility_equity_index,
@@ -116,4 +117,5 @@ __all__ = [
     "transit_fleet_electrification_scheduler",
     "canopy_sky_view_factor_profiler",
     "drt_dispatch_optimizer",
+    "fifteen_minute_city_equity_analyzer",
 ]

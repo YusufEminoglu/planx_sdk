@@ -673,6 +673,30 @@ def test_drt_dispatch_optimizer():
     assert len(res["vehicle_loads"]) == 2
 
 
+def test_fifteen_minute_city_equity_analyzer():
+    from planx.spatial import fifteen_minute_city_equity_analyzer
+
+    counts = np.array([
+        [1, 1, 1, 1, 1, 1],
+        [0, 1, 0, 1, 0, 1],
+        [1, 0, 1, 0, 1, 0],
+    ])
+    times = np.array([
+        [10.0, 12.0, 14.0, 8.0, 11.0, 13.0],
+        [20.0, 10.0, 30.0, 5.0, 40.0, 12.0],
+        [12.0, 25.0, 10.0, 18.0, 14.0, 30.0],
+    ])
+    vuln = np.array([0.2, 0.8, 0.6])
+
+    res = fifteen_minute_city_equity_analyzer(counts, times, vuln)
+
+    assert "zone_15m_city_scores" in res
+    assert "mean_15m_city_score" in res
+    assert "vulnerability_equity_gap" in res
+    assert len(res["zone_15m_city_scores"]) == 3
+
+
+
 
 
 

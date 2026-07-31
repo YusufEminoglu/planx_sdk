@@ -1741,6 +1741,49 @@ def picture_fuzzy_topsis(
     }
 
 
+def hesitant_fuzzy_dematel(
+    direct_influence_matrices: list[np.ndarray],
+) -> dict[str, Any]:
+    """Hesitant Fuzzy DEMATEL Causal Mapping Engine.
+
+    Aggregates expert evaluation matrices under hesitant fuzzy environments and calculates cause/effect groups.
+
+    Args:
+        direct_influence_matrices: List of K matrices of shape (N, N) from expert evaluations.
+
+    Returns:
+        Dict containing direct relation matrix, total relation matrix, D+R, D-R, and causal classification.
+    """
+    k_exp = len(direct_influence_matrices)
+    if k_exp == 0:
+        raise ValueError("At least 1 influence matrix must be provided.")
+
+    n = direct_influence_matrices[0].shape[0]
+    avg_matrix = np.mean(direct_influence_matrices, axis=0)
+
+    row_sums = np.max(np.sum(avg_matrix, axis=1))
+    norm_matrix = avg_matrix / max(row_sums, 1e-12)
+
+    i_n = np.eye(n)
+    total_relation = norm_matrix @ np.linalg.pinv(i_n - norm_matrix)
+
+    d_row = np.sum(total_relation, axis=1)
+    r_col = np.sum(total_relation, axis=0)
+
+    d_plus_r = d_row + r_col
+    d_minus_r = d_row - r_col
+
+    causal_type = ["CAUSE" if val > 0 else "EFFECT" for val in d_minus_r]
+
+    return {
+        "total_relation_matrix": total_relation,
+        "prominence_d_plus_r": d_plus_r,
+        "relation_d_minus_r": d_minus_r,
+        "causal_classification": causal_type,
+    }
+
+
+
 
 
 

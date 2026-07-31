@@ -26,6 +26,7 @@ from .mcda import (
     fuzzy_copras_method,
     fuzzy_topsis_method,
     fuzzy_vikor_method,
+    hesitant_fuzzy_dematel,
     if_vikor_method,
     ivif_topsis_method,
     marcos_method,
@@ -94,4 +95,5 @@ __all__ = [
     "rough_topsis_method",
     "fuzzy_copras_method",
     "picture_fuzzy_topsis",
+    "hesitant_fuzzy_dematel",
 ]

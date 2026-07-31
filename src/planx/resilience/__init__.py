@@ -33,6 +33,7 @@ from .heat import (
     calculate_grid_sky_view_factor,
     calculate_solar_access,
     classify_local_climate_zones,
+    green_infra_cooling_engine,
     heatwave_health_vulnerability_engine,
     optimize_canopy_placement,
     optimize_tree_canopy_greening,
@@ -122,4 +123,5 @@ __all__ = [
     "wui_ember_transport_simulator",
     "tsunami_evacuation_routing_engine",
     "seismic_landslide_susceptibility_engine",
+    "green_infra_cooling_engine",
 ]

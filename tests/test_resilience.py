@@ -2067,6 +2067,22 @@ def test_seismic_landslide_susceptibility_engine():
     assert res["factor_of_safety_grid"].shape == (2, 2)
 
 
+def test_green_infra_cooling_engine():
+    from planx.resilience import green_infra_cooling_engine
+
+    parks = np.array([[0.0, 0.0], [500.0, 500.0]])
+    areas = np.array([2.0, 5.0])
+    grid = np.array([[50.0, 50.0], [450.0, 450.0], [1000.0, 1000.0]])
+
+    res = green_infra_cooling_engine(parks, areas, grid, max_cooling_dist_m=400.0)
+
+    assert "temperature_reduction_c_grid" in res
+    assert "mean_cooling_c" in res
+    assert "max_cooling_c" in res
+    assert len(res["temperature_reduction_c_grid"]) == 3
+
+
+
 
 
 

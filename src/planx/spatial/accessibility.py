@@ -1803,6 +1803,40 @@ def drt_dispatch_optimizer(
     }
 
 
+def fifteen_minute_city_equity_analyzer(
+    service_domain_counts: np.ndarray,
+    travel_times_minutes: np.ndarray,
+    vulnerability_scores: np.ndarray,
+) -> dict[str, Any]:
+    """15-Minute City Multi-Modal Accessibility Equity Analyzer.
+
+    Evaluates cumulative service domain access within 15 minutes across 6 urban domains.
+
+    Args:
+        service_domain_counts: Matrix of shape (N, 6) with service availability per domain.
+        travel_times_minutes: Matrix of shape (N, 6) with travel time to closest facility.
+        vulnerability_scores: Vector of shape (N,) with socio-economic vulnerability.
+
+    Returns:
+        Dict containing 15m city accessibility score per zone, equity gap, and compliant zone ratio.
+    """
+    accessible_domains = (travel_times_minutes <= 15.0) & (service_domain_counts > 0)
+    scores = np.mean(accessible_domains, axis=1) * 100.0
+
+    vuln_mask = vulnerability_scores > 0.5
+    high_vuln_avg = float(np.mean(scores[vuln_mask])) if np.any(vuln_mask) else float(np.mean(scores))
+    low_vuln_avg = float(np.mean(scores[~vuln_mask])) if np.any(~vuln_mask) else float(np.mean(scores))
+    equity_gap = high_vuln_avg - low_vuln_avg
+
+    return {
+        "zone_15m_city_scores": scores,
+        "mean_15m_city_score": float(np.mean(scores)),
+        "compliant_zones_ratio": float(np.mean(scores >= 80.0)),
+        "vulnerability_equity_gap": float(equity_gap),
+    }
+
+
+
 
 
 
