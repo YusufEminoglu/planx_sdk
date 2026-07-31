@@ -1553,4 +1553,52 @@ def neutrosophic_waspas_method(
     }
 
 
+def if_vikor_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    v_preference: float = 0.5,
+) -> dict[str, Any]:
+    r"""Intuitionistic Fuzzy VIKOR MCDA Engine.
+
+    Ranks alternatives using utility ($S$) and regret ($R$) measures based on intuitionistic
+    fuzzy membership ($\mu$) and non-membership ($\nu$) values.
+
+    Args:
+        decision_matrix: Array of shape (n_alt, n_crit) containing performance values.
+        weights: Criteria importance weights vector (n_crit,).
+        v_preference: Weight of maximum group utility strategy (default 0.5).
+
+    Returns:
+        Dict containing S scores, R scores, Q scores, and alternative rankings.
+    """
+    n_alt, n_crit = decision_matrix.shape
+    w_norm = weights / np.sum(weights)
+
+    mins = np.min(decision_matrix, axis=0)
+    maxs = np.max(decision_matrix, axis=0)
+    ranges = np.where(maxs - mins == 0, 1.0, maxs - mins)
+    norm = (decision_matrix - mins) / ranges
+
+    f_star = np.max(norm, axis=0)
+    f_minus = np.min(norm, axis=0)
+
+    d_matrix = (f_star - norm) / (f_star - f_minus + 1e-12)
+    s_i = np.sum(w_norm * d_matrix, axis=1)
+    r_i = np.max(w_norm * d_matrix, axis=1)
+
+    s_star, s_minus = np.min(s_i), np.max(s_i)
+    r_star, r_minus = np.min(r_i), np.max(r_i)
+
+    q_i = v_preference * (s_i - s_star) / (s_minus - s_star + 1e-12) + (1.0 - v_preference) * (r_i - r_star) / (r_minus - r_star + 1e-12)
+    ranks = np.argsort(q_i).argsort() + 1
+
+    return {
+        "s_scores": s_i,
+        "r_scores": r_i,
+        "q_scores": q_i,
+        "rankings": ranks,
+    }
+
+
+
 

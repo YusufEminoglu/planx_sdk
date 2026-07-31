@@ -1892,5 +1892,30 @@ def test_fit_spatial_panel_sur():
     assert len(res["r_squared_per_equation"]) == 2
 
 
+def test_fit_spatial_panel_tobit_lag():
+    from planx.geostats import fit_spatial_panel_tobit_lag
+
+    np.random.seed(42)
+    N, T = 4, 3
+    W = np.array([
+        [0.0, 0.5, 0.5, 0.0],
+        [0.5, 0.0, 0.5, 0.0],
+        [0.3, 0.3, 0.0, 0.4],
+        [0.0, 0.0, 1.0, 0.0],
+    ])
+    x = np.random.randn(N * T, 2)
+    y = np.maximum(0.0, np.random.randn(N * T))
+
+    res = fit_spatial_panel_tobit_lag(y, x, W, time_periods=T, lower_bound=0.0)
+
+    assert "spatial_rho" in res
+    assert "beta" in res
+    assert "sigma" in res
+    assert "censored_ratio" in res
+    assert "log_likelihood" in res
+    assert 0.0 <= res["censored_ratio"] <= 1.0
+
+
+
 
 

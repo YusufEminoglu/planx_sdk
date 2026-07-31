@@ -15,6 +15,7 @@ from .facility import (
     greedy_p_median,
     mclp_distance_decay,
     pareto_facility_location,
+    tod_spatial_diversity_index,
 )
 from .mcda import (
     aras_method,
@@ -24,6 +25,7 @@ from .mcda import (
     electre_iii_method,
     fuzzy_topsis_method,
     fuzzy_vikor_method,
+    if_vikor_method,
     ivif_topsis_method,
     marcos_method,
     neutrosophic_waspas_method,
@@ -84,4 +86,6 @@ __all__ = [
     "ev_fleet_charging_location_allocation",
     "ivif_topsis_method",
     "neutrosophic_waspas_method",
+    "tod_spatial_diversity_index",
+    "if_vikor_method",
 ]

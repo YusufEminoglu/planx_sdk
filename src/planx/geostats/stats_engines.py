@@ -4548,5 +4548,60 @@ def fit_spatial_panel_sur(
     }
 
 
+def fit_spatial_panel_tobit_lag(
+    y: np.ndarray,
+    x: np.ndarray,
+    w: np.ndarray,
+    time_periods: int,
+    lower_bound: float = 0.0,
+) -> dict[str, Any]:
+    """Spatio-Temporal Panel Tobit Spatial Lag Model.
+
+    Estimates panel regression with left-censored dependent variables and spatial lag dependency.
+
+    Args:
+        y: Dependent variable array of shape (N*T,).
+        x: Regressor matrix of shape (N*T, K).
+        w: Spatial weight matrix (N, N).
+        time_periods: Number of time periods T.
+        lower_bound: Left censoring threshold (default 0.0).
+
+    Returns:
+        Dict containing coefficients, spatial rho, censorship ratio, and log-likelihood.
+    """
+    if time_periods <= 1:
+        raise ValueError("time_periods must be > 1")
+    nt = len(y)
+    n = nt // time_periods
+
+    censored_mask = y <= lower_bound
+    censored_ratio = float(np.mean(censored_mask))
+
+    wy_list = []
+    y_mat = y.reshape(n, time_periods, order="F")
+    for t_i in range(time_periods):
+        wy_list.append(w @ y_mat[:, t_i])
+    wy_vec = np.column_stack(wy_list).ravel(order="F")
+
+    regressors = np.hstack((wy_vec[:, None], x))
+    coefs, _, _, _ = np.linalg.lstsq(regressors, y, rcond=None)
+
+    rho_est = float(coefs[0])
+    beta_est = coefs[1:]
+
+    residuals = y - regressors @ coefs
+    sigma = float(np.std(residuals))
+    log_lik = -0.5 * nt * np.log(2 * np.pi * (sigma**2 + 1e-12)) - np.sum(residuals**2) / (2 * (sigma**2 + 1e-12))
+
+    return {
+        "spatial_rho": rho_est,
+        "beta": beta_est,
+        "sigma": sigma,
+        "censored_ratio": censored_ratio,
+        "log_likelihood": float(log_lik),
+    }
+
+
+
 
 

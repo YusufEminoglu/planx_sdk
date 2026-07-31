@@ -5,6 +5,15 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-07-31
+### Added
+- **Spatio-Temporal Panel Tobit Spatial Lag Model** (`fit_spatial_panel_tobit_lag`) in `planx.geostats` for censored panel regression with spatial autoregressive lag.
+- **Urban Heat Wave Health Vulnerability Engine** (`heatwave_health_vulnerability_engine`) in `planx.resilience.heat` for heat index calculation, vulnerable demographics, and AC coverage deficit scoring.
+- **Transit-Oriented Development (TOD) Spatial Diversity Profiler** (`tod_spatial_diversity_index`) in `planx.suitability.facility` for Shannon land-use mix entropy, FAR intensity, and transit catchment evaluation.
+- **Intuitionistic Fuzzy VIKOR Method** (`if_vikor_method`) in `planx.suitability.mcda` for multi-criteria compromise ranking under intuitionistic fuzzy preference weights.
+
+---
+
 ## [2.3.0] - 2026-07-31
 ### Added
 - **Spatial Panel Seemingly Unrelated Regression** (`fit_spatial_panel_sur`) in `planx.geostats` for multi-equation spatio-temporal systems with cross-equation error covariance and 2SLS spatial lag.

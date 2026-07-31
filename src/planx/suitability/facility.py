@@ -804,3 +804,40 @@ def ev_fleet_charging_location_allocation(
         "total_detour_km": tot_det,
     }
 
+
+def tod_spatial_diversity_index(
+    landuse_ratios_matrix: np.ndarray,
+    far_intensities: np.ndarray,
+    transit_distances: np.ndarray,
+) -> dict[str, Any]:
+    """Transit-Oriented Development (TOD) Spatial Diversity Profiler.
+
+    Calculates Shannon land-use mix entropy, floor-area ratio (FAR) intensity, and transit
+    catchment score for urban nodes.
+
+    Args:
+        landuse_ratios_matrix: Matrix of shape (N, K) with land use proportion per zone.
+        far_intensities: Array of shape (N,) containing average Floor-Area Ratio.
+        transit_distances: Array of shape (N,) containing distance (meters) to transit station.
+
+    Returns:
+        Dict containing Shannon entropy scores, TOD diversity index scores, and high-readiness count.
+    """
+    n, k = landuse_ratios_matrix.shape
+    p = np.clip(landuse_ratios_matrix, 1e-12, 1.0)
+    p_norm = p / np.sum(p, axis=1, keepdims=True)
+
+    entropy = -np.sum(p_norm * np.log(p_norm), axis=1) / np.log(max(k, 2))
+
+    transit_score = np.exp(-transit_distances / 400.0)
+
+    tod_score = entropy * 0.4 + (far_intensities / (np.max(far_intensities) + 1e-6)) * 0.3 + transit_score * 0.3
+
+    return {
+        "shannon_entropy_scores": entropy,
+        "tod_diversity_scores": tod_score,
+        "mean_tod_score": float(np.mean(tod_score)),
+        "high_readiness_nodes_count": int(np.sum(tod_score > 0.7)),
+    }
+
+

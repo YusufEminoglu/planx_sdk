@@ -31,6 +31,7 @@ from .heat import (
     calculate_grid_sky_view_factor,
     calculate_solar_access,
     classify_local_climate_zones,
+    heatwave_health_vulnerability_engine,
     optimize_canopy_placement,
     optimize_tree_canopy_greening,
     surface_cool_island_simulator,
@@ -114,4 +115,5 @@ __all__ = [
     "surface_cool_island_simulator",
     "wind_canopy_aerodynamic_drag_simulator",
     "pluvial_flash_flood_simulator",
+    "heatwave_health_vulnerability_engine",
 ]
