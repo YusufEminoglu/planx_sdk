@@ -495,3 +495,34 @@ def test_spherical_fuzzy_topsis():
     assert "rankings" in res
     assert len(res["closeness_coefficients"]) == 3
     assert len(res["rankings"]) == 3
+
+
+def test_objective_weighting_engines():
+    from planx.suitability import (
+        ahp_weights_from_json,
+        calculate_ahp_weights,
+        calculate_critic_weights,
+        calculate_entropy_weights,
+        calculate_pca_weights,
+    )
+
+    m = np.array([[1.0, 3.0], [1.0 / 3.0, 1.0]])
+    ahp_res = calculate_ahp_weights(m)
+    assert len(ahp_res["weights"]) == 2
+    assert ahp_res["consistency_ratio"] >= 0.0
+
+    w_json, cr_json = ahp_weights_from_json("[[1.0, 3.0], [0.333333, 1.0]]")
+    assert len(w_json) == 2
+
+    X = np.array([[10.0, 50.0], [20.0, 40.0], [30.0, 10.0], [40.0, 5.0]])
+    w_e = calculate_entropy_weights(X)
+    assert len(w_e) == 2
+    assert np.isclose(np.sum(w_e), 1.0)
+
+    w_c = calculate_critic_weights(X)
+    assert len(w_c) == 2
+    assert np.isclose(np.sum(w_c), 1.0)
+
+    w_p = calculate_pca_weights(X)
+    assert len(w_p) == 2
+    assert np.isclose(np.sum(w_p), 1.0)

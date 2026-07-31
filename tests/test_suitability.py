@@ -1271,3 +1271,16 @@ def test_logistics_microhub_location_allocation():
     assert "total_delivery_vkt" in res
     assert len(res["selected_hub_indices"]) == 2
     assert len(res["demand_allocations"]) == 3
+
+
+def test_area_weighted_kmeans():
+    from planx.suitability import area_weighted_kmeans
+
+    pts = [(0.0, 0.0), (1.0, 1.0), (10.0, 10.0), (11.0, 11.0)]
+    wts = [100.0, 150.0, 200.0, 250.0]
+
+    res = area_weighted_kmeans(pts, wts, k=2)
+    assert "labels" in res
+    assert "centers" in res
+    assert len(res["labels"]) == 4
+    assert len(res["centers"]) == 2

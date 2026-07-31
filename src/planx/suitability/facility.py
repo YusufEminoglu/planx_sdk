@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
@@ -907,4 +908,125 @@ def logistics_microhub_location_allocation(
         "demand_allocations": allocations,
         "total_delivery_vkt": tot_dist,
         "cargo_bike_range_coverage_ratio": in_range_ratio,
+    }
+
+
+def area_weighted_kmeans(
+    points: list[tuple[float, float]] | np.ndarray,
+    weights: list[float] | np.ndarray,
+    k: int,
+    max_iter: int = 80,
+    seed: int = 42,
+) -> dict[str, Any]:
+    """Area/weight-weighted K-means++ clustering engine for urban parcel re-adjustment.
+
+    Args:
+        points: List or array of (X, Y) coordinates of shape (N, 2).
+        weights: List or array of parcel areas/weights of shape (N,).
+        k: Number of cluster centroids to form (K >= 1).
+        max_iter: Maximum iterations (default 80).
+        seed: Random seed for K-means++ initialization (default 42).
+
+    Returns:
+        Dict containing cluster 'labels' array (N,) and 'centers' list of (X, Y) tuples.
+    """
+    pts = [(float(p[0]), float(p[1])) for p in points]
+    wts = [float(w) for w in weights]
+    n = len(pts)
+
+    if n == 0:
+        return {"labels": np.array([], dtype=int), "centers": []}
+    if k <= 1:
+        sw = sum(wts) or 1.0
+        sx = sum(pts[i][0] * wts[i] for i in range(n))
+        sy = sum(pts[i][1] * wts[i] for i in range(n))
+        return {
+            "labels": np.zeros(n, dtype=int),
+            "centers": [(sx / sw, sy / sw)],
+        }
+    if k >= n:
+        return {
+            "labels": np.arange(n, dtype=int),
+            "centers": pts,
+        }
+
+    first_idx = max(range(n), key=lambda i: wts[i])
+    centers = [pts[first_idx]]
+    chosen = {first_idx}
+
+    def _d2(p1: tuple[float, float], p2: tuple[float, float]) -> float:
+        return (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
+
+    np.random.seed(seed)
+
+    for _ in range(k - 1):
+        distances = []
+        for i in range(n):
+            min_d2 = min(_d2(pts[i], c) for c in centers)
+            distances.append(min_d2 * wts[i])
+        total = sum(distances)
+        if total <= 0:
+            remaining = [i for i in range(n) if i not in chosen]
+            next_idx = remaining[0] if remaining else 0
+        else:
+            r = float(np.random.uniform(0, total))
+            cumulative = 0.0
+            next_idx = n - 1
+            for i, d in enumerate(distances):
+                cumulative += d
+                if cumulative >= r:
+                    next_idx = i
+                    break
+        centers.append(pts[next_idx])
+        chosen.add(next_idx)
+
+    target_w = sum(wts) / k
+    labels = [0] * n
+
+    for _ in range(max_iter):
+        cluster_w = [0.0] * k
+        new_labels = [-1] * n
+        order = sorted(range(n), key=lambda i: -wts[i])
+        for i in order:
+            best, best_d = 0, float("inf")
+            for ci, c in enumerate(centers):
+                d = _d2(pts[i], c)
+                penalty = 1.0
+                if cluster_w[ci] >= target_w * 0.95:
+                    excess = (cluster_w[ci] / target_w) if target_w > 0 else 1.0
+                    penalty = 1.0 + 0.6 * (excess**1.5)
+                d_pen = d * penalty
+                if d_pen < best_d:
+                    best_d, best = d_pen, ci
+            new_labels[i] = best
+            cluster_w[best] += wts[i]
+
+        new_centers = []
+        for ci in range(k):
+            sx, sy, sw = 0.0, 0.0, 0.0
+            for i in range(n):
+                if new_labels[i] == ci:
+                    sx += pts[i][0] * wts[i]
+                    sy += pts[i][1] * wts[i]
+                    sw += wts[i]
+            if sw > 0:
+                new_centers.append((sx / sw, sy / sw))
+            else:
+                largest_ci = max(range(k), key=lambda x: cluster_w[x])
+                farthest = max(
+                    (i for i in range(n) if new_labels[i] == largest_ci),
+                    key=lambda i: _d2(pts[i], centers[largest_ci]),
+                    default=0,
+                )
+                new_centers.append(pts[farthest])
+
+        shift = sum(math.sqrt(_d2(centers[i], new_centers[i])) for i in range(k))
+        centers = new_centers
+        labels = new_labels
+        if shift < 1.0:
+            break
+
+    return {
+        "labels": np.array(labels, dtype=int),
+        "centers": centers,
     }

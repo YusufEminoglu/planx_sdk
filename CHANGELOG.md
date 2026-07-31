@@ -5,6 +5,15 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2026-07-31
+### Added
+- **Emerging Hot Spot Analysis & Spatio-Temporal $G_i^*$ Engine** (`getis_ord_g_star`, `getis_ord_gi_star_matrix`, `mann_kendall_test`, `classify_ehsa_pattern`) in `planx.geostats`.
+- **Spatio-Temporal Time-Series Anomaly Detection Engine** (`robust_zscores`, `detect_anomalies`, `classify_trend`, `sen_intercept`) in `planx.geostats`.
+- **Objective Criteria Weighting Suite (AHP, CRITIC, Shannon Entropy, PCA)** (`calculate_ahp_weights`, `ahp_weights_from_json`, `calculate_entropy_weights`, `calculate_critic_weights`, `calculate_pca_weights`) in `planx.suitability`.
+- **Area-Weighted K-Means Clustering Engine for Land Readjustment** (`area_weighted_kmeans`) in `planx.suitability.facility`.
+
+---
+
 ## [2.9.2] - 2026-07-31
 ### Fixed
 - **Mypy Type Annotations**: Added explicit type annotations for `selected` micro-hub lists and `queue` deques to satisfy strict Mypy type-checking.

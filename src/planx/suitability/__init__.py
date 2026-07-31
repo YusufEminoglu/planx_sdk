@@ -7,6 +7,7 @@ including reclassification, normalization, and weighted linear combination.
 """
 
 from .facility import (
+    area_weighted_kmeans,
     capacitated_location_allocation,
     ev_fleet_charging_location_allocation,
     evaluate_tod_node_suitability,
@@ -19,7 +20,12 @@ from .facility import (
     tod_spatial_diversity_index,
 )
 from .mcda import (
+    ahp_weights_from_json,
     aras_method,
+    calculate_ahp_weights,
+    calculate_critic_weights,
+    calculate_entropy_weights,
+    calculate_pca_weights,
     copras_method,
     edas_method,
     electre_i_method,
@@ -100,4 +106,10 @@ __all__ = [
     "hesitant_fuzzy_dematel",
     "logistics_microhub_location_allocation",
     "spherical_fuzzy_topsis",
+    "area_weighted_kmeans",
+    "calculate_ahp_weights",
+    "ahp_weights_from_json",
+    "calculate_entropy_weights",
+    "calculate_critic_weights",
+    "calculate_pca_weights",
 ]
