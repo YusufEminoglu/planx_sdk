@@ -1646,6 +1646,58 @@ def rough_topsis_method(
     }
 
 
+def fuzzy_copras_method(
+    fuzzy_matrix: np.ndarray,
+    weights: np.ndarray,
+    criteria_types: list[str],
+) -> dict[str, Any]:
+    """Fuzzy COPRAS MCDA Engine.
+
+    Complex Proportional Assessment using Triangular Fuzzy Numbers (TFN: a, b, c).
+
+    Args:
+        fuzzy_matrix: Array of shape (n_alt, n_crit, 3) containing TFN values.
+        weights: Vector of criteria weights (n_crit,).
+        criteria_types: List of '+' for benefit, '-' for cost per criterion.
+
+    Returns:
+        Dict containing utility degrees, rankings, and benefit/cost sums.
+    """
+    n_alt, n_crit, _ = fuzzy_matrix.shape
+    w_norm = weights / np.sum(weights)
+
+    defuzz_mat = (fuzzy_matrix[:, :, 0] + 4.0 * fuzzy_matrix[:, :, 1] + fuzzy_matrix[:, :, 2]) / 6.0
+
+    sum_cols = np.sum(defuzz_mat, axis=0, keepdims=True)
+    norm_mat = defuzz_mat / np.where(sum_cols == 0, 1.0, sum_cols)
+
+    weighted_mat = norm_mat * w_norm
+
+    s_plus = np.zeros(n_alt, dtype=np.float64)
+    s_minus = np.zeros(n_alt, dtype=np.float64)
+
+    for j in range(n_crit):
+        if criteria_types[j] == "+":
+            s_plus += weighted_mat[:, j]
+        else:
+            s_minus += weighted_mat[:, j]
+
+    s_minus_min = np.min(s_minus) if np.min(s_minus) > 0 else 1e-6
+    q_i = s_plus + (np.sum(s_minus) * s_minus_min) / (s_minus * np.sum(s_minus_min / (s_minus + 1e-12)) + 1e-12)
+
+    utility = (q_i / np.max(q_i)) * 100.0
+    ranks = np.argsort(-utility).argsort() + 1
+
+    return {
+        "utility_degrees": utility,
+        "rankings": ranks,
+        "q_scores": q_i,
+        "s_plus": s_plus,
+        "s_minus": s_minus,
+    }
+
+
+
 
 
 

@@ -2034,6 +2034,24 @@ def test_wui_ember_transport_simulator():
     assert res["max_spotting_distance_m"] > 0.0
 
 
+def test_tsunami_evacuation_routing_engine():
+    from planx.resilience import tsunami_evacuation_routing_engine
+
+    coast = np.array([[0.0, 0.0], [0.0, 100.0]])
+    refuges = np.array([[50.0, 20.0], [80.0, 80.0]])
+    caps = np.array([200.0, 300.0])
+    pop_coords = np.array([[10.0, 20.0], [30.0, 70.0], [60.0, 50.0]])
+    pop_counts = np.array([50.0, 100.0, 80.0])
+
+    res = tsunami_evacuation_routing_engine(coast, refuges, caps, pop_coords, pop_counts, tsunami_wave_height_m=12.0)
+
+    assert "nearest_refuge_indices" in res
+    assert "total_saved_evacuees" in res
+    assert "survival_rate" in res
+    assert 0.0 <= res["survival_rate"] <= 1.0
+
+
+
 
 
 

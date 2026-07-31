@@ -4657,6 +4657,61 @@ def fit_spatial_panel_sem(
     }
 
 
+def fit_st_gwrr(
+    coords: np.ndarray,
+    times: np.ndarray,
+    y: np.ndarray,
+    x: np.ndarray,
+    bandwidth_spatial: float,
+    bandwidth_temporal: float,
+    ridge_lambda: float = 0.1,
+) -> dict[str, Any]:
+    """Spatio-Temporal Geographically Weighted Ridge Regression (ST-GWRR).
+
+    Fits localized spatio-temporal regressions with L2 ridge regularization to stabilize parameter estimates.
+
+    Args:
+        coords: Array of shape (N, 2) for spatial coordinates.
+        times: Array of shape (N,) for temporal timestamps.
+        y: Dependent variable array of shape (N,).
+        x: Regressor matrix of shape (N, K).
+        bandwidth_spatial: Spatial kernel bandwidth (meters/units).
+        bandwidth_temporal: Temporal kernel bandwidth (time units).
+        ridge_lambda: L2 penalty parameter (default 0.1).
+
+    Returns:
+        Dict containing local beta coefficients array (N, K), mean R2, and condition numbers.
+    """
+    n, k = x.shape
+    local_betas = np.zeros((n, k), dtype=np.float64)
+
+    for i in range(n):
+        d_space = np.sqrt(np.sum((coords - coords[i]) ** 2, axis=1))
+        d_time = np.abs(times - times[i])
+
+        w_space = np.exp(-0.5 * (d_space / max(bandwidth_spatial, 1e-6)) ** 2)
+        w_time = np.exp(-0.5 * (d_time / max(bandwidth_temporal, 1e-6)) ** 2)
+        w_st = w_space * w_time
+
+        wx = x * w_st[:, None]
+        xtwx = x.T @ wx
+        ridge_eye = ridge_lambda * np.eye(k)
+
+        beta_i = np.linalg.solve(xtwx + ridge_eye, x.T @ (w_st * y))
+        local_betas[i] = beta_i
+
+    fitted = np.sum(x * local_betas, axis=1)
+    residuals = y - fitted
+    r2 = max(0.0, 1.0 - np.sum(residuals**2) / max(np.sum((y - np.mean(y)) ** 2), 1e-12))
+
+    return {
+        "local_coefficients": local_betas,
+        "mean_r_squared": float(r2),
+        "mean_ridge_lambda": float(ridge_lambda),
+    }
+
+
+
 
 
 

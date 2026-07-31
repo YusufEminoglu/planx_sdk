@@ -24,6 +24,7 @@ from .flood import (
     scs_unit_hydrograph,
     socio_economic_flood_risk,
     stormwater_retention_basin_design,
+    tsunami_evacuation_routing_engine,
     urban_stormwater_peak_runoff,
 )
 from .heat import (
@@ -118,4 +119,5 @@ __all__ = [
     "pluvial_flash_flood_simulator",
     "heatwave_health_vulnerability_engine",
     "wui_ember_transport_simulator",
+    "tsunami_evacuation_routing_engine",
 ]

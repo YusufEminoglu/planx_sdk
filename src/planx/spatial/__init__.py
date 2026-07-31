@@ -8,6 +8,7 @@ Network centrality and shortest path calculations on sparse graphs.
 from .accessibility import (
     calculate_15m_city_score,
     calculate_multimodal_15m_city,
+    canopy_sky_view_factor_profiler,
     cumulative_opportunities,
     enhanced_2sfca,
     ev_charging_accessibility_index,
@@ -112,4 +113,5 @@ __all__ = [
     "ev_cvrp_multi_depot_routing",
     "micromobility_equity_index",
     "transit_fleet_electrification_scheduler",
+    "canopy_sky_view_factor_profiler",
 ]

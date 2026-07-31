@@ -5,6 +5,15 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-07-31
+### Added
+- **Spatio-Temporal Geographically Weighted Ridge Regression** (`fit_st_gwrr`) in `planx.geostats` for localized spatio-temporal regression with L2 ridge regularization.
+- **Urban Coastal Tsunami Inundation & Vertical Evacuation Router** (`tsunami_evacuation_routing_engine`) in `planx.resilience.flood` for tsunami wave attenuation and vertical refuge building allocation.
+- **Urban Sky View Factor & Solar Envelope Profiler** (`canopy_sky_view_factor_profiler`) in `planx.spatial.accessibility` for 3D Sky View Factor and solar envelope shading analysis.
+- **Fuzzy COPRAS Method** (`fuzzy_copras_method`) in `planx.suitability.mcda` for Complex Proportional Assessment using Triangular Fuzzy Numbers.
+
+---
+
 ## [2.5.0] - 2026-07-31
 ### Added
 - **Spatial Panel Error Components Model** (`fit_spatial_panel_sem`) in `planx.geostats` for spatio-temporal panel error autocorrelation.

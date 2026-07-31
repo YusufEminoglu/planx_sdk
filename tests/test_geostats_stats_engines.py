@@ -1939,6 +1939,25 @@ def test_fit_spatial_panel_sem():
     assert len(res["beta"]) == 2
 
 
+def test_fit_st_gwrr():
+    from planx.geostats import fit_st_gwrr
+
+    np.random.seed(42)
+    N, K = 5, 2
+    coords = np.random.rand(N, 2) * 100.0
+    times = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    x = np.random.randn(N, K)
+    y = np.random.randn(N)
+
+    res = fit_st_gwrr(coords, times, y, x, bandwidth_spatial=50.0, bandwidth_temporal=2.0, ridge_lambda=0.1)
+
+    assert "local_coefficients" in res
+    assert "mean_r_squared" in res
+    assert res["local_coefficients"].shape == (N, K)
+    assert 0.0 <= res["mean_r_squared"] <= 1.0
+
+
+
 
 
 
