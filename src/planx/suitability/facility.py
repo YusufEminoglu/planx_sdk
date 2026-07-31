@@ -841,3 +841,64 @@ def tod_spatial_diversity_index(
     }
 
 
+def logistics_microhub_location_allocation(
+    demand_coords: np.ndarray,
+    demand_volumes: np.ndarray,
+    candidate_hub_coords: np.ndarray,
+    num_hubs_to_select: int = 3,
+    max_cargo_bike_range_km: float = 5.0,
+) -> dict[str, Any]:
+    """Urban Logistics Last-Mile Micro-Hub Location-Allocation Engine.
+
+    Selects optimal cargo bike distribution micro-hubs minimizing delivery distances under LEZ constraints.
+
+    Args:
+        demand_coords: Array of shape (N, 2) for delivery destination points.
+        demand_volumes: Array of shape (N,) for parcel volume per point.
+        candidate_hub_coords: Array of shape (M, 2) for candidate micro-hub locations.
+        num_hubs_to_select: Number of micro-hubs to select (<= M).
+        max_cargo_bike_range_km: Maximum cargo bike delivery radius (km).
+
+    Returns:
+        Dict containing selected hub indices, demand point allocations, and fleet delivery distance.
+    """
+    from scipy.spatial.distance import cdist
+
+    m_cands = len(candidate_hub_coords)
+    if num_hubs_to_select < 1 or num_hubs_to_select > m_cands:
+        raise ValueError("num_hubs_to_select must be between 1 and M.")
+
+    dists = cdist(demand_coords, candidate_hub_coords) / 1000.0
+
+    selected = []
+    unselected = list(range(m_cands))
+
+    for _ in range(num_hubs_to_select):
+        best_cand = -1
+        best_cost = float("inf")
+        for c in unselected:
+            trial = selected + [c]
+            min_d = np.min(dists[:, trial], axis=1)
+            cost = float(np.sum(min_d * demand_volumes))
+            if cost < best_cost:
+                best_cost = cost
+                best_cand = c
+        selected.append(best_cand)
+        unselected.remove(best_cand)
+
+    sub_d = dists[:, selected]
+    allocations = np.argmin(sub_d, axis=1)
+    min_dists = np.min(sub_d, axis=1)
+
+    in_range_ratio = float(np.mean(min_dists <= max_cargo_bike_range_km))
+    tot_dist = float(np.sum(min_dists * demand_volumes))
+
+    return {
+        "selected_hub_indices": np.array(selected, dtype=int),
+        "demand_allocations": allocations,
+        "total_delivery_vkt": tot_dist,
+        "cargo_bike_range_coverage_ratio": in_range_ratio,
+    }
+
+
+

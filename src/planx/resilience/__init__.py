@@ -18,6 +18,7 @@ from .flood import (
     coastal_flood_inundation,
     coastal_storm_surge_inundation_engine,
     coastal_surge_inundation,
+    compound_hazard_risk_aggregator,
     detention_basin_sizing,
     pluvial_flash_flood_simulator,
     pluvial_flood_susceptibility,
@@ -124,4 +125,5 @@ __all__ = [
     "tsunami_evacuation_routing_engine",
     "seismic_landslide_susceptibility_engine",
     "green_infra_cooling_engine",
+    "compound_hazard_risk_aggregator",
 ]
