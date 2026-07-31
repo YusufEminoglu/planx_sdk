@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, List, Optional, Union
 
 import numpy as np
@@ -1854,3 +1855,158 @@ def spherical_fuzzy_topsis(
         "distance_to_pis": d_pis,
         "distance_to_nis": d_nis,
     }
+
+
+def calculate_ahp_weights(comparison_matrix: np.ndarray) -> dict[str, Any]:
+    """Analytic Hierarchy Process (AHP) matrix eigenvector weights & consistency ratio (CR).
+
+    Args:
+        comparison_matrix: Square 2D positive pairwise comparison matrix.
+
+    Returns:
+        Dict with 'weights' list and float 'consistency_ratio'.
+    """
+    m = np.asarray(comparison_matrix, dtype=float)
+    if m.ndim != 2 or m.shape[0] != m.shape[1]:
+        raise ValueError("AHP matrix must be square.")
+    n = m.shape[0]
+    if n == 0 or np.any(m <= 0):
+        raise ValueError("AHP matrix must be non-empty and strictly positive.")
+
+    vals, vecs = np.linalg.eig(m)
+    max_idx = int(np.argmax(vals.real))
+    lam = float(vals[max_idx].real)
+    w = np.abs(vecs[:, max_idx].real)
+    if float(np.sum(w)) == 0:
+        w = np.ones(n, dtype=float)
+    w = w / np.sum(w)
+
+    ri_map = {
+        1: 0.0,
+        2: 0.0,
+        3: 0.58,
+        4: 0.90,
+        5: 1.12,
+        6: 1.24,
+        7: 1.32,
+        8: 1.41,
+        9: 1.45,
+        10: 1.49,
+    }
+    ri = ri_map.get(n, 1.49)
+    ci = (lam - n) / max(1.0, float(n - 1))
+    cr = 0.0 if ri == 0 else ci / ri
+
+    return {
+        "weights": w,
+        "consistency_ratio": float(cr),
+    }
+
+
+def ahp_weights_from_json(matrix_json: str) -> tuple[list[float], float]:
+    """Parse JSON string of AHP comparison matrix and compute weights & CR.
+
+    Args:
+        matrix_json: JSON string of N x N square comparison matrix.
+
+    Returns:
+        Tuple of (weights list, consistency ratio float).
+    """
+    m = np.array(json.loads(matrix_json), dtype=float)
+    res = calculate_ahp_weights(m)
+    return res["weights"].tolist(), res["consistency_ratio"]
+
+
+def calculate_entropy_weights(decision_matrix: np.ndarray) -> np.ndarray:
+    """Shannon Entropy objective weighting for decision matrix.
+
+    Args:
+        decision_matrix: Array of shape (M, N) for M alternatives and N criteria.
+
+    Returns:
+        Array of normalized criteria weights (N,).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    if X.ndim != 2 or X.shape[0] < 2 or X.shape[1] == 0:
+        return np.ones(X.shape[1], dtype=np.float64) / max(X.shape[1], 1)
+
+    mins = np.min(X, axis=0)
+    maxs = np.max(X, axis=0)
+    den = np.where((maxs - mins) <= 1e-12, 1.0, (maxs - mins))
+    Z = np.clip((X - mins) / den, 0.0, 1.0)
+
+    P = Z + 1e-12
+    P = P / np.sum(P, axis=0, keepdims=True)
+    m = max(2, P.shape[0])
+    e = -np.sum(P * np.log(P), axis=0) / np.log(m)
+    d = np.where(np.isfinite(1.0 - e), 1.0 - e, 0.0)
+    s = float(np.sum(d))
+    if s <= 1e-12:
+        return np.ones(X.shape[1], dtype=np.float64) / X.shape[1]
+    return d / s
+
+
+def calculate_critic_weights(decision_matrix: np.ndarray) -> np.ndarray:
+    """CRITIC objective criteria weighting engine using standard deviation and correlation.
+
+    Args:
+        decision_matrix: Array of shape (M, N) for M alternatives and N criteria.
+
+    Returns:
+        Array of criteria weights (N,).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    if X.ndim != 2 or X.shape[0] < 2 or X.shape[1] == 0:
+        return np.ones(X.shape[1], dtype=np.float64) / max(X.shape[1], 1)
+
+    mins = np.min(X, axis=0)
+    maxs = np.max(X, axis=0)
+    ranges = np.where(maxs - mins == 0, 1.0, maxs - mins)
+    norm = (X - mins) / ranges
+
+    sd = np.std(norm, axis=0)
+    corr = np.corrcoef(norm, rowvar=False)
+    corr = np.nan_to_num(corr, nan=0.0)
+    contrast = np.sum(1.0 - corr, axis=1)
+
+    c_info = sd * contrast
+    s = float(np.sum(c_info))
+    if s <= 1e-12:
+        return np.ones(X.shape[1], dtype=np.float64) / X.shape[1]
+    return c_info / s
+
+
+def calculate_pca_weights(decision_matrix: np.ndarray) -> np.ndarray:
+    """PCA variance-explained proxy criteria weighting engine.
+
+    Args:
+        decision_matrix: Array of shape (M, N) for M alternatives and N criteria.
+
+    Returns:
+        Array of criteria weights (N,).
+    """
+    X = np.asarray(decision_matrix, dtype=np.float64)
+    n = X.shape[1]
+    if X.ndim != 2 or X.shape[0] < 3 or n == 0:
+        return np.ones(n, dtype=np.float64) / max(n, 1)
+
+    mu = np.mean(X, axis=0)
+    sd = np.where(np.std(X, axis=0) <= 1e-12, 1.0, np.std(X, axis=0))
+    Z = (X - mu) / sd
+
+    cov = np.cov(Z, rowvar=False)
+    cov = np.atleast_2d(cov)
+    vals, vecs = np.linalg.eigh(cov)
+    idx = np.argsort(vals)[::-1]
+    vals = vals[idx]
+    vecs = vecs[:, idx]
+
+    if vals[0] <= 1e-12:
+        return np.ones(n, dtype=np.float64) / n
+    load = np.abs(vecs[:, 0])
+    evr1 = float(vals[0] / max(1e-12, float(np.sum(np.maximum(vals, 0)))))
+    load = load * max(evr1, 1e-6)
+    s = float(np.sum(load))
+    if s <= 1e-12:
+        return np.ones(n, dtype=np.float64) / n
+    return load / s

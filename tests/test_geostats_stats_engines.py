@@ -2030,3 +2030,53 @@ def test_fit_spatial_pvar():
     assert "residual_covariance" in res
     assert res["num_variables"] == 2
     assert res["residual_covariance"].shape == (2, 2)
+
+
+def test_ehsa_and_time_series_stats():
+    from planx.geostats import (
+        classify_ehsa_pattern,
+        classify_trend,
+        detect_anomalies,
+        getis_ord_g_star,
+        getis_ord_gi_star_matrix,
+        mann_kendall_test,
+        robust_zscores,
+        sen_intercept,
+    )
+
+    vals = [10.0, 12.0, 15.0, 30.0, 14.0]
+    z_g = getis_ord_g_star(vals)
+    assert len(z_g) == 5
+
+    adj = [
+        [(0, 1.0), (1, 0.5)],
+        [(1, 1.0), (0, 0.5), (2, 0.5)],
+        [(2, 1.0), (1, 0.5), (3, 0.5)],
+        [(3, 1.0), (2, 0.5), (4, 0.5)],
+        [(4, 1.0), (3, 0.5)],
+    ]
+    z_matrix = getis_ord_gi_star_matrix(vals, adj)
+    assert len(z_matrix) == 5
+
+    series = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    tau, p_val, slope = mann_kendall_test(series)
+    assert tau > 0.0
+    assert slope > 0.0
+    assert p_val < 0.05
+
+    z_scores_by_time = [[1.0, 2.0, 3.0], [2.0, 3.0, 4.0], [3.0, 4.0, 5.0], [4.0, 5.0, 6.0]]
+    patterns = classify_ehsa_pattern(z_scores_by_time)
+    assert len(patterns) == 3
+
+    r_z = robust_zscores([1.0, 2.0, 2.0, 2.0, 10.0])
+    assert len(r_z) == 5
+
+    anom = detect_anomalies([1.0, 2.0, 3.0, 2.0, 100.0], threshold=2.0)
+    assert anom["n_anomalies"] >= 1
+    assert anom["last_is_anomaly"] is True
+
+    trend_code = classify_trend(0.01, 1.5)
+    assert trend_code == 1
+
+    b0 = sen_intercept(series, slope)
+    assert isinstance(b0, float)
