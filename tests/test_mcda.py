@@ -353,4 +353,25 @@ def test_neutrosophic_waspas_method():
     assert len(res["rankings"]) == 3
 
 
+def test_if_vikor_method():
+    from planx.suitability import if_vikor_method
+
+    dm = np.array([
+        [8.0, 7.0, 6.0],
+        [5.0, 9.0, 8.0],
+        [7.0, 6.0, 9.0],
+    ])
+    w = np.array([0.5, 0.3, 0.2])
+
+    res = if_vikor_method(dm, w, v_preference=0.5)
+
+    assert "s_scores" in res
+    assert "r_scores" in res
+    assert "q_scores" in res
+    assert "rankings" in res
+    assert len(res["q_scores"]) == 3
+    assert len(res["rankings"]) == 3
+
+
+
 

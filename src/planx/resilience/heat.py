@@ -972,3 +972,46 @@ def wind_canopy_aerodynamic_drag_simulator(
     }
 
 
+def heatwave_health_vulnerability_engine(
+    temp_c_grid: np.ndarray,
+    humidity_pct_grid: np.ndarray,
+    vulnerable_pop_ratio_grid: np.ndarray,
+    ac_coverage_ratio_grid: np.ndarray,
+) -> dict[str, Any]:
+    """Urban Heat Wave Health Vulnerability Engine.
+
+    Calculates apparent heat index, incorporates vulnerable demographics and AC deficit,
+    and estimates relative health risk scores and alert levels.
+
+    Args:
+        temp_c_grid: Ambient temperature grid in Celsius.
+        humidity_pct_grid: Relative humidity percentage grid (0-100).
+        vulnerable_pop_ratio_grid: Fraction of elderly/infant population per cell (0-1).
+        ac_coverage_ratio_grid: Fraction of households with air conditioning per cell (0-1).
+
+    Returns:
+        Dict containing heat index grid, vulnerability score grid, mean heat index, and severe risk ratio.
+    """
+    tf = temp_c_grid * 1.8 + 32.0
+    rh = humidity_pct_grid
+
+    hi_f = -42.379 + 2.04901523 * tf + 10.14333127 * rh - 0.22475541 * tf * rh - 0.00683783 * (tf**2) - 0.05481717 * (rh**2) + 0.00122874 * (tf**2) * rh + 0.00085282 * tf * (rh**2) - 0.00000199 * (tf**2) * (rh**2)
+    hi_c = (hi_f - 32.0) / 1.8
+    hi_c = np.where(temp_c_grid < 25.0, temp_c_grid, hi_c)
+
+    ac_deficit = 1.0 - ac_coverage_ratio_grid
+    vulnerability_score = (hi_c / 40.0) * (1.0 + vulnerable_pop_ratio_grid) * (1.0 + ac_deficit)
+
+    severe_ratio = float(np.mean(vulnerability_score > 1.5))
+
+    return {
+        "heat_index_c_grid": hi_c,
+        "vulnerability_score_grid": vulnerability_score,
+        "mean_heat_index_c": float(np.mean(hi_c)),
+        "max_heat_index_c": float(np.max(hi_c)),
+        "severe_vulnerability_ratio": severe_ratio,
+        "alert_level": "EXTREME" if severe_ratio > 0.3 else ("WARNING" if severe_ratio > 0.1 else "ADVISORY"),
+    }
+
+
+

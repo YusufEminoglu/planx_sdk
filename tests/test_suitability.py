@@ -1233,3 +1233,23 @@ def test_ev_fleet_charging_location_allocation_validation():
     with pytest.raises(ValueError, match="num_depots_to_select must be between 1 and M"):
         ev_fleet_charging_location_allocation(f_orig, f_dest, c_dep, 2)
 
+
+def test_tod_spatial_diversity_index():
+    from planx.suitability import tod_spatial_diversity_index
+
+    landuse = np.array([
+        [0.4, 0.4, 0.2],
+        [0.8, 0.1, 0.1],
+        [0.3, 0.3, 0.4],
+    ])
+    far = np.array([2.5, 1.0, 3.5])
+    dist = np.array([100.0, 600.0, 200.0])
+
+    res = tod_spatial_diversity_index(landuse, far, dist)
+
+    assert "shannon_entropy_scores" in res
+    assert "tod_diversity_scores" in res
+    assert "mean_tod_score" in res
+    assert len(res["tod_diversity_scores"]) == 3
+
+
