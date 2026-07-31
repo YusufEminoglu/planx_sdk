@@ -1282,7 +1282,8 @@ def ev_charging_accessibility_index(
         station_coords: 2D array of station coordinates (M, 2).
         station_chargers_kw: 1D array of station total power capacity (kW) of shape (M,).
         station_types: Optional 1D array of 0 (L2 AC) or 1 (L3 DC Fast) of shape (M,).
-        transformer_capacity_kw: Optional 1D array of station grid transformer limits (kW) of shape (M,).
+        transformer_capacity_kw: Optional 1D array of station transformer limits (kW)
+            of shape (M,).
         decay_beta: Distance decay exponential parameter (default 0.1).
 
     Returns:
@@ -1322,6 +1323,7 @@ def ev_charging_accessibility_index(
         eff_capacity = np.minimum(eff_capacity, t_kw)
 
     from scipy.spatial.distance import cdist
+
     dists = cdist(z_xy, s_xy, metric="euclidean")
     f_decay = np.exp(-decay_beta * dists)
 
@@ -1385,7 +1387,7 @@ def multimodal_transit_isochrone_profiler(
         destination_coords: 2D array of shape (N, 2) for target destinations/centroids.
         transit_stop_coords: 2D array of shape (S, 2) for public transit stop locations.
         transit_headways_min: 1D array of shape (S,) for transit service headways in minutes.
-        transit_travel_times: 2D array of shape (S, S) for transit in-vehicle travel times in minutes.
+        transit_travel_times: 2D array of shape (S, S) for transit in-vehicle travel times (min).
         walk_speed_kmh: Walking speed in km/h (default 4.8 km/h).
         transfer_penalty_min: Fixed penalty per transfer in minutes (default 5.0 min).
         max_time_budget_min: Maximum time threshold budget in minutes (default 45.0 min).
@@ -1394,7 +1396,8 @@ def multimodal_transit_isochrone_profiler(
         Dict containing:
           - 'travel_times_min': 1D float array (N,) of total multi-modal travel times in minutes.
           - 'reachable_mask': 1D bool array (N,) indicating reachability within max_time_budget_min.
-          - 'isochrone_bands': 1D int array (N,) of band codes (1: <=15m, 2: 15-30m, 3: 30-45m, 4: 45-60m, 0: >60m/unreachable).
+          - 'isochrone_bands': 1D int array (N,) of band codes
+            (1: <=15m, 2: 15-30m, 3: 30-45m, 4: 45-60m, 0: >60m/unreachable).
           - 'mode_used': List of str ("direct_walk" or "multimodal_transit") per destination.
           - 'reachable_count': Int count of reachable destinations.
           - 'coverage_ratio': Float fraction of destinations reachable within time budget.
@@ -1425,6 +1428,7 @@ def multimodal_transit_isochrone_profiler(
         raise ValueError("max_time_budget_min must be positive.")
 
     from scipy.spatial.distance import cdist
+
     walk_speed_mpm = (walk_speed_kmh * 1000.0) / 60.0
 
     d_direct = np.sqrt(np.sum((dest_xy - orig_xy) ** 2, axis=1))
@@ -1519,7 +1523,8 @@ def ev_cvrp_multi_depot_routing(
     Returns:
         Dict containing:
           - 'routes': List of dicts per vehicle route with keys:
-                      'depot_index', 'stops', 'load_used', 'total_distance_km', 'energy_consumed_kwh', 'recharge_events_count'.
+                      'depot_index', 'stops', 'load_used', 'total_distance_km',
+                      'energy_consumed_kwh', 'recharge_events_count'.
           - 'total_distance_km': Float total travel distance across all routes.
           - 'total_energy_kwh': Float total energy consumed in kWh across fleet.
           - 'vehicles_used_count': Int number of active vehicle routes deployed.
@@ -1625,14 +1630,16 @@ def ev_cvrp_multi_depot_routing(
         route_dist += ret_dist
         tot_energy = route_dist * energy_consumption_kwh_km
 
-        routes.append({
-            "depot_index": int(current_depot),
-            "stops": route_stops,
-            "load_used": float(current_load),
-            "total_distance_km": float(route_dist),
-            "energy_consumed_kwh": float(tot_energy),
-            "recharge_events_count": recharge_cnt,
-        })
+        routes.append(
+            {
+                "depot_index": int(current_depot),
+                "stops": route_stops,
+                "load_used": float(current_load),
+                "total_distance_km": float(route_dist),
+                "energy_consumed_kwh": float(tot_energy),
+                "recharge_events_count": recharge_cnt,
+            }
+        )
 
         if not route_stops:
             unvisited.pop()
@@ -1665,7 +1672,8 @@ def micromobility_equity_index(
         vulnerability_weights: Socio-economic vulnerability weight per zone (0-1).
 
     Returns:
-        Dict containing zone equity scores, overall micro-mobility equity index, and Gini coefficient.
+        Dict containing zone equity scores, overall micro-mobility equity index,
+        and Gini coefficient.
     """
     dist_decay = np.exp(-transit_distances / 500.0)
     supply_score = vehicle_counts * dist_decay
@@ -1675,7 +1683,9 @@ def micromobility_equity_index(
     sorted_s = np.sort(equity_scores)
     n = len(sorted_s)
     index = np.arange(1, n + 1)
-    gini = float((2 * np.sum(index * sorted_s) - (n + 1) * np.sum(sorted_s)) / (n * np.sum(sorted_s) + 1e-12))
+    gini = float(
+        (2 * np.sum(index * sorted_s) - (n + 1) * np.sum(sorted_s)) / (n * np.sum(sorted_s) + 1e-12)
+    )
 
     return {
         "zone_equity_scores": equity_scores,
@@ -1770,7 +1780,8 @@ def drt_dispatch_optimizer(
 ) -> dict[str, Any]:
     """Paratransit & DRT Dispatch Optimizer.
 
-    Allocates dynamic ride-pooling requests to fleet vehicles minimizing total vehicle travel distance.
+    Allocates dynamic ride-pooling requests to fleet vehicles minimizing total vehicle
+    travel distance.
 
     Args:
         request_origin_coords: Array of shape (R, 2) for passenger pickup locations.
@@ -1783,7 +1794,6 @@ def drt_dispatch_optimizer(
     """
     from scipy.spatial.distance import cdist
 
-    n_req = len(request_origin_coords)
     n_veh = len(vehicle_coords)
 
     d_to_veh = cdist(request_origin_coords, vehicle_coords)
@@ -1793,7 +1803,10 @@ def drt_dispatch_optimizer(
     for v in assignments:
         veh_loads[v] += 1
 
-    tot_dist = float(np.sum(np.min(d_to_veh, axis=1)) + np.sum(np.linalg.norm(request_dest_coords - request_origin_coords, axis=1)))
+    tot_dist = float(
+        np.sum(np.min(d_to_veh, axis=1))
+        + np.sum(np.linalg.norm(request_dest_coords - request_origin_coords, axis=1))
+    )
 
     return {
         "assigned_vehicle_indices": assignments,
@@ -1824,8 +1837,12 @@ def fifteen_minute_city_equity_analyzer(
     scores = np.mean(accessible_domains, axis=1) * 100.0
 
     vuln_mask = vulnerability_scores > 0.5
-    high_vuln_avg = float(np.mean(scores[vuln_mask])) if np.any(vuln_mask) else float(np.mean(scores))
-    low_vuln_avg = float(np.mean(scores[~vuln_mask])) if np.any(~vuln_mask) else float(np.mean(scores))
+    high_vuln_avg = (
+        float(np.mean(scores[vuln_mask])) if np.any(vuln_mask) else float(np.mean(scores))
+    )
+    low_vuln_avg = (
+        float(np.mean(scores[~vuln_mask])) if np.any(~vuln_mask) else float(np.mean(scores))
+    )
     equity_gap = high_vuln_avg - low_vuln_avg
 
     return {
@@ -1834,11 +1851,3 @@ def fifteen_minute_city_equity_analyzer(
         "compliant_zones_ratio": float(np.mean(scores >= 80.0)),
         "vulnerability_equity_gap": float(equity_gap),
     }
-
-
-
-
-
-
-
-
