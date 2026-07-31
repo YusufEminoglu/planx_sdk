@@ -1112,3 +1112,54 @@ def green_infra_cooling_engine(
         "max_cooling_c": float(np.max(cooling_grid)),
         "cooled_area_ratio": float(np.mean(cooling_grid > 0.5)),
     }
+
+
+def calculate_solar_radiation_surface(
+    latitude_deg: float,
+    day_of_year: int = 172,
+    cloud_cover_ratio: float = 0.2,
+) -> dict[str, Any]:
+    """Calculates Potential Daily Solar Surface Radiation (W/m^2).
+
+    Args:
+        latitude_deg: Latitude in decimal degrees [-90, 90].
+        day_of_year: Day of year integer [1, 365] (default 172 summer solstice).
+        cloud_cover_ratio: Cloud cover fraction [0, 1] (default 0.2).
+
+    Returns:
+        Dict containing peak solar radiation (W/m^2), daily insolation (kWh/m^2),
+        and solar declination.
+    """
+    if abs(latitude_deg) > 90.0:
+        raise ValueError("latitude_deg must be between -90 and 90.")
+    if day_of_year < 1 or day_of_year > 366:
+        raise ValueError("day_of_year must be between 1 and 366.")
+
+    lat_rad = np.radians(latitude_deg)
+    declination = np.radians(23.45 * np.sin(np.radians(360.0 / 365.0 * (day_of_year - 81))))
+
+    ws_arg = np.clip(-np.tan(lat_rad) * np.tan(declination), -1.0, 1.0)
+    sunset_hour_angle = np.arccos(ws_arg)
+
+    g_sc = 1367.0
+    dr = 1.0 + 0.033 * np.cos(np.radians(360.0 * day_of_year / 365.0))
+
+    h_extra = (
+        (24.0 * 60.0 / np.pi)
+        * g_sc
+        * dr
+        * (
+            sunset_hour_angle * np.sin(lat_rad) * np.sin(declination)
+            + np.cos(lat_rad) * np.cos(declination) * np.sin(sunset_hour_angle)
+        )
+    )
+
+    solar_radiation_wh_m2 = h_extra * (0.75 - 0.5 * cloud_cover_ratio) / 3600.0
+    peak_wm2 = float(g_sc * dr * (0.75 - 0.5 * cloud_cover_ratio))
+
+    return {
+        "peak_solar_radiation_wm2": peak_wm2,
+        "daily_insolation_kwh_m2": float(solar_radiation_wh_m2 / 1000.0),
+        "solar_declination_deg": float(np.degrees(declination)),
+        "daylight_hours": float(np.degrees(2.0 * sunset_hour_angle) / 15.0),
+    }

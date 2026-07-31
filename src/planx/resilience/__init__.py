@@ -15,11 +15,14 @@ from .active_travel import (
 )
 from .evacuation import dynamic_evacuation_bottlenecks, evacuation_route_optimization
 from .flood import (
+    accessibility_deficit_class,
     coastal_flood_inundation,
     coastal_storm_surge_inundation_engine,
     coastal_surge_inundation,
+    composite_risk_class,
     compound_hazard_risk_aggregator,
     detention_basin_sizing,
+    intervention_priority_class,
     pluvial_flash_flood_simulator,
     pluvial_flood_susceptibility,
     scs_unit_hydrograph,
@@ -33,6 +36,7 @@ from .heat import (
     calculate_building_solar_radiation,
     calculate_grid_sky_view_factor,
     calculate_solar_access,
+    calculate_solar_radiation_surface,
     classify_local_climate_zones,
     green_infra_cooling_engine,
     heatwave_health_vulnerability_engine,
@@ -126,4 +130,8 @@ __all__ = [
     "seismic_landslide_susceptibility_engine",
     "green_infra_cooling_engine",
     "compound_hazard_risk_aggregator",
+    "accessibility_deficit_class",
+    "composite_risk_class",
+    "intervention_priority_class",
+    "calculate_solar_radiation_surface",
 ]

@@ -1944,3 +1944,78 @@ def edge_criticality(
         "used_by": used_by,
         "base_total_cost": base_total,
     }
+
+
+def calculate_space_syntax_integration(
+    adjacency_matrix: np.ndarray,
+    topological_steps: int = 3,
+) -> dict[str, Any]:
+    """Calculates Space Syntax Topological Integration and Mean Depth.
+
+    Args:
+        adjacency_matrix: 2D symmetric binary adjacency matrix (N, N).
+        topological_steps: Local step radius r (default 3 steps).
+
+    Returns:
+        Dict containing global integration, local integration, and mean depth.
+    """
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import shortest_path
+
+    adj = np.asarray(adjacency_matrix, dtype=np.int32)
+    n = adj.shape[0]
+    if n == 0 or adj.shape[0] != adj.shape[1]:
+        raise ValueError("Adjacency matrix must be square and non-empty.")
+
+    graph = csr_matrix(adj)
+    dist_mat = shortest_path(graph, directed=False, unweighted=True)
+
+    mean_depth_global = np.mean(np.where(np.isfinite(dist_mat), dist_mat, 0.0), axis=1)
+    mean_depth_global = np.where(mean_depth_global == 0, 1.0, mean_depth_global)
+
+    d_v = 2.0 * (n * (np.log2((n + 2.0) / 3.0) - 1.0) + 1.0) / max(1.0, float((n - 1) * (n - 2)))
+    r_a = 2.0 * (mean_depth_global - 1.0) / max(1.0, float(n - 2))
+    r_a = np.where(r_a == 0, 1e-6, r_a)
+    integration_global = d_v / r_a
+
+    local_dist = np.where(dist_mat <= topological_steps, dist_mat, np.inf)
+    mean_depth_local = np.mean(np.where(np.isfinite(local_dist), local_dist, 0.0), axis=1)
+    integration_local = 1.0 / np.where(mean_depth_local == 0, 1.0, mean_depth_local)
+
+    return {
+        "global_integration": integration_global,
+        "local_integration": integration_local,
+        "mean_depth_global": mean_depth_global,
+    }
+
+
+def calculate_landuse_entropy_balance(landuse_counts: np.ndarray) -> dict[str, Any]:
+    """Calculates Shannon Entropy Index of Urban Land Use Mix.
+
+    Args:
+        landuse_counts: Array of shape (N, K) for K land use category areas/counts per zone.
+
+    Returns:
+        Dict containing entropy balance index [0, 1] per zone and mean entropy score.
+    """
+    counts = np.asarray(landuse_counts, dtype=np.float64)
+    if counts.ndim == 1:
+        counts = counts[None, :]
+    n_zones, k_cats = counts.shape
+    if k_cats <= 1:
+        return {
+            "entropy_index": np.zeros(n_zones, dtype=np.float64),
+            "mean_entropy": 0.0,
+        }
+
+    totals = np.sum(counts, axis=1, keepdims=True)
+    p = np.where(totals > 0, counts / np.maximum(totals, 1e-12), 0.0)
+    p_log = np.where(p > 0, p * np.log(p), 0.0)
+
+    entropy = -np.sum(p_log, axis=1) / np.log(float(k_cats))
+    entropy = np.clip(entropy, 0.0, 1.0)
+
+    return {
+        "entropy_index": entropy,
+        "mean_entropy": float(np.mean(entropy)),
+    }
