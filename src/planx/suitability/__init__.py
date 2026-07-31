@@ -29,6 +29,7 @@ from .mcda import (
     ivif_topsis_method,
     marcos_method,
     neutrosophic_waspas_method,
+    rough_topsis_method,
     mcda_sensitivity_monte_carlo,
     normalize_array,
     promethee_ii_method,
@@ -88,4 +89,5 @@ __all__ = [
     "neutrosophic_waspas_method",
     "tod_spatial_diversity_index",
     "if_vikor_method",
+    "rough_topsis_method",
 ]

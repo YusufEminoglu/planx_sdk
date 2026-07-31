@@ -5,6 +5,15 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-07-31
+### Added
+- **Spatial Panel Error Components Model** (`fit_spatial_panel_sem`) in `planx.geostats` for spatio-temporal panel error autocorrelation.
+- **Wildfire Urban Interface Ember Transport Simulator** (`wui_ember_transport_simulator`) in `planx.resilience.heat` for firebrand spotting distance distribution.
+- **Public Transit Fleet Electrification Scheduler** (`transit_fleet_electrification_scheduler`) in `planx.spatial.accessibility` for bus fleet charging optimization subject to grid power caps.
+- **Rough TOPSIS MCDA Method** (`rough_topsis_method`) in `planx.suitability.mcda` for decision modeling with lower and upper rough approximation boundary matrices.
+
+---
+
 ## [2.4.0] - 2026-07-31
 ### Added
 - **Spatio-Temporal Panel Tobit Spatial Lag Model** (`fit_spatial_panel_tobit_lag`) in `planx.geostats` for censored panel regression with spatial autoregressive lag.

@@ -24,6 +24,7 @@ from .accessibility import (
     service_area_coverage,
     spatial_equity_gini,
     three_step_2sfca,
+    transit_fleet_electrification_scheduler,
     transit_frequency_accessibility,
 )
 from .centrality import (
@@ -110,4 +111,5 @@ __all__ = [
     "multimodal_transit_isochrone_profiler",
     "ev_cvrp_multi_depot_routing",
     "micromobility_equity_index",
+    "transit_fleet_electrification_scheduler",
 ]
