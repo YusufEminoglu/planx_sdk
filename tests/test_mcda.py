@@ -335,3 +335,22 @@ def test_ivif_topsis_method_validation():
         ivif_topsis_method(invalid_mat, [0.5, 0.5], ["+", "+"])
 
 
+def test_neutrosophic_waspas_method():
+    from planx.suitability import neutrosophic_waspas_method
+
+    dm = np.array([
+        [80.0, 90.0, 70.0],
+        [60.0, 75.0, 85.0],
+        [95.0, 60.0, 80.0],
+    ])
+    w = np.array([0.4, 0.3, 0.3])
+
+    res = neutrosophic_waspas_method(dm, w, lambda_param=0.5)
+
+    assert "waspas_scores" in res
+    assert "rankings" in res
+    assert len(res["waspas_scores"]) == 3
+    assert len(res["rankings"]) == 3
+
+
+

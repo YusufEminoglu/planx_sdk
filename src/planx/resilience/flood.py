@@ -830,3 +830,48 @@ def coastal_storm_surge_inundation_engine(
         },
     }
 
+
+def pluvial_flash_flood_simulator(
+    dem_grid: np.ndarray,
+    curve_number_grid: np.ndarray,
+    rainfall_mm: float,
+    pipe_capacity_mm: float = 25.0,
+) -> dict[str, Any]:
+    """Urban Pluvial Flash Flood & Drainage Capacity Simulator.
+
+    Models storm runoff generation via SCS Curve Number method, evaluates drainage pipe
+    capacity deficit, and computes surface runoff depth and hazard risk categories.
+
+    Args:
+        dem_grid: 2D DEM elevation grid (meters).
+        curve_number_grid: 2D grid of SCS Curve Numbers (0-100).
+        rainfall_mm: Total rainfall depth in millimeters.
+        pipe_capacity_mm: Drainage infrastructure capacity in mm equivalent depth.
+
+    Returns:
+        Dict containing runoff depth grid (mm), inundated area ratio, max depth, and hazard levels.
+    """
+    cn_clamped = np.clip(curve_number_grid, 1.0, 100.0)
+    s_retention = (25400.0 / cn_clamped) - 254.0
+
+    ia = 0.2 * s_retention
+    runoff = np.where(
+        rainfall_mm > ia,
+        ((rainfall_mm - ia) ** 2) / (rainfall_mm + 0.8 * s_retention + 1e-12),
+        0.0,
+    )
+
+    ponding_depth_mm = np.maximum(0.0, runoff - pipe_capacity_mm)
+    inundated_cells = np.sum(ponding_depth_mm > 10.0)
+    inundated_ratio = float(inundated_cells / max(dem_grid.size, 1))
+
+    return {
+        "runoff_depth_grid": runoff,
+        "ponding_depth_grid": ponding_depth_mm,
+        "max_ponding_depth_mm": float(np.max(ponding_depth_mm)),
+        "mean_ponding_depth_mm": float(np.mean(ponding_depth_mm)),
+        "inundated_area_ratio": inundated_ratio,
+        "hazard_level": "HIGH" if inundated_ratio > 0.3 else ("MODERATE" if inundated_ratio > 0.1 else "LOW"),
+    }
+
+
