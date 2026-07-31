@@ -1284,3 +1284,32 @@ def test_area_weighted_kmeans():
     assert "centers" in res
     assert len(res["labels"]) == 4
     assert len(res["centers"]) == 2
+
+
+def test_label_components_and_rank_sites():
+    from planx.suitability import label_components, rank_sites
+
+    mask = np.array(
+        [
+            [True, True, False, False],
+            [True, False, False, False],
+            [False, False, True, True],
+            [False, False, True, True],
+        ]
+    )
+    values = np.array(
+        [
+            [80.0, 90.0, 10.0, 10.0],
+            [70.0, 10.0, 10.0, 10.0],
+            [10.0, 10.0, 95.0, 100.0],
+            [10.0, 10.0, 90.0, 95.0],
+        ]
+    )
+
+    labels, count = label_components(mask)
+    assert count == 2
+    assert labels.shape == (4, 4)
+
+    sites = rank_sites(labels, count, values, cell_area_m2=100.0, min_area_ha=0.0, top_n=2)
+    assert len(sites) == 2
+    assert sites[0]["mean"] >= sites[1]["mean"]

@@ -5201,3 +5201,279 @@ def sen_intercept(series: list[float], slope: float) -> float:
     if not series:
         return 0.0
     return float(np.median([v - slope * t for t, v in enumerate(series)]))
+
+
+def exponential_smoothing(
+    series: list[float],
+    alpha: float = 0.3,
+    steps_ahead: int = 5,
+) -> list[float]:
+    """Simple exponential smoothing forecast.
+
+    Args:
+        series: List of time series values.
+        alpha: Smoothing factor (0.0 < alpha < 1.0).
+        steps_ahead: Number of future steps to forecast.
+
+    Returns:
+        List of forecasted values.
+    """
+    clean = [float(v) for v in series if v is not None and math.isfinite(float(v))]
+    if len(clean) < 2:
+        return [clean[-1] if clean else 0.0] * steps_ahead
+
+    fitted = [clean[0]]
+    for i in range(1, len(clean)):
+        fitted.append(alpha * clean[i] + (1.0 - alpha) * fitted[-1])
+
+    last = fitted[-1]
+    return [last] * steps_ahead
+
+
+def arima_forecast(
+    series: list[float],
+    order: tuple[int, int, int] = (1, 0, 1),
+    steps_ahead: int = 5,
+) -> tuple[list[float], str]:
+    """Fit ARIMA model and forecast. Falls back to exponential smoothing if statsmodels is absent.
+
+    Args:
+        series: Time series float values.
+        order: ARIMA (p, d, q) order tuple.
+        steps_ahead: Number of future steps to forecast.
+
+    Returns:
+        Tuple of (forecast_values list, method_used string).
+    """
+    clean = [float(v) for v in series if v is not None and math.isfinite(float(v))]
+    if len(clean) < 8:
+        return exponential_smoothing(clean, steps_ahead=steps_ahead), "exponential_smoothing"
+
+    try:
+        from statsmodels.tsa.arima.model import ARIMA  # type: ignore[import-not-found]
+
+        model = ARIMA(clean, order=order)
+        fitted = model.fit()
+        forecast = fitted.forecast(steps=steps_ahead)
+        return list(forecast), "ARIMA"
+    except (ImportError, Exception):
+        return exponential_smoothing(clean, steps_ahead=steps_ahead), "exponential_smoothing"
+
+
+def random_forest_forecast(
+    series: list[float],
+    lookback: int = 5,
+    steps_ahead: int = 5,
+    n_estimators: int = 50,
+) -> tuple[list[float], str]:
+    """Sliding-window Random Forest time-series forecast.
+
+    Args:
+        series: Time series values.
+        lookback: Number of lag time steps.
+        steps_ahead: Number of future steps to predict.
+        n_estimators: Number of decision trees.
+
+    Returns:
+        Tuple of (forecast_values list, method_used string).
+    """
+    clean = [float(v) for v in series if v is not None and math.isfinite(float(v))]
+    if len(clean) < lookback + 5:
+        return exponential_smoothing(clean, steps_ahead=steps_ahead), "exponential_smoothing"
+
+    try:
+        from sklearn.ensemble import RandomForestRegressor
+    except ImportError:
+        return exponential_smoothing(clean, steps_ahead=steps_ahead), "exponential_smoothing"
+
+    X, y = [], []
+    for i in range(len(clean) - lookback):
+        X.append(clean[i : i + lookback])
+        y.append(clean[i + lookback])
+
+    if len(X) < 4:
+        return exponential_smoothing(clean, steps_ahead=steps_ahead), "exponential_smoothing"
+
+    X_arr = np.array(X, dtype=np.float64)
+    y_arr = np.array(y, dtype=np.float64)
+
+    model = RandomForestRegressor(n_estimators=n_estimators, random_state=42)
+    model.fit(X_arr, y_arr)
+
+    window = list(clean[-lookback:])
+    forecast = []
+    for _ in range(steps_ahead):
+        pred = model.predict(np.array([window]))[0]
+        forecast.append(float(pred))
+        window.pop(0)
+        window.append(pred)
+
+    return forecast, "RandomForest"
+
+
+def forecast_cell_series(
+    series: list[float],
+    method: str = "auto",
+    steps_ahead: int = 5,
+) -> tuple[list[float], str]:
+    """Run the best available forecaster for a single time series.
+
+    Args:
+        series: Time series values.
+        method: "arima", "random_forest", "exponential", or "auto".
+        steps_ahead: Future steps to predict.
+
+    Returns:
+        Tuple of (forecast_values list, method_used string).
+    """
+    clean = [float(v) for v in series if v is not None and math.isfinite(float(v))]
+    if not clean:
+        return [0.0] * steps_ahead, "none"
+    if len(clean) < 2:
+        return [clean[-1]] * steps_ahead, "constant"
+
+    if method == "exponential":
+        return exponential_smoothing(clean, steps_ahead=steps_ahead), "exponential_smoothing"
+    if method == "arima":
+        return arima_forecast(clean, steps_ahead=steps_ahead)
+    if method == "random_forest":
+        return random_forest_forecast(clean, steps_ahead=steps_ahead)
+
+    forecast, used = arima_forecast(clean, steps_ahead=steps_ahead)
+    if used == "exponential_smoothing":
+        forecast, used = random_forest_forecast(clean, steps_ahead=steps_ahead)
+
+    return forecast, used
+
+
+def forecast_metrics(actual: list[float], predicted: list[float]) -> tuple[float, float, float]:
+    """Compute (MAE, RMSE, MAPE %) between aligned actual and predicted series.
+
+    Args:
+        actual: Ground truth series.
+        predicted: Model predicted series.
+
+    Returns:
+        Tuple of (MAE, RMSE, MAPE %).
+    """
+    n = min(len(actual), len(predicted))
+    if n == 0:
+        return math.nan, math.nan, math.nan
+    abs_err = [abs(actual[i] - predicted[i]) for i in range(n)]
+    sq_err = [(actual[i] - predicted[i]) ** 2 for i in range(n)]
+    mae = sum(abs_err) / n
+    rmse = math.sqrt(sum(sq_err) / n)
+    pcts = [abs((actual[i] - predicted[i]) / actual[i]) for i in range(n) if abs(actual[i]) > 1e-9]
+    mape = (100.0 * sum(pcts) / len(pcts)) if pcts else math.nan
+    return mae, rmse, mape
+
+
+def backtest_series(
+    series: list[float],
+    holdout: int = 3,
+) -> dict[str, Any]:
+    """Hold out last observations, forecast them, and score prediction accuracy.
+
+    Args:
+        series: Time series values.
+        holdout: Number of test observations to hold out.
+
+    Returns:
+        Dict with n_train, n_test, scores dict, best_method, and best_rmse.
+    """
+    clean = [float(v) for v in series if v is not None and math.isfinite(float(v))]
+    n = len(clean)
+    result: dict[str, Any] = {
+        "n_train": 0,
+        "n_test": 0,
+        "scores": {},
+        "best_method": "none",
+        "best_rmse": math.nan,
+    }
+    if n < holdout + 2 or holdout < 1:
+        return result
+
+    train = clean[:-holdout]
+    test = clean[-holdout:]
+    result["n_train"] = len(train)
+    result["n_test"] = len(test)
+
+    best_rmse = math.inf
+    best_method = "none"
+    for method in ("exponential", "arima", "random_forest"):
+        fcst, used = forecast_cell_series(train, method=method, steps_ahead=holdout)
+        mae, rmse, mape = forecast_metrics(test, fcst)
+        result["scores"][used] = (mae, rmse, mape)
+        if math.isfinite(rmse) and rmse < best_rmse:
+            best_rmse = rmse
+            best_method = used
+
+    result["best_method"] = best_method
+    result["best_rmse"] = best_rmse if math.isfinite(best_rmse) else math.nan
+    return result
+
+
+def residual_spatial_autocorrelation_summary(
+    residuals: np.ndarray,
+    weights_matrix: np.ndarray,
+) -> dict[str, Any]:
+    """Spatial autocorrelation summary of regression residuals.
+
+    Args:
+        residuals: 1D array of regression residuals.
+        weights_matrix: 2D spatial weights matrix.
+
+    Returns:
+        Dict containing Moran's I, expected I, z-score, and p-value.
+    """
+    n = len(residuals)
+    z = residuals - np.mean(residuals)
+    s0 = float(np.sum(weights_matrix))
+    moran_i = float((n / max(s0, 1e-12)) * (z.T @ weights_matrix @ z) / max(np.sum(z**2), 1e-12))
+    expected_i = float(-1.0 / max(n - 1, 1))
+    z_score = float((moran_i - expected_i) * np.sqrt(n))
+    p_val = float(2.0 * (1.0 - stats.norm.cdf(abs(z_score))))
+    return {
+        "moran_i": moran_i,
+        "expected_i": expected_i,
+        "z_score": z_score,
+        "p_value": p_val,
+    }
+
+
+def regression_quality_summary(
+    y: np.ndarray,
+    fitted: np.ndarray,
+    residuals: np.ndarray,
+    num_params: int,
+) -> dict[str, Any]:
+    """Regression quality and fit metrics (R2, Adj R2, RMSE, MAE, AIC).
+
+    Args:
+        y: Ground truth array.
+        fitted: Model predictions.
+        residuals: Residuals array (y - fitted).
+        num_params: Number of estimated parameters K.
+
+    Returns:
+        Dict of quality summary statistics.
+    """
+    n = len(y)
+    ss_tot = float(np.sum((y - np.mean(y)) ** 2))
+    ss_res = float(np.sum(residuals**2))
+    r2 = max(0.0, 1.0 - (ss_res / max(ss_tot, 1e-12)))
+    adj_r2 = max(0.0, 1.0 - (1.0 - r2) * ((n - 1) / max(n - num_params, 1)))
+
+    rmse = float(np.sqrt(np.mean(residuals**2)))
+    mae = float(np.mean(np.abs(residuals)))
+
+    log_lik = -0.5 * n * (np.log(2 * np.pi) + np.log(max(ss_res / n, 1e-12)) + 1.0)
+    aic = 2 * num_params - 2 * log_lik
+
+    return {
+        "r_squared": r2,
+        "adjusted_r_squared": adj_r2,
+        "rmse": rmse,
+        "mae": mae,
+        "aic": float(aic),
+    }

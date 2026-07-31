@@ -704,3 +704,30 @@ def test_fifteen_minute_city_equity_analyzer():
     assert "mean_15m_city_score" in res
     assert "vulnerability_equity_gap" in res
     assert len(res["zone_15m_city_scores"]) == 3
+
+
+def test_edge_criticality():
+    from planx.spatial import edge_criticality
+
+    indptr = np.array([0, 2, 4, 6], dtype=np.int64)
+    adj_node = np.array([1, 2, 0, 2, 0, 1], dtype=np.int64)
+    adj_edge = np.array([0, 1, 0, 2, 1, 2], dtype=np.int64)
+    adj_cost = np.array([1.0, 2.0, 1.0, 1.0, 2.0, 1.0], dtype=np.float64)
+
+    o_nodes = np.array([0, 1])
+    d_nodes = np.array([2])
+
+    res = edge_criticality(
+        indptr,
+        adj_node,
+        adj_edge,
+        adj_cost,
+        num_nodes=3,
+        num_edges=3,
+        o_nodes=o_nodes,
+        d_nodes=d_nodes,
+    )
+
+    assert "criticality" in res
+    assert "extra_cost" in res
+    assert len(res["criticality"]) == 3

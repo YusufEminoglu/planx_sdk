@@ -1851,3 +1851,96 @@ def fifteen_minute_city_equity_analyzer(
         "compliant_zones_ratio": float(np.mean(scores >= 80.0)),
         "vulnerability_equity_gap": float(equity_gap),
     }
+
+
+def edge_criticality(
+    indptr: np.ndarray,
+    adj_node: np.ndarray,
+    adj_edge: np.ndarray,
+    adj_cost: np.ndarray,
+    num_nodes: int,
+    num_edges: int,
+    o_nodes: np.ndarray,
+    d_nodes: np.ndarray,
+    same_layer: bool = False,
+    cutoff: float | None = None,
+) -> dict[str, Any]:
+    """Per-edge criticality over the given origin-destination demand.
+
+    Args:
+        indptr: Undirected primal-graph CSR index pointer array.
+        adj_node: Directed destination node array.
+        adj_edge: Edge ID array aligned with polylines.
+        adj_cost: Edge routing cost array.
+        num_nodes: Number of graph nodes.
+        num_edges: Number of graph edges.
+        o_nodes: Array of origin node IDs.
+        d_nodes: Array of destination node IDs.
+        same_layer: True if destinations equal origins (skip self pair).
+        cutoff: Optional maximum path cost cutoff.
+
+    Returns:
+        Dict containing criticality, extra_cost, n_disconnected, and used_by arrays.
+    """
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import dijkstra
+
+    indptr_a = np.asarray(indptr, dtype=np.int64)
+    adj_node_a = np.asarray(adj_node, dtype=np.int64)
+    adj_edge_a = np.asarray(adj_edge, dtype=np.int64)
+    adj_cost_a = np.asarray(adj_cost, dtype=np.float64)
+    o_nodes_a = np.asarray(o_nodes, dtype=np.int64)
+    d_nodes_a = np.asarray(d_nodes, dtype=np.int64)
+
+    src = np.repeat(np.arange(num_nodes, dtype=np.int64), np.diff(indptr_a))
+    graph = csr_matrix((adj_cost_a, adj_node_a, indptr_a), shape=(num_nodes, num_nodes))
+
+    dist_matrix = dijkstra(graph, directed=True, indices=o_nodes_a)
+    base_od = dist_matrix[:, d_nodes_a]
+
+    if same_layer:
+        np.fill_diagonal(base_od, np.inf)
+
+    reachable_mask = np.isfinite(base_od)
+    base_total = float(np.sum(base_od[reachable_mask]))
+
+    criticality = np.zeros(num_edges, dtype=np.float64)
+    extra_cost = np.zeros(num_edges, dtype=np.float64)
+    n_disconnected = np.zeros(num_edges, dtype=int)
+    used_by = np.zeros(num_edges, dtype=int)
+
+    for e_id in range(num_edges):
+        edge_mask = adj_edge_a == e_id
+        used_by[e_id] = int(np.sum(edge_mask))
+        if not np.any(edge_mask):
+            continue
+
+        keep_mask = ~edge_mask
+        counts = np.bincount(src[keep_mask], minlength=num_nodes)
+        sub_indptr = np.concatenate([[0], np.cumsum(counts)]).astype(np.int64)
+        sub_graph = csr_matrix(
+            (adj_cost_a[keep_mask], adj_node_a[keep_mask], sub_indptr),
+            shape=(num_nodes, num_nodes),
+        )
+        new_dists = dijkstra(sub_graph, directed=True, indices=o_nodes_a)
+        new_od = new_dists[:, d_nodes_a]
+
+        if same_layer:
+            np.fill_diagonal(new_od, np.inf)
+
+        new_reachable = np.isfinite(new_od)
+        disc = reachable_mask & ~new_reachable
+        delta = np.where(reachable_mask & new_reachable, new_od - base_od, 0.0)
+        np.clip(delta, 0.0, None, out=delta)
+
+        extra_cost[e_id] = float(np.sum(delta))
+        n_disconnected[e_id] = int(np.sum(disc))
+        criticality[e_id] = float(extra_cost[e_id] / max(base_total, 1e-12))
+
+    return {
+        "criticality": criticality,
+        "extra_cost": extra_cost,
+        "n_disconnected": n_disconnected,
+        "used_by": used_by,
+        "base_total_cost": base_total,
+    }

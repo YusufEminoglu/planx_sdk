@@ -1030,3 +1030,100 @@ def area_weighted_kmeans(
         "labels": np.array(labels, dtype=int),
         "centers": centers,
     }
+
+
+def label_components(mask: np.ndarray, connectivity: int = 8) -> tuple[np.ndarray, int]:
+    """Label contiguous True regions of a boolean mask.
+
+    Args:
+        mask: 2D boolean array.
+        connectivity: 4 or 8 neighbor connectivity.
+
+    Returns:
+        Tuple of (labels int32 array, component_count int).
+    """
+    from collections import deque
+
+    offsets = (
+        [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        if connectivity == 4
+        else [
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
+        ]
+    )
+    rows, cols = mask.shape
+    labels = np.zeros(mask.shape, dtype=np.int32)
+    current = 0
+    q: deque[tuple[int, int]] = deque()
+
+    for r in range(rows):
+        for c in range(cols):
+            if not mask[r, c] or labels[r, c] != 0:
+                continue
+            current += 1
+            labels[r, c] = current
+            q.clear()
+            q.append((r, c))
+            while q:
+                rr, cc = q.popleft()
+                for dr, dc in offsets:
+                    nr = rr + dr
+                    nc = cc + dc
+                    if 0 <= nr < rows and 0 <= nc < cols and mask[nr, nc] and labels[nr, nc] == 0:
+                        labels[nr, nc] = current
+                        q.append((nr, nc))
+
+    return labels, current
+
+
+def rank_sites(
+    labels: np.ndarray,
+    count: int,
+    values: np.ndarray,
+    cell_area_m2: float,
+    min_area_ha: float = 0.0,
+    top_n: int = 0,
+) -> list[dict[str, Any]]:
+    """Build ranked candidate site records from labeled component raster mask.
+
+    Args:
+        labels: 2D int32 array of component labels.
+        count: Total component count.
+        values: 2D float array of suitability scores.
+        cell_area_m2: Grid cell area in square meters.
+        min_area_ha: Minimum threshold area in hectares.
+        top_n: Top N sites to retain (0 for all).
+
+    Returns:
+        List of ranked site dictionary records.
+    """
+    sites = []
+    for label in range(1, count + 1):
+        sel = labels == label
+        cells = int(np.sum(sel))
+        if cells <= 0:
+            continue
+        area_ha = float(cells * cell_area_m2 / 10000.0)
+        if min_area_ha > 0 and area_ha < min_area_ha:
+            continue
+        vals = values[sel]
+        sites.append(
+            {
+                "label": int(label),
+                "cells": cells,
+                "area_ha": area_ha,
+                "mean": float(np.mean(vals)),
+                "max": float(np.max(vals)),
+            }
+        )
+    sites.sort(key=lambda s: (-s["mean"], -s["area_ha"], s["label"]))
+    if top_n > 0:
+        sites = sites[:top_n]
+    return sites
