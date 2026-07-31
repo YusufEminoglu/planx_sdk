@@ -2098,3 +2098,25 @@ def test_compound_hazard_risk_aggregator():
     assert "mean_compound_risk" in res
     assert "high_compound_risk_cell_count" in res
     assert len(res["compound_risk_grid"]) == 3
+
+
+def test_resilience_classification_and_solar():
+    from planx.resilience import (
+        accessibility_deficit_class,
+        calculate_solar_radiation_surface,
+        composite_risk_class,
+        intervention_priority_class,
+    )
+
+    c_risk = composite_risk_class(80.0)
+    assert c_risk == "Very High"
+
+    def_class = accessibility_deficit_class(60.0)
+    assert def_class == "Underserved"
+
+    prio = intervention_priority_class(90.0)
+    assert prio == "Immediate"
+
+    solar = calculate_solar_radiation_surface(latitude_deg=38.4)
+    assert "peak_solar_radiation_wm2" in solar
+    assert solar["peak_solar_radiation_wm2"] > 0.0

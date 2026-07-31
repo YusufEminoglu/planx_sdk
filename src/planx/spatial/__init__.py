@@ -7,7 +7,9 @@ Network centrality and shortest path calculations on sparse graphs.
 
 from .accessibility import (
     calculate_15m_city_score,
+    calculate_landuse_entropy_balance,
     calculate_multimodal_15m_city,
+    calculate_space_syntax_integration,
     canopy_sky_view_factor_profiler,
     cumulative_opportunities,
     drt_dispatch_optimizer,
@@ -120,4 +122,6 @@ __all__ = [
     "drt_dispatch_optimizer",
     "fifteen_minute_city_equity_analyzer",
     "edge_criticality",
+    "calculate_space_syntax_integration",
+    "calculate_landuse_entropy_balance",
 ]
