@@ -1975,6 +1975,30 @@ def test_fit_spatial_panel_regimes():
     assert len(res["regime_coefficients"]) == 2
 
 
+def test_fit_spatial_panel_probit_lag():
+    from planx.geostats import fit_spatial_panel_probit_lag
+
+    np.random.seed(42)
+    N, T = 4, 3
+    W = np.array([
+        [0.0, 0.5, 0.5, 0.0],
+        [0.5, 0.0, 0.5, 0.0],
+        [0.3, 0.3, 0.0, 0.4],
+        [0.0, 0.0, 1.0, 0.0],
+    ])
+    x = np.random.randn(N * T, 2)
+    y = np.array([1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0])
+
+    res = fit_spatial_panel_probit_lag(y, x, W, time_periods=T)
+
+    assert "spatial_rho" in res
+    assert "beta" in res
+    assert "log_likelihood" in res
+    assert "marginal_effects" in res
+    assert len(res["marginal_effects"]) == 2
+
+
+
 
 
 

@@ -5,6 +5,15 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-07-31
+### Added
+- **Spatial Panel Probit Model with Spatial Lag** (`fit_spatial_panel_probit_lag`) in `planx.geostats` for binary panel regression with spatial autoregressive lag and marginal effects.
+- **Green Infrastructure Cooling Effect & Park Cool Island Simulator** (`green_infra_cooling_engine`) in `planx.resilience.heat` for Park Cool Island (PCI) temperature reduction decay modeling.
+- **15-Minute City Multi-Modal Accessibility Equity Analyzer** (`fifteen_minute_city_equity_analyzer`) in `planx.spatial.accessibility` for cumulative 15m opportunity scoring across 6 essential urban service domains.
+- **Hesitant Fuzzy DEMATEL Causal Mapping Engine** (`hesitant_fuzzy_dematel`) in `planx.suitability.mcda` for causal relationship matrix evaluation under hesitant fuzzy set environments.
+
+---
+
 ## [2.7.0] - 2026-07-31
 ### Added
 - **Spatial Panel Regime Regression** (`fit_spatial_panel_regimes`) in `planx.geostats` for structural break analysis and regime-specific panel coefficients.

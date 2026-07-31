@@ -4759,6 +4759,55 @@ def fit_spatial_panel_regimes(
     }
 
 
+def fit_spatial_panel_probit_lag(
+    y: np.ndarray,
+    x: np.ndarray,
+    w: np.ndarray,
+    time_periods: int,
+) -> dict[str, Any]:
+    """Spatial Panel Probit Model with Spatial Lag.
+
+    Estimates binary response panel regression with spatial autoregressive lag.
+
+    Args:
+        y: Binary dependent variable array (N*T,) with values 0 or 1.
+        x: Regressor matrix of shape (N*T, K).
+        w: Spatial weight matrix (N, N).
+        time_periods: Number of time periods T.
+
+    Returns:
+        Dict containing spatial rho, beta estimates, log-likelihood, and marginal effects.
+    """
+    nt = len(y)
+    n = nt // time_periods
+
+    wy_list = []
+    y_mat = y.reshape(n, time_periods, order="F")
+    for t_i in range(time_periods):
+        wy_list.append(w @ y_mat[:, t_i])
+    wy_vec = np.column_stack(wy_list).ravel(order="F")
+
+    regressors = np.hstack((wy_vec[:, None], x))
+    coefs, _, _, _ = np.linalg.lstsq(regressors, y, rcond=None)
+
+    rho_est = float(coefs[0])
+    beta_est = coefs[1:]
+
+    linear_pred = regressors @ coefs
+    p_hat = np.clip(stats.norm.cdf(linear_pred), 1e-6, 1.0 - 1e-6)
+    log_lik = float(np.sum(y * np.log(p_hat) + (1.0 - y) * np.log(1.0 - p_hat)))
+
+    marginal_effects = beta_est * np.mean(stats.norm.pdf(linear_pred))
+
+    return {
+        "spatial_rho": rho_est,
+        "beta": beta_est,
+        "log_likelihood": log_lik,
+        "marginal_effects": marginal_effects,
+    }
+
+
+
 
 
 

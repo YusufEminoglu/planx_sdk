@@ -1056,5 +1056,49 @@ def wui_ember_transport_simulator(
     }
 
 
+def green_infra_cooling_engine(
+    park_coords: np.ndarray,
+    park_areas_ha: np.ndarray,
+    target_grid_coords: np.ndarray,
+    max_cooling_dist_m: float = 500.0,
+) -> dict[str, Any]:
+    """Green Infrastructure Cooling Effect & Park Cool Island Simulator.
+
+    Calculates Park Cool Island (PCI) temperature reduction decay over urban target areas.
+
+    Args:
+        park_coords: Array of shape (P, 2) for park centroids.
+        park_areas_ha: Array of shape (P,) for park sizes in hectares.
+        target_grid_coords: Array of shape (G, 2) for evaluation points.
+        max_cooling_dist_m: Maximum temperature decay distance (m).
+
+    Returns:
+        Dict containing temperature reduction grid (C), mean cooling, and max cooling.
+    """
+    from scipy.spatial.distance import cdist
+
+    p_count = len(park_coords)
+    g_count = len(target_grid_coords)
+
+    dists = cdist(target_grid_coords, park_coords)
+
+    pci_max = 1.2 * np.log(park_areas_ha + 1.0)
+
+    cooling_grid = np.zeros(g_count, dtype=np.float64)
+    for p in range(p_count):
+        d_p = dists[:, p]
+        in_range = d_p <= max_cooling_dist_m
+        c_p = pci_max[p] * np.exp(-3.0 * d_p[in_range] / max_cooling_dist_m)
+        cooling_grid[in_range] = np.maximum(cooling_grid[in_range], c_p)
+
+    return {
+        "temperature_reduction_c_grid": cooling_grid,
+        "mean_cooling_c": float(np.mean(cooling_grid)),
+        "max_cooling_c": float(np.max(cooling_grid)),
+        "cooled_area_ratio": float(np.mean(cooling_grid > 0.5)),
+    }
+
+
+
 
 
