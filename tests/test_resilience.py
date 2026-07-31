@@ -2082,6 +2082,23 @@ def test_green_infra_cooling_engine():
     assert len(res["temperature_reduction_c_grid"]) == 3
 
 
+def test_compound_hazard_risk_aggregator():
+    from planx.resilience import compound_hazard_risk_aggregator
+
+    f = np.array([0.5, 1.5, 0.0])
+    h = np.array([30.0, 42.0, 20.0])
+    s = np.array([0.1, 0.4, 0.05])
+    exp_d = np.array([100.0, 500.0, 50.0])
+
+    res = compound_hazard_risk_aggregator(f, h, s, exp_d)
+
+    assert "compound_risk_grid" in res
+    assert "mean_compound_risk" in res
+    assert "high_compound_risk_cell_count" in res
+    assert len(res["compound_risk_grid"]) == 3
+
+
+
 
 
 

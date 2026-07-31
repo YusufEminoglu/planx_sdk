@@ -457,6 +457,25 @@ def test_hesitant_fuzzy_dematel():
     assert len(res["causal_classification"]) == 3
 
 
+def test_spherical_fuzzy_topsis():
+    from planx.suitability import spherical_fuzzy_topsis
+
+    sf_mat = np.array([
+        [[0.7, 0.2, 0.1], [0.6, 0.3, 0.1]],
+        [[0.5, 0.4, 0.2], [0.8, 0.1, 0.1]],
+        [[0.4, 0.5, 0.2], [0.5, 0.4, 0.2]],
+    ])
+    w = np.array([0.5, 0.5])
+
+    res = spherical_fuzzy_topsis(sf_mat, w)
+
+    assert "closeness_coefficients" in res
+    assert "rankings" in res
+    assert len(res["closeness_coefficients"]) == 3
+    assert len(res["rankings"]) == 3
+
+
+
 
 
 

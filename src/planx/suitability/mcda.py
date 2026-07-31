@@ -1783,6 +1783,51 @@ def hesitant_fuzzy_dematel(
     }
 
 
+def spherical_fuzzy_topsis(
+    spherical_fuzzy_matrix: np.ndarray,
+    weights: np.ndarray,
+) -> dict[str, Any]:
+    """Spherical Fuzzy TOPSIS Method.
+
+    Ranks decision alternatives using Spherical Fuzzy Sets (mu, nu, pi) satisfying mu^2 + nu^2 + pi^2 <= 1.
+
+    Args:
+        spherical_fuzzy_matrix: Array of shape (n_alt, n_crit, 3) containing (mu, nu, pi).
+        weights: Criteria importance weights vector.
+
+    Returns:
+        Dict containing closeness coefficients and alternative rankings.
+    """
+    n_alt, n_crit, _ = spherical_fuzzy_matrix.shape
+    w_norm = weights / np.sum(weights)
+
+    score_mat = (spherical_fuzzy_matrix[:, :, 0] ** 2) - (spherical_fuzzy_matrix[:, :, 1] ** 2)
+
+    mins = np.min(score_mat, axis=0)
+    maxs = np.max(score_mat, axis=0)
+    ranges = np.where(maxs - mins == 0, 1.0, maxs - mins)
+    norm = (score_mat - mins) / ranges
+
+    weighted_norm = norm * w_norm
+
+    pis = np.max(weighted_norm, axis=0)
+    nis = np.min(weighted_norm, axis=0)
+
+    d_pis = np.sqrt(np.sum((weighted_norm - pis) ** 2, axis=1))
+    d_nis = np.sqrt(np.sum((weighted_norm - nis) ** 2, axis=1))
+
+    cc = d_nis / (d_pis + d_nis + 1e-12)
+    ranks = np.argsort(-cc).argsort() + 1
+
+    return {
+        "closeness_coefficients": cc,
+        "rankings": ranks,
+        "distance_to_pis": d_pis,
+        "distance_to_nis": d_nis,
+    }
+
+
+
 
 
 

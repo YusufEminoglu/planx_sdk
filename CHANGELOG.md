@@ -5,6 +5,15 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-07-31
+### Added
+- **Spatio-Temporal Panel Vector Autoregression** (`fit_spatial_pvar`) in `planx.geostats` for dynamic multi-variable spatio-temporal panel vector autoregression.
+- **Urban Resilience Multi-Hazard Compound Risk Aggregator** (`compound_hazard_risk_aggregator`) in `planx.resilience.flood` for joint compound hazard risk modeling across flood, heat, and seismic hazards.
+- **Urban Logistics Last-Mile Micro-Hub Location-Allocation Engine** (`logistics_microhub_location_allocation`) in `planx.suitability.facility` for cargo bike distribution micro-hub siting and VKT optimization.
+- **Spherical Fuzzy TOPSIS Method** (`spherical_fuzzy_topsis`) in `planx.suitability.mcda` for multi-criteria evaluation under Spherical Fuzzy Sets.
+
+---
+
 ## [2.8.0] - 2026-07-31
 ### Added
 - **Spatial Panel Probit Model with Spatial Lag** (`fit_spatial_panel_probit_lag`) in `planx.geostats` for binary panel regression with spatial autoregressive lag and marginal effects.

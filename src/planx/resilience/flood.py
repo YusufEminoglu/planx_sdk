@@ -969,5 +969,43 @@ def seismic_landslide_susceptibility_engine(
     }
 
 
+def compound_hazard_risk_aggregator(
+    flood_depth_grid: np.ndarray,
+    heat_index_grid: np.ndarray,
+    seismic_pga_grid: np.ndarray,
+    exposure_density_grid: np.ndarray,
+) -> dict[str, Any]:
+    """Urban Resilience Multi-Hazard Compound Risk Aggregator.
+
+    Calculates joint probability and compound exposure risk scores across flood, heat, and seismic hazards.
+
+    Args:
+        flood_depth_grid: Flood water depth grid (meters).
+        heat_index_grid: Outdoor heat index grid (Celsius).
+        seismic_pga_grid: Peak Ground Acceleration grid (g).
+        exposure_density_grid: Asset / population exposure density grid.
+
+    Returns:
+        Dict containing compound risk score grid [0, 100], mean risk, and high compound risk cell count.
+    """
+    f_norm = np.clip(flood_depth_grid / 2.0, 0.0, 1.0)
+    h_norm = np.clip((heat_index_grid - 25.0) / 20.0, 0.0, 1.0)
+    s_norm = np.clip(seismic_pga_grid / 0.5, 0.0, 1.0)
+
+    compound_hazard = 1.0 - (1.0 - f_norm) * (1.0 - h_norm) * (1.0 - s_norm)
+    compound_risk_grid = compound_hazard * (exposure_density_grid / (np.max(exposure_density_grid) + 1e-6)) * 100.0
+
+    high_risk_count = int(np.sum(compound_risk_grid > 50.0))
+
+    return {
+        "compound_risk_grid": compound_risk_grid,
+        "mean_compound_risk": float(np.mean(compound_risk_grid)),
+        "max_compound_risk": float(np.max(compound_risk_grid)),
+        "high_compound_risk_cell_count": high_risk_count,
+        "high_risk_ratio": float(np.mean(compound_risk_grid > 50.0)),
+    }
+
+
+
 
 
