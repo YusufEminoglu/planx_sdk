@@ -5,9 +5,31 @@ PlanX SDK
 Core spatial analytics, statistics, and urban resilience engines.
 """
 
-from planx import engine, geostats, resilience, spatial, suitability
+from planx import (
+    cellular_automata,
+    engine,
+    generative,
+    geostats,
+    realestate,
+    resilience,
+    spatial,
+    suitability,
+    urban_morphology,
+    urban_physics,
+)
 
-__version__ = "2.13.0"
+__version__ = "2.14.0"
 __author__ = "Yusuf Eminoğlu"
 
-__all__ = ["spatial", "geostats", "suitability", "resilience", "engine"]
+__all__ = [
+    "spatial",
+    "geostats",
+    "suitability",
+    "resilience",
+    "engine",
+    "realestate",
+    "urban_morphology",
+    "cellular_automata",
+    "urban_physics",
+    "generative",
+]
