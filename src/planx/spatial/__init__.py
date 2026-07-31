@@ -10,6 +10,7 @@ from .accessibility import (
     calculate_multimodal_15m_city,
     canopy_sky_view_factor_profiler,
     cumulative_opportunities,
+    drt_dispatch_optimizer,
     enhanced_2sfca,
     ev_charging_accessibility_index,
     ev_cvrp_multi_depot_routing,
@@ -114,4 +115,5 @@ __all__ = [
     "micromobility_equity_index",
     "transit_fleet_electrification_scheduler",
     "canopy_sky_view_factor_profiler",
+    "drt_dispatch_optimizer",
 ]

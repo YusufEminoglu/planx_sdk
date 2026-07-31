@@ -415,6 +415,25 @@ def test_fuzzy_copras_method():
     assert len(res["rankings"]) == 3
 
 
+def test_picture_fuzzy_topsis():
+    from planx.suitability import picture_fuzzy_topsis
+
+    pf_mat = np.array([
+        [[0.7, 0.1, 0.1], [0.6, 0.2, 0.1]],
+        [[0.5, 0.2, 0.2], [0.8, 0.1, 0.05]],
+        [[0.4, 0.3, 0.2], [0.5, 0.3, 0.15]],
+    ])
+    w = np.array([0.5, 0.5])
+
+    res = picture_fuzzy_topsis(pf_mat, w)
+
+    assert "closeness_coefficients" in res
+    assert "rankings" in res
+    assert len(res["closeness_coefficients"]) == 3
+    assert len(res["rankings"]) == 3
+
+
+
 
 
 
