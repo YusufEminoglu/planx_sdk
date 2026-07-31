@@ -657,6 +657,23 @@ def test_canopy_sky_view_factor_profiler():
     assert 0.0 <= res["mean_sky_view_factor"] <= 1.0
 
 
+def test_drt_dispatch_optimizer():
+    from planx.spatial import drt_dispatch_optimizer
+
+    req_orig = np.array([[100.0, 100.0], [200.0, 200.0], [500.0, 500.0]])
+    req_dest = np.array([[300.0, 300.0], [400.0, 400.0], [800.0, 800.0]])
+    vehicles = np.array([[0.0, 0.0], [400.0, 400.0]])
+
+    res = drt_dispatch_optimizer(req_orig, req_dest, vehicles, vehicle_capacity=8.0)
+
+    assert "assigned_vehicle_indices" in res
+    assert "vehicle_loads" in res
+    assert "total_fleet_distance_km" in res
+    assert len(res["assigned_vehicle_indices"]) == 3
+    assert len(res["vehicle_loads"]) == 2
+
+
+
 
 
 

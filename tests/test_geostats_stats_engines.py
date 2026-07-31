@@ -1957,6 +1957,25 @@ def test_fit_st_gwrr():
     assert 0.0 <= res["mean_r_squared"] <= 1.0
 
 
+def test_fit_spatial_panel_regimes():
+    from planx.geostats import fit_spatial_panel_regimes
+
+    np.random.seed(42)
+    N, T, K = 6, 2, 2
+    x = np.random.randn(N * T, K)
+    y = np.random.randn(N * T)
+    regimes = np.array([0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1])
+
+    res = fit_spatial_panel_regimes(y, x, regimes)
+
+    assert "regime_coefficients" in res
+    assert "chow_f_statistic" in res
+    assert "chow_p_value" in res
+    assert res["num_regimes"] == 2
+    assert len(res["regime_coefficients"]) == 2
+
+
+
 
 
 
