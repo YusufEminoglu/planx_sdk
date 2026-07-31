@@ -2003,5 +2003,23 @@ def test_pluvial_flash_flood_simulator_normal():
     assert res["runoff_depth_grid"].shape == (2, 2)
 
 
+def test_heatwave_health_vulnerability_engine():
+    from planx.resilience import heatwave_health_vulnerability_engine
+
+    t = np.array([[30.0, 35.0], [28.0, 38.0]])
+    rh = np.array([[60.0, 70.0], [50.0, 80.0]])
+    vuln = np.array([[0.2, 0.4], [0.1, 0.5]])
+    ac = np.array([[0.8, 0.4], [0.9, 0.2]])
+
+    res = heatwave_health_vulnerability_engine(t, rh, vuln, ac)
+
+    assert "heat_index_c_grid" in res
+    assert "vulnerability_score_grid" in res
+    assert "mean_heat_index_c" in res
+    assert "alert_level" in res
+    assert res["heat_index_c_grid"].shape == (2, 2)
+
+
+
 
 
