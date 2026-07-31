@@ -671,3 +671,136 @@ def evaluate_tod_node_suitability(
         "tier_3_count": tier_3_count,
         "tod_ranking": tod_ranking.astype(int),
     }
+
+
+def ev_fleet_charging_location_allocation(
+    fleet_origins: np.ndarray,
+    fleet_destinations: np.ndarray,
+    candidate_depots: np.ndarray,
+    num_depots_to_select: int,
+    depot_power_capacities_kw: Optional[np.ndarray] = None,
+    fleet_soc_depletion_rate: float = 0.2,
+    max_detour_km: float = 15.0,
+) -> dict[str, Any]:
+    """EV Fleet Charging Station Multi-Objective Location-Allocation Engine.
+
+    Selects optimal charging depots from candidates to serve fleet trips, minimizing detour distances
+    and honoring depot power capacity constraints.
+
+    Args:
+        fleet_origins: 2D array (N, 2) of trip origin coordinates.
+        fleet_destinations: 2D array (N, 2) of trip destination coordinates.
+        candidate_depots: 2D array (M, 2) of candidate depot locations.
+        num_depots_to_select: Number of depots p to choose (1 <= p <= M).
+        depot_power_capacities_kw: Optional 1D array (M,) of max kW capacity per depot.
+        fleet_soc_depletion_rate: Energy consumption in kWh per km (default 0.2).
+        max_detour_km: Maximum allowable detour threshold in km (default 15.0).
+
+    Returns:
+        Dict containing:
+          - 'selected_depot_indices': 1D int array of selected candidate indices.
+          - 'trip_allocations': 1D int array (N,) mapping each trip to selected depot index (-1 if unassigned).
+          - 'fleet_coverage_ratio': Float fraction of trips successfully allocated.
+          - 'mean_detour_km': Float mean detour distance for allocated trips.
+          - 'depot_power_utilization_kw': 1D float array of allocated charging power per selected depot.
+          - 'total_detour_km': Float total extra detour distance across fleet.
+    """
+    f_orig = np.asarray(fleet_origins, dtype=np.float64)
+    f_dest = np.asarray(fleet_destinations, dtype=np.float64)
+    c_dep = np.asarray(candidate_depots, dtype=np.float64)
+
+    n_trips = len(f_orig)
+    m_candidates = len(c_dep)
+
+    if f_orig.ndim != 2 or f_orig.shape[1] != 2:
+        raise ValueError("fleet_origins must be a 2D array of shape (N, 2).")
+    if f_dest.shape != f_orig.shape:
+        raise ValueError("fleet_destinations shape must match fleet_origins shape.")
+    if c_dep.ndim != 2 or c_dep.shape[1] != 2:
+        raise ValueError("candidate_depots must be a 2D array of shape (M, 2).")
+    if not (1 <= num_depots_to_select <= m_candidates):
+        raise ValueError("num_depots_to_select must be between 1 and M.")
+    if fleet_soc_depletion_rate <= 0:
+        raise ValueError("fleet_soc_depletion_rate must be positive.")
+    if max_detour_km <= 0:
+        raise ValueError("max_detour_km must be positive.")
+
+    if depot_power_capacities_kw is not None:
+        p_cap = np.asarray(depot_power_capacities_kw, dtype=np.float64)
+        if len(p_cap) != m_candidates:
+            raise ValueError("depot_power_capacities_kw length must equal M.")
+    else:
+        p_cap = np.full(m_candidates, 1e9, dtype=np.float64)
+
+    from scipy.spatial.distance import cdist
+    d_orig_dep = cdist(f_orig, c_dep, metric="euclidean")
+    d_dep_dest = cdist(c_dep, f_dest, metric="euclidean").T
+    d_base = np.sqrt(np.sum((f_orig - f_dest) ** 2, axis=1))
+
+    detours = (d_orig_dep + d_dep_dest) - d_base[:, None]
+
+    selected_depots: list[int] = []
+    candidates_remaining = list(range(m_candidates))
+
+    for _ in range(num_depots_to_select):
+        best_cand = -1
+        best_score = -1.0
+
+        for cand in candidates_remaining:
+            temp_sel = selected_depots + [cand]
+            sub_detours = detours[:, temp_sel]
+            min_det = np.min(sub_detours, axis=1)
+            coverage = np.sum(min_det <= max_detour_km)
+            total_det = np.sum(np.where(min_det <= max_detour_km, min_det, 0.0))
+            score = coverage * 1e5 - total_det
+
+            if score > best_score:
+                best_score = score
+                best_cand = cand
+
+        if best_cand != -1:
+            selected_depots.append(best_cand)
+            candidates_remaining.remove(best_cand)
+
+    sel_arr = np.array(selected_depots, dtype=int)
+
+    allocations = np.full(n_trips, -1, dtype=int)
+    depot_allocated_kw = np.zeros(len(sel_arr), dtype=np.float64)
+    charge_kw_per_trip = 50.0
+
+    for i in range(n_trips):
+        sub_d = detours[i, sel_arr]
+        sorted_dep_idx = np.argsort(sub_d)
+
+        for dep_i in sorted_dep_idx:
+            cand_idx = sel_arr[dep_i]
+            det = sub_d[dep_i]
+
+            if det <= max_detour_km:
+                if depot_allocated_kw[dep_i] + charge_kw_per_trip <= p_cap[cand_idx]:
+                    allocations[i] = cand_idx
+                    depot_allocated_kw[dep_i] += charge_kw_per_trip
+                    break
+
+    serviced_mask = allocations != -1
+    covered_count = int(np.sum(serviced_mask))
+    coverage_ratio = float(covered_count / n_trips) if n_trips > 0 else 0.0
+
+    assigned_detours = []
+    for i in range(n_trips):
+        if allocations[i] != -1:
+            c_idx = allocations[i]
+            assigned_detours.append(float(detours[i, c_idx]))
+
+    mean_det = float(np.mean(assigned_detours)) if assigned_detours else 0.0
+    tot_det = float(np.sum(assigned_detours)) if assigned_detours else 0.0
+
+    return {
+        "selected_depot_indices": sel_arr,
+        "trip_allocations": allocations,
+        "fleet_coverage_ratio": coverage_ratio,
+        "mean_detour_km": mean_det,
+        "depot_power_utilization_kw": depot_allocated_kw,
+        "total_detour_km": tot_det,
+    }
+

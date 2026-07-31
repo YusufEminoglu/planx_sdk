@@ -720,3 +720,113 @@ def stormwater_retention_basin_design(
         "runoff_coefficient": float(c),
         "is_drain_time_compliant": bool(t_drain_hours <= max_allowable_drain_hours),
     }
+
+
+def coastal_storm_surge_inundation_engine(
+    dem_grid: np.ndarray,
+    coastal_mask: np.ndarray,
+    storm_surge_m: float,
+    sea_level_rise_m: float = 0.0,
+    manning_grid: Optional[np.ndarray] = None,
+    cell_size_m: float = 10.0,
+) -> dict[str, Any]:
+    """Simulates coastal storm surge and sea level rise hydrologic connectivity inundation.
+
+    Args:
+        dem_grid: 2D NumPy array of Digital Elevation Model heights (meters).
+        coastal_mask: 2D boolean NumPy array marking coastline seed cells.
+        storm_surge_m: Storm surge elevation in meters (>= 0).
+        sea_level_rise_m: Sea level rise projection in meters (>= 0).
+        manning_grid: Optional 2D array of Manning roughness friction values.
+        cell_size_m: Grid cell spatial size in meters (> 0).
+
+    Returns:
+        Dict containing:
+          - 'inundation_depth': 2D float array of flood water depths in meters.
+          - 'inundated_area_m2': Total flooded ground area in m^2.
+          - 'max_depth_m': Peak water depth in meters.
+          - 'mean_depth_m': Mean water depth across flooded cells in meters.
+          - 'volume_m3': Total inundated water volume in m^3.
+          - 'connectivity_mask': 2D boolean array of hydrologically connected flooded cells.
+          - 'hazard_classification_counts': Dict with cell counts for low (<0.5m), medium (0.5-1.5m), high (>1.5m).
+    """
+    dem = np.asarray(dem_grid, dtype=np.float64)
+    c_mask = np.asarray(coastal_mask, dtype=bool)
+
+    if dem.ndim != 2:
+        raise ValueError("dem_grid must be a 2D array.")
+    if c_mask.shape != dem.shape:
+        raise ValueError("coastal_mask shape must match dem_grid shape.")
+    if storm_surge_m < 0:
+        raise ValueError("storm_surge_m must be non-negative.")
+    if sea_level_rise_m < 0:
+        raise ValueError("sea_level_rise_m must be non-negative.")
+    if cell_size_m <= 0:
+        raise ValueError("cell_size_m must be positive.")
+
+    total_wl = float(storm_surge_m + sea_level_rise_m)
+
+    rows, cols = dem.shape
+    inundation_depth = np.zeros((rows, cols), dtype=np.float64)
+    connected = np.zeros((rows, cols), dtype=bool)
+
+    from collections import deque
+    queue = deque()
+
+    for r in range(rows):
+        for c in range(cols):
+            if c_mask[r, c] and dem[r, c] < total_wl:
+                connected[r, c] = True
+                inundation_depth[r, c] = total_wl - dem[r, c]
+                queue.append((r, c))
+
+    neighbors_dirs = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
+
+    while queue:
+        r, c = queue.popleft()
+        curr_wl = dem[r, c] + inundation_depth[r, c]
+
+        for dr, dc in neighbors_dirs:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols:
+                headloss = 0.0
+                if manning_grid is not None:
+                    dist = cell_size_m * (1.41421356 if dr != 0 and dc != 0 else 1.0)
+                    n_val = float(manning_grid[nr, nc])
+                    headloss = max(0.0, n_val * 0.01 * dist)
+
+                avail_wl = curr_wl - headloss
+                if avail_wl > dem[nr, nc]:
+                    depth = avail_wl - dem[nr, nc]
+                    if not connected[nr, nc] or depth > inundation_depth[nr, nc]:
+                        connected[nr, nc] = True
+                        inundation_depth[nr, nc] = depth
+                        queue.append((nr, nc))
+
+    flooded_mask = connected & (inundation_depth > 0.0)
+    flooded_depths = inundation_depth[flooded_mask]
+
+    cell_area = cell_size_m * cell_size_m
+    inundated_area = float(np.sum(flooded_mask) * cell_area)
+    max_depth = float(np.max(flooded_depths)) if len(flooded_depths) > 0 else 0.0
+    mean_depth = float(np.mean(flooded_depths)) if len(flooded_depths) > 0 else 0.0
+    volume = float(np.sum(flooded_depths) * cell_area)
+
+    low_cnt = int(np.sum(flooded_mask & (inundation_depth < 0.5)))
+    med_cnt = int(np.sum(flooded_mask & (inundation_depth >= 0.5) & (inundation_depth <= 1.5)))
+    high_cnt = int(np.sum(flooded_mask & (inundation_depth > 1.5)))
+
+    return {
+        "inundation_depth": inundation_depth,
+        "inundated_area_m2": inundated_area,
+        "max_depth_m": max_depth,
+        "mean_depth_m": mean_depth,
+        "volume_m3": volume,
+        "connectivity_mask": connected,
+        "hazard_classification_counts": {
+            "low": low_cnt,
+            "medium": med_cnt,
+            "high": high_cnt,
+        },
+    }
+

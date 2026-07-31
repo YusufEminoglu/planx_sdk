@@ -1876,3 +1876,129 @@ def test_wildfire_evacuation_front_buffer_validation():
 
     with pytest.raises(ValueError, match="ignition_coords must be of shape"):
         wildfire_evacuation_front_buffer(np.array([10.0]), 20.0, 90.0, slope, 2.0)
+
+
+def test_coastal_storm_surge_inundation_engine_normal():
+    from planx.resilience import coastal_storm_surge_inundation_engine
+
+    dem = np.array([[0.0, 1.0, 3.0], [0.5, 2.0, 5.0], [1.5, 4.0, 6.0]])
+    c_mask = np.array([[True, False, False], [False, False, False], [False, False, False]])
+
+    res = coastal_storm_surge_inundation_engine(
+        dem_grid=dem,
+        coastal_mask=c_mask,
+        storm_surge_m=2.5,
+        sea_level_rise_m=0.5,
+        cell_size_m=10.0,
+    )
+
+    assert "inundation_depth" in res
+    assert "inundated_area_m2" in res
+    assert "max_depth_m" in res
+    assert "mean_depth_m" in res
+    assert "volume_m3" in res
+    assert "connectivity_mask" in res
+    assert "hazard_classification_counts" in res
+
+    assert res["inundation_depth"].shape == (3, 3)
+    assert res["inundated_area_m2"] > 0
+    assert res["max_depth_m"] > 0
+    assert bool(res["connectivity_mask"][0, 0]) is True
+    assert bool(res["connectivity_mask"][0, 1]) is True
+
+
+def test_coastal_storm_surge_inundation_engine_validation():
+    from planx.resilience import coastal_storm_surge_inundation_engine
+
+    dem = np.zeros((3, 3))
+    c_mask = np.zeros((3, 3), dtype=bool)
+
+    with pytest.raises(ValueError, match="dem_grid must be a 2D array"):
+        coastal_storm_surge_inundation_engine(np.zeros(3), c_mask, 2.0)
+
+    with pytest.raises(ValueError, match="coastal_mask shape must match"):
+        coastal_storm_surge_inundation_engine(dem, c_mask[:2, :2], 2.0)
+
+    with pytest.raises(ValueError, match="storm_surge_m must be non-negative"):
+        coastal_storm_surge_inundation_engine(dem, c_mask, -1.0)
+
+
+def test_surface_cool_island_simulator_normal():
+    from planx.resilience import surface_cool_island_simulator
+
+    alb_base = np.array([[0.1, 0.2], [0.15, 0.2]])
+    alb_targ = np.array([[0.5, 0.5], [0.4, 0.2]])
+    g_frac = np.array([[0.2, 0.0], [0.1, 0.5]])
+
+    res = surface_cool_island_simulator(
+        albedo_grid=alb_base,
+        target_albedo_grid=alb_targ,
+        solar_irradiance_wm2=800.0,
+        ambient_temp_c=35.0,
+        cell_size_m=10.0,
+        green_fraction_grid=g_frac,
+    )
+
+    assert "lst_reduction_c" in res
+    assert "new_lst_grid" in res
+    assert "net_radiation_change_wm2" in res
+    assert "mean_cooling_c" in res
+    assert "max_cooling_c" in res
+    assert "total_heat_mitigated_mwh" in res
+    assert "pet_comfort_improvement_c" in res
+
+    assert res["lst_reduction_c"].shape == (2, 2)
+    assert res["mean_cooling_c"] > 0.0
+    assert res["total_heat_mitigated_mwh"] > 0.0
+
+
+def test_surface_cool_island_simulator_validation():
+    from planx.resilience import surface_cool_island_simulator
+
+    alb_base = np.array([[0.1, 0.2], [0.15, 0.2]])
+
+    with pytest.raises(ValueError, match="albedo_grid values must be between"):
+        surface_cool_island_simulator(np.array([[-0.1, 0.2], [0.1, 0.2]]), np.zeros((2, 2)))
+
+
+def test_wind_canopy_aerodynamic_drag_simulator_normal():
+    from planx.resilience import wind_canopy_aerodynamic_drag_simulator
+
+    lai = np.array([[2.0, 4.0], [1.0, 0.5]])
+    lambda_f = np.array([[0.2, 0.4], [0.1, 0.05]])
+
+    res = wind_canopy_aerodynamic_drag_simulator(
+        inflow_wind_speed_ms=5.0,
+        tree_lai_grid=lai,
+        building_frontal_density_grid=lambda_f,
+        tree_height_m=10.0,
+        drag_coefficient=0.2,
+    )
+
+    assert "pedestrian_wind_speed_ms" in res
+    assert "attenuation_ratio" in res
+    assert "comfort_category_grid" in res
+    assert "mean_wind_speed_ms" in res
+    assert "max_wind_speed_ms" in res
+    assert "comfortable_area_ratio" in res
+
+    assert res["pedestrian_wind_speed_ms"].shape == (2, 2)
+    assert res["comfort_category_grid"].shape == (2, 2)
+    assert res["mean_wind_speed_ms"] < 5.0
+    assert 0.0 <= res["comfortable_area_ratio"] <= 1.0
+
+
+def test_wind_canopy_aerodynamic_drag_simulator_validation():
+    from planx.resilience import wind_canopy_aerodynamic_drag_simulator
+
+    lai = np.array([[2.0, 4.0], [1.0, 0.5]])
+    lambda_f = np.array([[0.2, 0.4], [0.1, 0.05]])
+
+    with pytest.raises(ValueError, match="inflow_wind_speed_ms must be positive"):
+        wind_canopy_aerodynamic_drag_simulator(-5.0, lai, lambda_f)
+
+    with pytest.raises(ValueError, match="tree_lai_grid must be a 2D array"):
+        wind_canopy_aerodynamic_drag_simulator(5.0, np.array([2.0, 4.0]), lambda_f)
+
+
+
