@@ -6,7 +6,13 @@ Core spatial statistical engines including local/global spatial autocorrelation,
 regression modeling, point pattern analysis, and clustering.
 """
 
-from .interpolation import idw_to_grid, idw_to_points, kriging_to_grid, kriging_to_points
+from .interpolation import (
+    idw_to_grid,
+    idw_to_points,
+    kriging_to_grid,
+    kriging_to_points,
+    spatio_temporal_kriging,
+)
 from .stats_engines import (
     arima_forecast,
     backtest_series,
@@ -171,4 +177,5 @@ __all__ = [
     "auto_distance_band",
     "build_weights",
     "neighbour_counts",
+    "spatio_temporal_kriging",
 ]
