@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] - 2026-07-29
+### Added
+- **Dynamic Spatial Panel GMM Estimator** (`fit_spatial_dynamic_panel_gmm`) in `planx.geostats` for Arellano-Bond / Blundell-Bond style dynamic spatial panel estimation ($y_{i,t} = \gamma y_{i,t-1} + \rho W y_{i,t} + X_{i,t} \beta + \mu_i + \varepsilon_{i,t}$) with first-difference transformation and 2SLS GMM instrumental variables.
+- **Urban Wind Comfort & Canopy Aerodynamic Drag Simulator** (`wind_canopy_aerodynamic_drag_simulator`) in `planx.resilience.heat` evaluating canopy momentum absorption, wind speed attenuation profiles, and Lawson pedestrian wind comfort classifications (Categories 1-5).
+- **Multi-Depot EV Capacitated Vehicle Routing Engine** (`ev_cvrp_multi_depot_routing`) in `planx.spatial.accessibility` for multi-depot EV routing with battery SOC depletion rates, vehicle load capacity constraints, and en-route fast charger visits.
+- **Interval-Valued Intuitionistic Fuzzy TOPSIS Method** (`ivif_topsis_method`) in `planx.suitability.mcda` for multi-criteria decision evaluation under expert hesitation and interval-valued intuitionistic fuzzy sets $[(\mu_L, \mu_U), (\nu_L, \nu_U)]$.
+
+---
+
+## [2.1.0] - 2026-07-29
+### Added
+- **Spatial Panel Zero-Inflated Count Model** (`fit_spatial_zip_panel`) in `planx.geostats` for zero-inflated Poisson and Negative Binomial (ZIP / ZINB) panel regression using EM mixture modeling, weighted logit structural zero probabilities, and 2SLS spatial lag estimation.
+- **Urban Surface Cool Island & Albedo Simulator** (`surface_cool_island_simulator`) in `planx.resilience.heat` evaluating Land Surface Temperature (LST) and PET outdoor thermal comfort mitigation from albedo modifications (cool roofs/pavements) and vegetation evapotranspiration.
+- **EV Fleet Charging Station Location-Allocation Engine** (`ev_fleet_charging_location_allocation`) in `planx.suitability.facility` for multi-objective EV fleet charging depot siting, minimizing detour distances while honoring depot power capacity ($kW$) constraints.
+- **Multi-Modal Transit Isochrone Profiler** (`multimodal_transit_isochrone_profiler`) in `planx.spatial.accessibility` calculating multi-modal travel times, walking access/egress speeds, initial headway waiting times, transit in-vehicle travel, and transfer friction penalties.
+
+---
+
+## [2.0.0] - 2026-07-29
+### Added
+- **Spatial Panel Count Regression Engine** (`fit_spatial_count_panel`) in `planx.geostats` for spatio-temporal Poisson and Negative Binomial count data modeling with 2SLS spatial lag instrumental variables, IRLS log-link GLM estimation, and dispersion alpha calculation.
+- **Coastal Storm Surge & Sea Level Rise Inundation Engine** (`coastal_storm_surge_inundation_engine`) in `planx.resilience.flood` simulating hydrologic connectivity flood filling over DEM grids with sea level rise projections, Manning surface friction headloss penalties, and hazard severity classification.
+- **EV Charging Station Spatial Accessibility & Grid Stress Index** (`ev_charging_accessibility_index`) in `planx.spatial.accessibility` combining 2SFCA accessibility decay to Level 2 AC and Level 3 DC Fast chargers with station power capacities (kW), transformer grid constraints, and Gini equity decomposition.
+- **SPOTIS MCDA Method** (`spotis_method`) in `planx.suitability.mcda` for Stable Preference Ordering Towards Ideal Solution multi-criteria evaluation with criteria domain bounds $[S_{j,min}, S_{j,max}]$, preventing rank reversal.
+
+---
+
 ## [1.9.0] - 2026-07-29
 ### Added
 - **Spatial Panel Quantile Regression Engine** (`fit_spatial_quantile_panel`) in `planx.geostats` for quantile-specific spatio-temporal panel data regression using 2SLS instrumental variable stage 1 and HiGHS linear programming pinball loss minimization stage 2.
