@@ -433,6 +433,31 @@ def test_picture_fuzzy_topsis():
     assert len(res["rankings"]) == 3
 
 
+def test_hesitant_fuzzy_dematel():
+    from planx.suitability import hesitant_fuzzy_dematel
+
+    m1 = np.array([
+        [0.0, 0.4, 0.2],
+        [0.3, 0.0, 0.5],
+        [0.1, 0.6, 0.0],
+    ])
+    m2 = np.array([
+        [0.0, 0.5, 0.3],
+        [0.2, 0.0, 0.4],
+        [0.2, 0.7, 0.0],
+    ])
+
+    res = hesitant_fuzzy_dematel([m1, m2])
+
+    assert "total_relation_matrix" in res
+    assert "prominence_d_plus_r" in res
+    assert "relation_d_minus_r" in res
+    assert "causal_classification" in res
+    assert res["total_relation_matrix"].shape == (3, 3)
+    assert len(res["causal_classification"]) == 3
+
+
+
 
 
 
