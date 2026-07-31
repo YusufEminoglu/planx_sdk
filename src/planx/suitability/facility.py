@@ -1212,3 +1212,211 @@ def gen_U(
         (0.0, 0.0),
     ]
     return {"coordinates": coords, "type_name": "U"}
+
+
+def gen_T(
+    w: float,
+    h: float,
+    stem_w_ratio: float = 0.4,
+    head_h_ratio: float = 0.35,
+) -> dict[str, Any]:
+    """Generates T-shaped building macroform polygon coordinates.
+
+    Args:
+        w: Width of bounding footprint.
+        h: Height of bounding footprint.
+        stem_w_ratio: Stem width ratio.
+        head_h_ratio: Head height ratio.
+
+    Returns:
+        Dict containing polygon 'coordinates' list and 'type_name' string.
+    """
+    stem_w = max(7.0, w * stem_w_ratio)
+    head_h = max(7.0, h * head_h_ratio)
+    stem_h = h - head_h
+    stem_x = (w - stem_w) / 2.0
+    coords = [
+        (0.0, stem_h),
+        (w, stem_h),
+        (w, h),
+        (0.0, h),
+        (0.0, stem_h),
+        (stem_x, stem_h),
+        (stem_x, 0.0),
+        (stem_x + stem_w, 0.0),
+        (stem_x + stem_w, stem_h),
+        (w, stem_h),
+    ]
+    return {"coordinates": coords, "type_name": "T"}
+
+
+def gen_H(
+    w: float,
+    h: float,
+    arm_w_ratio: float = 0.3,
+    bridge_h_ratio: float = 0.3,
+) -> dict[str, Any]:
+    """Generates H-shaped building macroform polygon coordinates.
+
+    Args:
+        w: Width of bounding footprint.
+        h: Height of bounding footprint.
+        arm_w_ratio: Side arms width ratio.
+        bridge_h_ratio: Central bridge height ratio.
+
+    Returns:
+        Dict containing polygon 'coordinates' list and 'type_name' string.
+    """
+    arm_w = max(7.0, w * arm_w_ratio)
+    bridge_h = max(7.0, h * bridge_h_ratio)
+    bridge_y = (h - bridge_h) / 2.0
+    coords = [
+        (0.0, 0.0),
+        (arm_w, 0.0),
+        (arm_w, bridge_y),
+        (w - arm_w, bridge_y),
+        (w - arm_w, 0.0),
+        (w, 0.0),
+        (w, h),
+        (w - arm_w, h),
+        (w - arm_w, bridge_y + bridge_h),
+        (arm_w, bridge_y + bridge_h),
+        (arm_w, h),
+        (0.0, h),
+        (0.0, 0.0),
+    ]
+    return {"coordinates": coords, "type_name": "H"}
+
+
+def gen_avlu(
+    w: float,
+    h: float,
+    wall_ratio: float = 0.25,
+) -> dict[str, Any]:
+    """Generates courtyard (O-shaped) building macroform polygon coordinates.
+
+    Args:
+        w: Width of bounding footprint.
+        h: Height of bounding footprint.
+        wall_ratio: Outer wall thickness ratio.
+
+    Returns:
+        Dict containing outer 'coordinates', inner courtyard 'courtyard_coordinates',
+        and 'type_name'.
+    """
+    wall = max(7.0, min(w, h) * wall_ratio)
+    outer = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h), (0.0, 0.0)]
+    inner = [(wall, wall), (w - wall, wall), (w - wall, h - wall), (wall, h - wall), (wall, wall)]
+    return {
+        "coordinates": outer,
+        "courtyard_coordinates": inner,
+        "type_name": "avlu",
+    }
+
+
+def gen_C(
+    w: float,
+    h: float,
+    spine_w_ratio: float = 0.4,
+    wing_h_ratio: float = 0.25,
+) -> dict[str, Any]:
+    """Generates C-shaped building macroform polygon coordinates.
+
+    Args:
+        w: Width of bounding footprint.
+        h: Height of bounding footprint.
+        spine_w_ratio: Main spine width ratio.
+        wing_h_ratio: Top and bottom wings height ratio.
+
+    Returns:
+        Dict containing polygon 'coordinates' list and 'type_name' string.
+    """
+    spine_w = max(7.0, w * spine_w_ratio)
+    wing_h = max(7.0, h * wing_h_ratio)
+    coords = [
+        (0.0, 0.0),
+        (w, 0.0),
+        (w, wing_h),
+        (spine_w, wing_h),
+        (spine_w, h - wing_h),
+        (w, h - wing_h),
+        (w, h),
+        (0.0, h),
+        (0.0, 0.0),
+    ]
+    return {"coordinates": coords, "type_name": "C"}
+
+
+def gen_E(
+    w: float,
+    h: float,
+    spine_w_ratio: float = 0.25,
+    wing_h_ratio: float = 0.2,
+) -> dict[str, Any]:
+    """Generates E-shaped building macroform polygon coordinates.
+
+    Args:
+        w: Width of bounding footprint.
+        h: Height of bounding footprint.
+        spine_w_ratio: Main spine width ratio.
+        wing_h_ratio: 3 parallel wings height ratio.
+
+    Returns:
+        Dict containing polygon 'coordinates' list and 'type_name' string.
+    """
+    spine_w = max(7.0, w * spine_w_ratio)
+    wing_h = max(7.0, h * wing_h_ratio)
+    mid_y = (h - wing_h) / 2.0
+    coords = [
+        (0.0, 0.0),
+        (w, 0.0),
+        (w, wing_h),
+        (spine_w, wing_h),
+        (spine_w, mid_y),
+        (w, mid_y),
+        (w, mid_y + wing_h),
+        (spine_w, mid_y + wing_h),
+        (spine_w, h - wing_h),
+        (w, h - wing_h),
+        (w, h),
+        (0.0, h),
+        (0.0, 0.0),
+    ]
+    return {"coordinates": coords, "type_name": "E"}
+
+
+def gen_arti(
+    w: float,
+    h: float,
+    arm_w_ratio: float = 0.35,
+) -> dict[str, Any]:
+    """Generates cross (+ shape) building macroform polygon coordinates.
+
+    Args:
+        w: Width of bounding footprint.
+        h: Height of bounding footprint.
+        arm_w_ratio: Cross arms width ratio.
+
+    Returns:
+        Dict containing polygon 'coordinates' list and 'type_name' string.
+    """
+    arm_w = max(7.0, w * arm_w_ratio)
+    arm_h = max(7.0, h * arm_w_ratio)
+    ox = (w - arm_w) / 2.0
+    oy = (h - arm_h) / 2.0
+    coords = [
+        (ox, 0.0),
+        (ox + arm_w, 0.0),
+        (ox + arm_w, oy),
+        (w, oy),
+        (w, oy + arm_h),
+        (ox + arm_w, oy + arm_h),
+        (ox + arm_w, h),
+        (ox, h),
+        (ox, oy + arm_h),
+        (0.0, oy + arm_h),
+        (0.0, oy),
+        (ox, oy),
+        (ox, 0.0),
+    ]
+    return {"coordinates": coords, "type_name": "arti"}
