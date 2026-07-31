@@ -4602,6 +4602,62 @@ def fit_spatial_panel_tobit_lag(
     }
 
 
+def fit_spatial_panel_sem(
+    y: np.ndarray,
+    x: np.ndarray,
+    w: np.ndarray,
+    time_periods: int,
+    lambda_param: float = 0.2,
+) -> dict[str, Any]:
+    """Spatial Panel Error Components Model (SEM Panel).
+
+    Fits a spatio-temporal panel regression with spatial autoregressive error structure.
+
+    Args:
+        y: Dependent variable array of shape (N*T,).
+        x: Regressor matrix of shape (N*T, K).
+        w: Spatial weight matrix (N, N).
+        time_periods: Number of time periods T.
+        lambda_param: Spatial error autocorrelation parameter.
+
+    Returns:
+        Dict containing coefficients, lambda parameter, R-squared, and residuals.
+    """
+    if time_periods <= 0:
+        raise ValueError("time_periods must be positive.")
+    nt = len(y)
+    n = nt // time_periods
+
+    i_n = np.eye(n)
+    filter_mat = i_n - lambda_param * w
+
+    y_mat = y.reshape(n, time_periods, order="F")
+    y_star_mat = filter_mat @ y_mat
+    y_star = y_star_mat.ravel(order="F")
+
+    x_star_list = []
+    for k_i in range(x.shape[1]):
+        x_k_mat = x[:, k_i].reshape(n, time_periods, order="F")
+        x_star_mat = filter_mat @ x_k_mat
+        x_star_list.append(x_star_mat.ravel(order="F"))
+    x_star = np.column_stack(x_star_list)
+
+    coefs, _, _, _ = np.linalg.lstsq(x_star, y_star, rcond=None)
+    residuals = y - x @ coefs
+
+    ss_res = np.sum(residuals**2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r2 = max(0.0, 1.0 - ss_res / max(ss_tot, 1e-12))
+
+    return {
+        "spatial_lambda": float(lambda_param),
+        "beta": coefs,
+        "r_squared": float(r2),
+        "residuals": residuals,
+    }
+
+
+
 
 
 
