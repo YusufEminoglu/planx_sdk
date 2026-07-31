@@ -63,6 +63,7 @@ from .landslide import landslide_susceptibility
 from .seismic import (
     earthquake_building_collapse_casualty,
     seismic_damage_loss_curve,
+    seismic_liquefaction_potential_index,
     seismic_road_blockage_simulation,
     simulate_seismic_debris,
 )
@@ -134,4 +135,5 @@ __all__ = [
     "composite_risk_class",
     "intervention_priority_class",
     "calculate_solar_radiation_surface",
+    "seismic_liquefaction_potential_index",
 ]

@@ -2120,3 +2120,19 @@ def test_resilience_classification_and_solar():
     solar = calculate_solar_radiation_surface(latitude_deg=38.4)
     assert "peak_solar_radiation_wm2" in solar
     assert solar["peak_solar_radiation_wm2"] > 0.0
+
+
+def test_seismic_liquefaction_potential_index():
+    from planx.resilience import seismic_liquefaction_potential_index
+
+    n_vals = np.array([5.0, 10.0, 15.0, 20.0])
+    depths = np.array([2.0, 5.0, 10.0, 15.0])
+
+    res = seismic_liquefaction_potential_index(
+        pga_g=0.4,
+        groundwater_depth_m=1.5,
+        spt_n_values=n_vals,
+        layer_depths_m=depths,
+    )
+    assert "liquefaction_potential_index" in res
+    assert res["liquefaction_potential_index"] >= 0.0

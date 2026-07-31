@@ -5,6 +5,12 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.16.0] - 2026-07-31
+### Added
+- **Seismic Liquefaction Potential Index Engine (`planx.resilience.seismic`)**: `seismic_liquefaction_potential_index` (Iwasaki LPI method with SPT-N soil depth layers and Peak Ground Acceleration).
+
+---
+
 ## [2.15.0] - 2026-07-31
 ### Added
 - **Traffic Assignment & Mobility Engineering (`planx.mobility`)**: Frank-Wolfe Traffic Assignment User Equilibrium (UE), BPR link congestion performance function, Gravity Model OD demand matrix estimator, and Furness/Fratar OD matrix balancing.
