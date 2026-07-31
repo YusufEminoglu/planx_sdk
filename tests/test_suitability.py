@@ -1237,11 +1237,13 @@ def test_ev_fleet_charging_location_allocation_validation():
 def test_tod_spatial_diversity_index():
     from planx.suitability import tod_spatial_diversity_index
 
-    landuse = np.array([
-        [0.4, 0.4, 0.2],
-        [0.8, 0.1, 0.1],
-        [0.3, 0.3, 0.4],
-    ])
+    landuse = np.array(
+        [
+            [0.4, 0.4, 0.2],
+            [0.8, 0.1, 0.1],
+            [0.3, 0.3, 0.4],
+        ]
+    )
     far = np.array([2.5, 1.0, 3.5])
     dist = np.array([100.0, 600.0, 200.0])
 
@@ -1260,13 +1262,12 @@ def test_logistics_microhub_location_allocation():
     vols = np.array([10.0, 20.0, 15.0])
     cands = np.array([[0.0, 0.0], [400.0, 400.0], [900.0, 900.0]])
 
-    res = logistics_microhub_location_allocation(demand, vols, cands, num_hubs_to_select=2, max_cargo_bike_range_km=5.0)
+    res = logistics_microhub_location_allocation(
+        demand, vols, cands, num_hubs_to_select=2, max_cargo_bike_range_km=5.0
+    )
 
     assert "selected_hub_indices" in res
     assert "demand_allocations" in res
     assert "total_delivery_vkt" in res
     assert len(res["selected_hub_indices"]) == 2
     assert len(res["demand_allocations"]) == 3
-
-
-
