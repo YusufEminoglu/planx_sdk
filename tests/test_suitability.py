@@ -1313,3 +1313,19 @@ def test_label_components_and_rank_sites():
     sites = rank_sites(labels, count, values, cell_area_m2=100.0, min_area_ha=0.0, top_n=2)
     assert len(sites) == 2
     assert sites[0]["mean"] >= sites[1]["mean"]
+
+
+def test_macroform_generators():
+    from planx.suitability import gen_dikdortgen, gen_L, gen_U
+
+    rect = gen_dikdortgen(20.0, 30.0)
+    assert rect["type_name"] == "dikdortgen"
+    assert len(rect["coordinates"]) == 5
+
+    l_shape = gen_L(30.0, 30.0)
+    assert l_shape["type_name"] == "L"
+    assert len(l_shape["coordinates"]) == 7
+
+    u_shape = gen_U(40.0, 40.0)
+    assert u_shape["type_name"] == "U"
+    assert len(u_shape["coordinates"]) == 9
