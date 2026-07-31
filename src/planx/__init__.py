@@ -7,9 +7,11 @@ Core spatial analytics, statistics, and urban resilience engines.
 
 from planx import (
     cellular_automata,
+    climate,
     engine,
     generative,
     geostats,
+    mobility,
     realestate,
     resilience,
     spatial,
@@ -18,7 +20,7 @@ from planx import (
     urban_physics,
 )
 
-__version__ = "2.14.0"
+__version__ = "2.15.0"
 __author__ = "Yusuf Eminoğlu"
 
 __all__ = [
@@ -32,4 +34,6 @@ __all__ = [
     "cellular_automata",
     "urban_physics",
     "generative",
+    "mobility",
+    "climate",
 ]

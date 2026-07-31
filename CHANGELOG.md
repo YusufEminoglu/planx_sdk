@@ -5,6 +5,14 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.0] - 2026-07-31
+### Added
+- **Traffic Assignment & Mobility Engineering (`planx.mobility`)**: Frank-Wolfe Traffic Assignment User Equilibrium (UE), BPR link congestion performance function, Gravity Model OD demand matrix estimator, and Furness/Fratar OD matrix balancing.
+- **Climate Adaptation & Ecosystem Services (`planx.climate`)**: Urban Canopy Annual CO2 Sequestration estimator and Green Roof Stormwater Retention Capacity & Peak Hydrograph Attenuation calculator.
+- **3D Spatio-Temporal Kriging (`planx.geostats`)**: `spatio_temporal_kriging` 3D space-time interpolation engine (X, Y, Time).
+
+---
+
 ## [2.14.0] - 2026-07-31
 ### Added
 - **Spatial Real Estate & Land Value Capture Lab (`planx.realestate`)**: Spatial Hedonic Pricing models (SLM, SEM, OLS), Difference-in-Differences Land Value Capture (LVC) Uplift, Transit-Oriented Premium Index (TOPI), Automated Comparable Selection (Gower comps), and Capitalization Rate Spatial Interpolation.
