@@ -4877,3 +4877,327 @@ def fit_spatial_pvar(
         "num_variables": m_vars,
         "lag_order": lag_order,
     }
+
+
+def getis_ord_g_star(
+    values: list[float],
+    weights: list[float] | None = None,
+) -> list[float]:
+    """Compute Getis-Ord Gi* z-scores for a set of values.
+
+    Args:
+        values: List of float values for the spatial units.
+        weights: Optional list of spatial weights. If None, equal weights.
+
+    Returns:
+        List of Gi* z-scores.
+    """
+    n = len(values)
+    if n < 3:
+        return [0.0] * n
+
+    mean_val = sum(values) / n
+    variance = sum((v - mean_val) ** 2 for v in values) / n
+    std_dev = math.sqrt(variance) if variance > 0 else 1e-12
+
+    if weights is None:
+        return [(v - mean_val) / std_dev for v in values]
+
+    z_scores = []
+    w_sum = sum(weights)
+    s1 = sum(w**2 for w in weights)
+
+    for _ in range(n):
+        weighted_sum = sum(weights[j] * values[j] for j in range(n))
+        denom = (std_dev * math.sqrt(max(n * s1 - w_sum**2, 0.0)) / (n - 1)) + 1e-12
+        z = (weighted_sum - mean_val * w_sum) / denom
+        z_scores.append(z)
+
+    return z_scores
+
+
+def getis_ord_gi_star_matrix(
+    values: list[float],
+    adjacency: list[list[tuple[int, float]]],
+) -> list[float]:
+    """Proper Getis-Ord Gi* using a spatial-weights adjacency list.
+
+    Args:
+        values: Attribute values for each spatial unit.
+        adjacency: Adjacency list where adjacency[i] contains (j, weight) tuples.
+
+    Returns:
+        List of Gi* z-scores.
+    """
+    n = len(values)
+    if n < 3:
+        return [0.0] * n
+
+    mean_val = sum(values) / n
+    second = sum(v * v for v in values) / n
+    s = math.sqrt(max(second - mean_val * mean_val, 0.0))
+    if s <= 1e-12:
+        return [0.0] * n
+
+    z_scores = []
+    for i in range(n):
+        row = adjacency[i] if i < len(adjacency) else []
+        if not row:
+            z_scores.append(0.0)
+            continue
+        w_sum = sum(w for _, w in row)
+        w_sq = sum(w * w for _, w in row)
+        weighted = sum(w * values[j] for j, w in row)
+        denom = s * math.sqrt(max((n * w_sq - w_sum * w_sum) / (n - 1), 1e-18))
+        z_scores.append((weighted - mean_val * w_sum) / denom if denom > 1e-18 else 0.0)
+
+    return z_scores
+
+
+def mann_kendall_test(series: list[float]) -> tuple[float, float, float]:
+    """Compute the Mann-Kendall trend statistic.
+
+    Args:
+        series: Time series values list.
+
+    Returns:
+        Tuple of (tau, p_value, sen_slope).
+    """
+    n = len(series)
+    if n < 3:
+        return 0.0, 1.0, 0.0
+
+    s = 0
+    for i in range(n - 1):
+        for j in range(i + 1, n):
+            if series[j] > series[i]:
+                s += 1
+            elif series[j] < series[i]:
+                s -= 1
+
+    tie_groups: dict[float, int] = {}
+    for v in series:
+        tie_groups[v] = tie_groups.get(v, 0) + 1
+
+    tie_correction = 0
+    for cnt in tie_groups.values():
+        if cnt > 1:
+            tie_correction += cnt * (cnt - 1) * (2 * cnt + 5)
+
+    var_s = (n * (n - 1) * (2 * n + 5) - tie_correction) / 18.0
+
+    if var_s > 0:
+        z = (s - 1) / math.sqrt(var_s) if s > 0 else (s + 1) / math.sqrt(var_s) if s < 0 else 0.0
+    else:
+        z = 0.0
+
+    p_value = 2.0 * (1.0 - stats.norm.cdf(abs(z)))
+
+    slopes = []
+    for i in range(n - 1):
+        for j in range(i + 1, n):
+            if series[j] != series[i]:
+                slopes.append((series[j] - series[i]) / (j - i))
+    slopes.sort()
+    sen_slope = slopes[len(slopes) // 2] if slopes else 0.0
+    tau = s / (n * (n - 1) / 2.0) if n > 1 else 0.0
+
+    return tau, float(p_value), sen_slope
+
+
+def classify_ehsa_pattern(
+    z_scores_by_time: list[list[float]],
+    p_threshold: float = 0.05,
+) -> list[int]:
+    """Classify each spatial unit into one of 17 EHSA patterns.
+
+    Args:
+        z_scores_by_time: List of per-timestep Gi* z-scores, shape (n_times, n_units).
+        p_threshold: Significance threshold for Gi*.
+
+    Returns:
+        List of EHSA pattern integer codes per unit.
+    """
+    n_times = len(z_scores_by_time)
+    if n_times < 3:
+        return [0] * len(z_scores_by_time[0])
+
+    n_units = len(z_scores_by_time[0])
+    z_critical = float(stats.norm.ppf(1.0 - p_threshold / 2.0))
+
+    patterns = []
+    for unit in range(n_units):
+        z_series = [z_scores_by_time[t][unit] for t in range(n_times)]
+        bin_series = [
+            1 if abs(z) >= z_critical and z > 0 else -1 if abs(z) >= z_critical and z < 0 else 0
+            for z in z_series
+        ]
+
+        tau, p_mk, sen_slope = mann_kendall_test(z_series)
+        trend_up = sen_slope > 0 and p_mk < p_threshold
+        trend_down = sen_slope < 0 and p_mk < p_threshold
+
+        hot_count = sum(1 for b in bin_series if b == 1)
+        cold_count = sum(1 for b in bin_series if b == -1)
+        sig_count = hot_count + cold_count
+
+        if sig_count < n_times * 0.2:
+            patterns.append(0)
+            continue
+
+        is_hot = hot_count >= cold_count
+        recent_half = bin_series[len(bin_series) // 2 :]
+        old_half = bin_series[: len(bin_series) // 2]
+        recent_sig = sum(1 for b in recent_half if b != 0)
+        old_sig = sum(1 for b in old_half if b != 0)
+
+        if is_hot:
+            consecutive = _max_consecutive(bin_series, 1)
+            if old_sig == 0 and recent_sig > 0:
+                patterns.append(1)
+            elif consecutive >= n_times * 0.9:
+                patterns.append(3 if trend_up else 5 if trend_down else 4)
+            elif consecutive >= n_times * 0.5:
+                patterns.append(2)
+            elif old_sig > 0 and recent_sig == 0:
+                patterns.append(8)
+            elif _has_oscillation(bin_series):
+                patterns.append(7)
+            elif sig_count < n_times * 0.5:
+                patterns.append(6)
+            else:
+                patterns.append(4)
+        else:
+            consecutive = _max_consecutive(bin_series, -1)
+            if old_sig == 0 and recent_sig > 0:
+                patterns.append(9)
+            elif consecutive >= n_times * 0.9:
+                patterns.append(13 if trend_up else 11 if trend_down else 12)
+            elif consecutive >= n_times * 0.5:
+                patterns.append(10)
+            elif old_sig > 0 and recent_sig == 0:
+                patterns.append(16)
+            elif _has_oscillation(bin_series):
+                patterns.append(15)
+            elif sig_count < n_times * 0.5:
+                patterns.append(14)
+            else:
+                patterns.append(12)
+
+    return patterns
+
+
+def _max_consecutive(bin_series: list[int], target: int) -> int:
+    max_run = 0
+    current = 0
+    for v in bin_series:
+        if v == target:
+            current += 1
+            max_run = max(max_run, current)
+        else:
+            current = 0
+    return max_run
+
+
+def _has_oscillation(bin_series: list[int]) -> bool:
+    switches = 0
+    prev = 0
+    for v in bin_series:
+        if v != 0 and v != prev:
+            switches += 1
+        if v != 0:
+            prev = v
+    return switches >= 3
+
+
+def robust_zscores(series: list[float]) -> list[float]:
+    """Modified z-score using Median Absolute Deviation (MAD).
+
+    Args:
+        series: List of float values.
+
+    Returns:
+        List of robust Z-scores.
+    """
+    n = len(series)
+    if n < 3:
+        return [0.0] * n
+    med = float(np.median(series))
+    abs_dev = [abs(v - med) for v in series]
+    mad = float(np.median(abs_dev))
+    if mad > 1e-12:
+        return [0.6745 * (v - med) / mad for v in series]
+    mean = float(np.mean(series))
+    std = float(np.std(series))
+    if std <= 1e-12:
+        return [0.0] * n
+    return [(v - mean) / std for v in series]
+
+
+def detect_anomalies(
+    series: list[float],
+    threshold: float = 3.0,
+    robust: bool = True,
+) -> dict[str, Any]:
+    """Flag time points whose z-score exceeds threshold.
+
+    Args:
+        series: List of time series values.
+        threshold: Z-score threshold (default 3.0).
+        robust: Use robust MAD z-scores if True.
+
+    Returns:
+        Dict with z-scores, flags, anomaly count, rate, and extreme indices.
+    """
+    z = (
+        robust_zscores(series)
+        if robust
+        else [(v - float(np.mean(series))) / max(float(np.std(series)), 1e-12) for v in series]
+    )
+    flags = [abs(v) >= threshold for v in z]
+    idxs = [i for i, f in enumerate(flags) if f]
+    n = len(series)
+    return {
+        "zscores": z,
+        "flags": flags,
+        "n_anomalies": len(idxs),
+        "anomaly_rate": float(len(idxs) / n) if n else 0.0,
+        "max_abs_z": max((abs(v) for v in z), default=0.0),
+        "first_index": idxs[0] if idxs else -1,
+        "last_index": idxs[-1] if idxs else -1,
+        "last_is_anomaly": bool(flags[-1]) if flags else False,
+        "last_z": float(z[-1]) if z else 0.0,
+    }
+
+
+def classify_trend(p_value: float, sen_slope: float, p_threshold: float = 0.05) -> int:
+    """Map a Mann-Kendall result to a trend code (0=None, 1=Increasing, 2=Decreasing).
+
+    Args:
+        p_value: Mann-Kendall p-value.
+        sen_slope: Sen slope estimate.
+        p_threshold: Significance threshold.
+
+    Returns:
+        Trend integer code.
+    """
+    if p_value < p_threshold and sen_slope > 0:
+        return 1
+    if p_value < p_threshold and sen_slope < 0:
+        return 2
+    return 0
+
+
+def sen_intercept(series: list[float], slope: float) -> float:
+    """Theil-Sen intercept calculation.
+
+    Args:
+        series: List of values.
+        slope: Sen slope estimate.
+
+    Returns:
+        Theil-Sen intercept float.
+    """
+    if not series:
+        return 0.0
+    return float(np.median([v - slope * t for t, v in enumerate(series)]))
