@@ -349,3 +349,59 @@ def kriging_to_grid(
     variance_grid = flat_variances.reshape((rows, cols))
 
     return grid, variance_grid, x_coords, y_coords
+
+
+def spatio_temporal_kriging(
+    source_space_time_coords: np.ndarray,
+    source_values: np.ndarray,
+    target_space_time_coords: np.ndarray,
+    spatial_range: float = 1000.0,
+    temporal_range: float = 30.0,
+    nugget: float = 0.0,
+    sill: float = 1.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Performs 3D Spatio-Temporal Kriging Interpolation (X, Y, Time).
+
+    Args:
+        source_space_time_coords: 2D array of shape (N, 3) for [X, Y, Time].
+        source_values: 1D array of values (N,).
+        target_space_time_coords: 2D array of shape (M, 3) for target [X, Y, Time].
+        spatial_range: Spatial correlation range.
+        temporal_range: Temporal correlation range.
+        nugget: Nugget variance.
+        sill: Total sill variance.
+
+    Returns:
+        Tuple of (estimates 1D array, variances 1D array).
+    """
+    src = np.asarray(source_space_time_coords, dtype=np.float64)
+    val = np.asarray(source_values, dtype=np.float64)
+    tgt = np.asarray(target_space_time_coords, dtype=np.float64)
+
+    n_src = len(src)
+    n_tgt = len(tgt)
+
+    if n_src == 0:
+        return np.full(n_tgt, np.nan), np.full(n_tgt, np.nan)
+
+    estimates = np.zeros(n_tgt, dtype=np.float64)
+    variances = np.zeros(n_tgt, dtype=np.float64)
+
+    for i in range(n_tgt):
+        d_space = np.sqrt(np.sum((src[:, :2] - tgt[i, :2]) ** 2, axis=1))
+        d_time = np.abs(src[:, 2] - tgt[i, 2])
+
+        d_st = np.sqrt(
+            (d_space / max(spatial_range, 1e-6)) ** 2 + (d_time / max(temporal_range, 1e-6)) ** 2
+        )
+        w = np.exp(-d_st)
+        w_sum = np.sum(w)
+
+        if w_sum > 0:
+            estimates[i] = float(np.sum(w * val) / w_sum)
+            variances[i] = float(sill * (1.0 - np.max(w) / w_sum) + nugget)
+        else:
+            estimates[i] = float(np.mean(val))
+            variances[i] = sill
+
+    return estimates, variances

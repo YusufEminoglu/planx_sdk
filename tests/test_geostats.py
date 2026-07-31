@@ -372,3 +372,16 @@ def test_spatial_weights_builder():
     assert len(adj_knn) == 4
     counts = neighbour_counts(adj_knn)
     assert len(counts) == 4
+
+
+def test_spatio_temporal_kriging():
+    from planx.geostats import spatio_temporal_kriging
+
+    src_st = np.array([[0.0, 0.0, 1.0], [10.0, 0.0, 2.0], [0.0, 10.0, 3.0]])
+    val = np.array([10.0, 20.0, 30.0])
+    tgt_st = np.array([[5.0, 5.0, 2.0]])
+
+    est, var = spatio_temporal_kriging(src_st, val, tgt_st)
+    assert len(est) == 1
+    assert len(var) == 1
+    assert est[0] > 0.0
