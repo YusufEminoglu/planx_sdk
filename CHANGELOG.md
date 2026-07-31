@@ -5,6 +5,16 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.0] - 2026-07-31
+### Added
+- **Spatial Real Estate & Land Value Capture Lab (`planx.realestate`)**: Spatial Hedonic Pricing models (SLM, SEM, OLS), Difference-in-Differences Land Value Capture (LVC) Uplift, Transit-Oriented Premium Index (TOPI), Automated Comparable Selection (Gower comps), and Capitalization Rate Spatial Interpolation.
+- **Urban Morphology & Spacemate Density Lab (`planx.urban_morphology`)**: Spacemate Density Matrix (FSI, GSI, OSR, L) typology classification, Box-counting Fractal Dimension ($D$), and Block Porosity & Urban Grain Coarseness Index.
+- **Cellular Automata Urban Sprawl & LUCC Growth Simulator (`planx.cellular_automata`)**: SLEUTH-like Cellular Automata urban growth engine and Markov Land Cover Transition Matrix estimator.
+- **Urban Canopy & Microclimate Physics Lab (`planx.urban_physics`)**: Frontal Area Index ($\lambda_F$), Roughness Length ($z_0$), Displacement Height ($d_0$), and Cool Surface Albedo Uplift Thermal Cooling Potential.
+- **Generative Urban Subdivision & Solar Rights Lab (`planx.generative`)**: Recursive OBB Parcel Layout Subdivision and 3D Buildable Envelope with Solar Rights Protection.
+
+---
+
 ## [2.13.0] - 2026-07-31
 ### Added
 - **Urban Resilience Accessibility Deficit & Intervention Priority Classifier** (`accessibility_deficit_class`, `composite_risk_class`, `intervention_priority_class`) in `planx.resilience.flood`.
