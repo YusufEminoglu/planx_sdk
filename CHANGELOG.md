@@ -5,6 +5,15 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.0] - 2026-07-31
+### Added
+- **Spatio-Temporal Time-Series Forecasting Studio** (`exponential_smoothing`, `arima_forecast`, `random_forest_forecast`, `forecast_cell_series`, `forecast_metrics`, `backtest_series`) in `planx.geostats`.
+- **Graph Network Edge Criticality & Robustness Engine** (`edge_criticality`) in `planx.spatial.accessibility`.
+- **Connected Raster Candidate Site Extraction & Ranking Engine** (`label_components`, `rank_sites`) in `planx.suitability.facility`.
+- **Spatial Autocorrelation & Residual Diagnostic Summary Engine** (`residual_spatial_autocorrelation_summary`, `regression_quality_summary`) in `planx.geostats`.
+
+---
+
 ## [2.10.0] - 2026-07-31
 ### Added
 - **Emerging Hot Spot Analysis & Spatio-Temporal $G_i^*$ Engine** (`getis_ord_g_star`, `getis_ord_gi_star_matrix`, `mann_kendall_test`, `classify_ehsa_pattern`) in `planx.geostats`.

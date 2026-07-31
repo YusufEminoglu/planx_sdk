@@ -11,6 +11,7 @@ from .accessibility import (
     canopy_sky_view_factor_profiler,
     cumulative_opportunities,
     drt_dispatch_optimizer,
+    edge_criticality,
     enhanced_2sfca,
     ev_charging_accessibility_index,
     ev_cvrp_multi_depot_routing,
@@ -118,4 +119,5 @@ __all__ = [
     "canopy_sky_view_factor_profiler",
     "drt_dispatch_optimizer",
     "fifteen_minute_city_equity_analyzer",
+    "edge_criticality",
 ]

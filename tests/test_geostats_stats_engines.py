@@ -2080,3 +2080,47 @@ def test_ehsa_and_time_series_stats():
 
     b0 = sen_intercept(series, slope)
     assert isinstance(b0, float)
+
+
+def test_forecasting_and_diagnostics():
+    from planx.geostats import (
+        backtest_series,
+        exponential_smoothing,
+        forecast_cell_series,
+        forecast_metrics,
+        regression_quality_summary,
+        residual_spatial_autocorrelation_summary,
+    )
+
+    s = [10.0, 12.0, 14.0, 16.0, 18.0, 20.0]
+    fcst = exponential_smoothing(s, steps_ahead=3)
+    assert len(fcst) == 3
+
+    fcst_auto, used = forecast_cell_series(s, method="auto", steps_ahead=3)
+    assert len(fcst_auto) == 3
+
+    mae, rmse, mape = forecast_metrics(s[:3], s[:3])
+    assert mae == 0.0
+    assert rmse == 0.0
+
+    bt = backtest_series(s, holdout=2)
+    assert bt["n_train"] == 4
+    assert bt["n_test"] == 2
+
+    y = np.array([10.0, 20.0, 30.0, 40.0])
+    fitted = np.array([11.0, 19.0, 31.0, 39.0])
+    residuals = y - fitted
+    W = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.0, 0.5, 0.0, 0.5],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
+
+    res_diag = residual_spatial_autocorrelation_summary(residuals, W)
+    assert "moran_i" in res_diag
+
+    reg_qual = regression_quality_summary(y, fitted, residuals, num_params=2)
+    assert reg_qual["r_squared"] > 0.9
