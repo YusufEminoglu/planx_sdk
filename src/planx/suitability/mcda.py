@@ -1600,5 +1600,52 @@ def if_vikor_method(
     }
 
 
+def rough_topsis_method(
+    lower_matrix: np.ndarray,
+    upper_matrix: np.ndarray,
+    weights: np.ndarray,
+) -> dict[str, Any]:
+    """Rough TOPSIS MCDA Engine.
+
+    Evaluates decision alternatives using lower and upper rough approximation boundary matrices.
+
+    Args:
+        lower_matrix: Array of shape (n_alt, n_crit) for lower rough bounds.
+        upper_matrix: Array of shape (n_alt, n_crit) for upper rough bounds.
+        weights: Criteria importance weights.
+
+    Returns:
+        Dict containing closeness coefficients, ranks, and rough distance metrics.
+    """
+    n_alt, n_crit = lower_matrix.shape
+    w_norm = weights / np.sum(weights)
+
+    mid_matrix = 0.5 * (lower_matrix + upper_matrix)
+
+    mins = np.min(mid_matrix, axis=0)
+    maxs = np.max(mid_matrix, axis=0)
+    ranges = np.where(maxs - mins == 0, 1.0, maxs - mins)
+    norm = (mid_matrix - mins) / ranges
+
+    weighted_norm = norm * w_norm
+
+    pis = np.max(weighted_norm, axis=0)
+    nis = np.min(weighted_norm, axis=0)
+
+    d_pis = np.sqrt(np.sum((weighted_norm - pis) ** 2, axis=1))
+    d_nis = np.sqrt(np.sum((weighted_norm - nis) ** 2, axis=1))
+
+    cc = d_nis / (d_pis + d_nis + 1e-12)
+    ranks = np.argsort(-cc).argsort() + 1
+
+    return {
+        "closeness_coefficients": cc,
+        "rankings": ranks,
+        "distance_to_pis": d_pis,
+        "distance_to_nis": d_nis,
+    }
+
+
+
 
 

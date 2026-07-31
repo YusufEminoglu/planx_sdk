@@ -1916,6 +1916,30 @@ def test_fit_spatial_panel_tobit_lag():
     assert 0.0 <= res["censored_ratio"] <= 1.0
 
 
+def test_fit_spatial_panel_sem():
+    from planx.geostats import fit_spatial_panel_sem
+
+    np.random.seed(42)
+    N, T = 4, 3
+    W = np.array([
+        [0.0, 0.5, 0.5, 0.0],
+        [0.5, 0.0, 0.5, 0.0],
+        [0.3, 0.3, 0.0, 0.4],
+        [0.0, 0.0, 1.0, 0.0],
+    ])
+    x = np.random.randn(N * T, 2)
+    y = np.random.randn(N * T)
+
+    res = fit_spatial_panel_sem(y, x, W, time_periods=T, lambda_param=0.2)
+
+    assert "spatial_lambda" in res
+    assert "beta" in res
+    assert "r_squared" in res
+    assert res["spatial_lambda"] == 0.2
+    assert len(res["beta"]) == 2
+
+
+
 
 
 

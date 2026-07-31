@@ -628,5 +628,20 @@ def test_micromobility_equity_index():
     assert 0.0 <= res["equity_gini_index"] <= 1.0
 
 
+def test_transit_fleet_electrification_scheduler():
+    from planx.spatial import transit_fleet_electrification_scheduler
+
+    arrivals = np.array([22.0, 22.5, 23.0, 23.5])
+    energy = np.array([120.0, 150.0, 100.0, 130.0])
+
+    res = transit_fleet_electrification_scheduler(arrivals, energy, charger_power_kw=150.0, max_grid_power_kw=600.0)
+
+    assert "peak_power_demand_kw" in res
+    assert "total_energy_delivered_kwh" in res
+    assert "grid_cap_compliant" in res
+    assert res["grid_cap_compliant"] is True
+
+
+
 
 

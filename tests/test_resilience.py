@@ -2020,6 +2020,21 @@ def test_heatwave_health_vulnerability_engine():
     assert res["heat_index_c_grid"].shape == (2, 2)
 
 
+def test_wui_ember_transport_simulator():
+    from planx.resilience import wui_ember_transport_simulator
+
+    fire_line = np.array([[0.0, 0.0], [0.0, 10.0]])
+    grid = np.array([[50.0, 5.0], [200.0, 5.0], [500.0, 5.0]])
+
+    res = wui_ember_transport_simulator(fire_line, wind_speed_ms=15.0, wind_direction_deg=90.0, target_grid_coords=grid)
+
+    assert "ember_density_grid" in res
+    assert "max_spotting_distance_m" in res
+    assert len(res["ember_density_grid"]) == 3
+    assert res["max_spotting_distance_m"] > 0.0
+
+
+
 
 
 

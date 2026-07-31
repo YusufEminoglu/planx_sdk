@@ -373,5 +373,29 @@ def test_if_vikor_method():
     assert len(res["rankings"]) == 3
 
 
+def test_rough_topsis_method():
+    from planx.suitability import rough_topsis_method
+
+    lower = np.array([
+        [5.0, 6.0, 7.0],
+        [4.0, 8.0, 5.0],
+        [6.0, 5.0, 8.0],
+    ])
+    upper = np.array([
+        [7.0, 8.0, 9.0],
+        [6.0, 9.0, 7.0],
+        [8.0, 7.0, 9.0],
+    ])
+    w = np.array([0.4, 0.3, 0.3])
+
+    res = rough_topsis_method(lower, upper, w)
+
+    assert "closeness_coefficients" in res
+    assert "rankings" in res
+    assert len(res["closeness_coefficients"]) == 3
+    assert len(res["rankings"]) == 3
+
+
+
 
 

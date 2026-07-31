@@ -1014,4 +1014,47 @@ def heatwave_health_vulnerability_engine(
     }
 
 
+def wui_ember_transport_simulator(
+    fire_line_coords: np.ndarray,
+    wind_speed_ms: float,
+    wind_direction_deg: float,
+    target_grid_coords: np.ndarray,
+    canopy_height_m: float = 15.0,
+) -> dict[str, Any]:
+    """Wildfire Urban Interface (WUI) Ember Transport Simulator.
+
+    Models firebrand spot ignition distribution and ember density over WUI residential zones.
+
+    Args:
+        fire_line_coords: Array of shape (M, 2) containing fire front coordinates.
+        wind_speed_ms: Wind velocity in m/s (> 0).
+        wind_direction_deg: Wind blowing direction in degrees (0-360).
+        target_grid_coords: Array of shape (G, 2) containing grid point coordinates.
+        canopy_height_m: Average tree canopy height (m).
+
+    Returns:
+        Dict containing ember density array, max spotting distance, and high-risk count.
+    """
+    if wind_speed_ms <= 0:
+        raise ValueError("wind_speed_ms must be positive.")
+
+    d_spot_max = 0.05 * (wind_speed_ms ** 1.2) * (canopy_height_m ** 0.8) * 10.0
+
+    diffs = target_grid_coords[:, None, :] - fire_line_coords[None, :, :]
+    dists = np.sqrt(np.sum(diffs**2, axis=2))
+
+    ember_density = np.zeros(len(target_grid_coords), dtype=np.float64)
+    for m in range(len(fire_line_coords)):
+        d_m = dists[:, m]
+        in_range = d_m <= d_spot_max
+        ember_density[in_range] += np.exp(-3.0 * d_m[in_range] / max(d_spot_max, 1.0))
+
+    return {
+        "ember_density_grid": ember_density,
+        "max_spotting_distance_m": float(d_spot_max),
+        "high_ignition_risk_count": int(np.sum(ember_density > 0.5)),
+    }
+
+
+
 

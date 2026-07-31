@@ -37,6 +37,7 @@ from .heat import (
     surface_cool_island_simulator,
     tree_canopy_microclimate_cooling,
     urban_heat_comfort_risk,
+    wui_ember_transport_simulator,
     urban_heat_island_intensity,
     urban_heat_vulnerability_index,
     wind_canopy_aerodynamic_drag_simulator,
@@ -116,4 +117,5 @@ __all__ = [
     "wind_canopy_aerodynamic_drag_simulator",
     "pluvial_flash_flood_simulator",
     "heatwave_health_vulnerability_engine",
+    "wui_ember_transport_simulator",
 ]

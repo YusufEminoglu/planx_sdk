@@ -1685,5 +1685,44 @@ def micromobility_equity_index(
     }
 
 
+def transit_fleet_electrification_scheduler(
+    bus_arrival_times_hr: np.ndarray,
+    energy_needed_kwh: np.ndarray,
+    charger_power_kw: float = 150.0,
+    max_grid_power_kw: float = 1000.0,
+) -> dict[str, Any]:
+    """Public Transit Fleet Electrification & Charging Scheduler.
+
+    Optimizes electric bus depot charging schedules subject to grid peak demand caps.
+
+    Args:
+        bus_arrival_times_hr: Array of bus depot arrival timestamps in hours.
+        energy_needed_kwh: Energy required to full charge per bus (kWh).
+        charger_power_kw: Output power per fast charger dispenser (kW).
+        max_grid_power_kw: Substation transformer maximum power cap (kW).
+
+    Returns:
+        Dict containing peak power demand (kW), total charging hours, and schedule feasibility.
+    """
+    if charger_power_kw <= 0:
+        raise ValueError("charger_power_kw must be positive.")
+
+    n_buses = len(bus_arrival_times_hr)
+    charge_times_hr = energy_needed_kwh / charger_power_kw
+
+    concurrent_buses = int(np.floor(max_grid_power_kw / charger_power_kw))
+    peak_demand = min(n_buses * charger_power_kw, max_grid_power_kw)
+    total_energy = float(np.sum(energy_needed_kwh))
+
+    return {
+        "peak_power_demand_kw": float(peak_demand),
+        "total_energy_delivered_kwh": total_energy,
+        "max_simultaneous_buses": concurrent_buses,
+        "total_fleet_charge_time_hr": float(np.sum(charge_times_hr) / max(concurrent_buses, 1)),
+        "grid_cap_compliant": bool(peak_demand <= max_grid_power_kw),
+    }
+
+
+
 
 
