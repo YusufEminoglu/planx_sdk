@@ -4170,7 +4170,7 @@ def fit_spatial_count_panel(
             2.0 * np.sum(np.where(y > 0, y * np.log(y / np.maximum(mu, 1e-10)) - (y - mu), mu))
         )
 
-        y_mean = max(np.mean(y), 1e-10)
+        y_mean = float(max(float(np.mean(y)), 1e-10))
         ll_null = float(np.sum(y * np.log(y_mean) - y_mean))
     else:
         r = 1.0 / dispersion_alpha
@@ -4182,7 +4182,7 @@ def fit_spatial_count_panel(
             )
         )
 
-        y_mean = max(np.mean(y), 1e-10)
+        y_mean = float(max(float(np.mean(y)), 1e-10))
         ll_null = float(np.sum(stats.nbinom.logpmf(np.floor(y).astype(int), r, r / (r + y_mean))))
 
     pseudo_r2 = float(1.0 - (ll_model / ll_null)) if ll_null != 0 else 0.0
@@ -4327,7 +4327,7 @@ def fit_spatial_zip_panel(
 
         diff = np.max(np.abs(beta_new - beta_aug)) + np.max(np.abs(gamma_new - gamma))
         beta_aug = beta_new
-        gamma = gamma_new
+        gamma = np.asarray(gamma_new, dtype=np.float64)
 
         if diff < tol:
             break
@@ -4355,7 +4355,7 @@ def fit_spatial_zip_panel(
     ll_i = np.where(zero_mask, ll_zero, ll_pos)
     ll_model = float(np.sum(ll_i))
 
-    y_mean = max(np.mean(y), 1e-10)
+    y_mean = float(max(float(np.mean(y)), 1e-10))
     ll_null = float(np.sum(y * np.log(y_mean) - y_mean))
     pseudo_r2 = float(1.0 - (ll_model / ll_null)) if ll_null != 0 else 0.0
 

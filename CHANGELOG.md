@@ -5,6 +5,12 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.2] - 2026-07-31
+### Fixed
+- **Mypy Type Annotations**: Added explicit type annotations for `selected` micro-hub lists and `queue` deques to satisfy strict Mypy type-checking.
+
+---
+
 ## [2.9.1] - 2026-07-31
 ### Fixed
 - **CI Linting & Code Formatting**: Resolved Ruff E501 line-length and F821 typing import errors across all modules.
