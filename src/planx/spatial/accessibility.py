@@ -1649,4 +1649,41 @@ def ev_cvrp_multi_depot_routing(
     }
 
 
+def micromobility_equity_index(
+    vehicle_counts: np.ndarray,
+    transit_distances: np.ndarray,
+    vulnerability_weights: np.ndarray,
+) -> dict[str, Any]:
+    """First-Mile / Last-Mile Micro-Mobility Equity Index.
+
+    Evaluates dockless micro-mobility device availability relative to public transit hubs
+    weighted by socio-economic vulnerability factors and calculates equity distribution metrics.
+
+    Args:
+        vehicle_counts: Array of available bikes/scooters per zone.
+        transit_distances: Distance (meters) to nearest transit hub per zone.
+        vulnerability_weights: Socio-economic vulnerability weight per zone (0-1).
+
+    Returns:
+        Dict containing zone equity scores, overall micro-mobility equity index, and Gini coefficient.
+    """
+    dist_decay = np.exp(-transit_distances / 500.0)
+    supply_score = vehicle_counts * dist_decay
+
+    equity_scores = supply_score / (vulnerability_weights + 1e-6)
+
+    sorted_s = np.sort(equity_scores)
+    n = len(sorted_s)
+    index = np.arange(1, n + 1)
+    gini = float((2 * np.sum(index * sorted_s) - (n + 1) * np.sum(sorted_s)) / (n * np.sum(sorted_s) + 1e-12))
+
+    return {
+        "zone_equity_scores": equity_scores,
+        "mean_equity_score": float(np.mean(equity_scores)),
+        "equity_gini_index": max(0.0, float(gini)),
+        "low_access_zones_count": int(np.sum(equity_scores < np.median(equity_scores) * 0.5)),
+    }
+
+
+
 

@@ -1867,4 +1867,30 @@ def test_fit_spatial_dynamic_panel_gmm_validation():
         fit_spatial_dynamic_panel_gmm(y, X, W, time_periods=2)
 
 
+def test_fit_spatial_panel_sur():
+    from planx.geostats import fit_spatial_panel_sur
+
+    np.random.seed(42)
+    N, T = 5, 4
+    W = np.array([
+        [0.0, 0.5, 0.5, 0.0, 0.0],
+        [0.5, 0.0, 0.5, 0.0, 0.0],
+        [0.3, 0.3, 0.0, 0.4, 0.0],
+        [0.0, 0.0, 0.5, 0.0, 0.5],
+        [0.0, 0.0, 0.0, 1.0, 0.0],
+    ])
+
+    y1 = np.random.randn(N, T)
+    y2 = np.random.randn(N, T)
+    x1 = np.random.randn(N, T, 2)
+    x2 = np.random.randn(N, T, 3)
+
+    res = fit_spatial_panel_sur([y1, y2], [x1, x2], W)
+    assert res["num_equations"] == 2
+    assert len(res["coefficients"]) == 2
+    assert res["cross_equation_covariance"].shape == (2, 2)
+    assert len(res["r_squared_per_equation"]) == 2
+
+
+
 

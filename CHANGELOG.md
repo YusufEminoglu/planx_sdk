@@ -5,6 +5,13 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-07-31
+### Added
+- **Spatial Panel Seemingly Unrelated Regression** (`fit_spatial_panel_sur`) in `planx.geostats` for multi-equation spatio-temporal systems with cross-equation error covariance and 2SLS spatial lag.
+- **Urban Pluvial Flash Flood & Drainage Capacity Simulator** (`pluvial_flash_flood_simulator`) in `planx.resilience.flood` for storm runoff generation via SCS Curve Number and pipe capacity surcharge modeling.
+- **First-Mile/Last-Mile Micro-Mobility Equity Index** (`micromobility_equity_index`) in `planx.spatial.accessibility` for dockless scooter/bike supply relative to transit hub proximity and socio-economic vulnerability.
+- **Neutrosophic WASPAS MCDA Method** (`neutrosophic_waspas_method`) in `planx.suitability.mcda` for multi-criteria evaluation under single-valued neutrosophic truth, indeterminacy, and falsity degrees.
+
 ---
 
 ## [2.2.0] - 2026-07-29

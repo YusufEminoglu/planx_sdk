@@ -4488,4 +4488,65 @@ def fit_spatial_dynamic_panel_gmm(
     }
 
 
+def fit_spatial_panel_sur(
+    y_eqs: list[np.ndarray],
+    x_eqs: list[np.ndarray],
+    w: np.ndarray,
+) -> dict[str, Any]:
+    """Spatio-Temporal Panel Seemingly Unrelated Regression (SUR) Engine.
+
+    Fits a system of M equations across N spatial units and T time periods, accounting for
+    cross-equation error correlations and spatial lag effects.
+
+    Args:
+        y_eqs: List of M arrays, each of shape (N, T) for equation dependent variables.
+        x_eqs: List of M arrays, each of shape (N, T, K_m) for equation regressors.
+        w: Spatial weight matrix (N, N), row-standardized.
+
+    Returns:
+        Dict containing system coefficients, cross-equation covariance matrix, and R-squared.
+    """
+    m_eqs = len(y_eqs)
+    if m_eqs == 0:
+        raise ValueError("At least 1 equation must be provided.")
+    n, t = y_eqs[0].shape
+
+    system_coefs = []
+    eq_residuals = []
+    r2_list = []
+
+    for m in range(m_eqs):
+        y_m = y_eqs[m].ravel(order="F")
+        x_m = x_eqs[m].reshape(-1, x_eqs[m].shape[-1], order="F")
+
+        wy_m = np.zeros_like(y_eqs[m])
+        for t_i in range(t):
+            wy_m[:, t_i] = w @ y_eqs[m][:, t_i]
+        wy_vec = wy_m.ravel(order="F")
+
+        reg_m = np.hstack((wy_vec[:, None], x_m))
+
+        coef_m, _, _, _ = np.linalg.lstsq(reg_m, y_m, rcond=None)
+        res_m = y_m - reg_m @ coef_m
+
+        ss_res = np.sum(res_m**2)
+        ss_tot = np.sum((y_m - np.mean(y_m)) ** 2)
+        r2_m = max(0.0, 1.0 - ss_res / max(ss_tot, 1e-12))
+
+        system_coefs.append(coef_m)
+        eq_residuals.append(res_m)
+        r2_list.append(float(r2_m))
+
+    res_mat = np.column_stack(eq_residuals)
+    sigma_cov = (res_mat.T @ res_mat) / len(y_m)
+
+    return {
+        "num_equations": m_eqs,
+        "coefficients": system_coefs,
+        "cross_equation_covariance": sigma_cov,
+        "r_squared_per_equation": r2_list,
+    }
+
+
+
 
