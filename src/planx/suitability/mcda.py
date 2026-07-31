@@ -1293,3 +1293,218 @@ def fuzzy_vikor_method(
         "compromise_set": compromise_set,
         "defuzzified_matrix": defuzz_mat,
     }
+
+
+def spotis_method(
+    matrix: np.ndarray,
+    weights: Union[List[float], np.ndarray],
+    types: Union[List[str], List[int], np.ndarray],
+    bounds: Optional[np.ndarray] = None,
+) -> dict[str, Any]:
+    """SPOTIS (Stable Preference Ordering Towards Ideal Solution) MCDA ranking method.
+
+    Evaluates alternatives by computing normalized distances to an ideal solution
+    vector S*_j bounded by criteria domain boundaries [S_{j,min}, S_{j,max}],
+    preventing rank reversal.
+
+    Args:
+        matrix: 2D NumPy array of shape (M, N) for M alternatives across N criteria.
+        weights: List or 1D array of length N for criteria weights.
+        types: List or array of criteria types (1 / "+" / "benefit" or 0 / "-" / "cost").
+        bounds: Optional 2D array of shape (N, 2) specifying [min, max] per criterion.
+
+    Returns:
+        Dict containing:
+          - 'scores': 1D NumPy array (M,) of preference distance scores (0 is ideal best).
+          - 'ranks': 1D NumPy array (M,) of integer ranks (1 = best).
+          - 'ideal_solution': 1D NumPy array (N,) of criterion ideal target values.
+          - 'bounds': 2D NumPy array (N, 2) of criteria min and max boundaries.
+    """
+    mat = np.asarray(matrix, dtype=np.float64)
+    if mat.ndim != 2:
+        raise ValueError("matrix must be a 2D array.")
+    m_alt, n_crit = mat.shape
+    if m_alt < 2:
+        raise ValueError("At least 2 alternatives are required.")
+    if n_crit < 1:
+        raise ValueError("At least 1 criterion is required.")
+
+    w = np.asarray(weights, dtype=np.float64)
+    if len(w) != n_crit:
+        raise ValueError("Length of weights must match number of criteria N.")
+    if np.any(w < 0):
+        raise ValueError("Weights must be non-negative.")
+    w_sum = np.sum(w)
+    if w_sum <= 0:
+        raise ValueError("Sum of weights must be positive.")
+    w_norm = w / w_sum
+
+    t_clean = []
+    for item in types:
+        if isinstance(item, str):
+            st = item.lower().strip()
+            if st in ("+", "benefit", "1", "max"):
+                t_clean.append(1)
+            elif st in ("-", "cost", "0", "min"):
+                t_clean.append(0)
+            else:
+                raise ValueError(f"Unknown criterion type: {item}")
+        else:
+            t_clean.append(1 if int(item) == 1 else 0)
+    t_arr = np.array(t_clean, dtype=int)
+
+    if bounds is not None:
+        b_mat = np.asarray(bounds, dtype=np.float64)
+        if b_mat.shape != (n_crit, 2):
+            raise ValueError("bounds must be a (N, 2) array of [min, max].")
+        if np.any(b_mat[:, 0] >= b_mat[:, 1]):
+            raise ValueError("bounds min must be strictly smaller than max for all criteria.")
+    else:
+        b_mat = np.zeros((n_crit, 2), dtype=np.float64)
+        for j in range(n_crit):
+            c_min = float(np.min(mat[:, j]))
+            c_max = float(np.max(mat[:, j]))
+            if c_min == c_max:
+                c_max = c_min + 1.0
+            b_mat[j] = [c_min, c_max]
+
+    ideal_s = np.zeros(n_crit, dtype=np.float64)
+    for j in range(n_crit):
+        if t_arr[j] == 1:
+            ideal_s[j] = b_mat[j, 1]
+        else:
+            ideal_s[j] = b_mat[j, 0]
+
+    d_mat = np.zeros_like(mat)
+    for j in range(n_crit):
+        rng = b_mat[j, 1] - b_mat[j, 0]
+        d_mat[:, j] = np.abs(mat[:, j] - ideal_s[j]) / rng
+
+    scores = np.sum(d_mat * w_norm[None, :], axis=1)
+
+    sort_idx = np.argsort(scores)
+    ranks = np.empty_like(sort_idx)
+    ranks[sort_idx] = np.arange(1, m_alt + 1)
+
+    return {
+        "scores": scores,
+        "ranks": ranks,
+        "ideal_solution": ideal_s,
+        "bounds": b_mat,
+    }
+
+
+def ivif_topsis_method(
+    ivif_matrix: np.ndarray,
+    weights: Union[List[float], np.ndarray],
+    types: Union[List[str], List[int], np.ndarray],
+) -> dict[str, Any]:
+    """Interval-Valued Intuitionistic Fuzzy TOPSIS (IVIF-TOPSIS) MCDA Method.
+
+    Evaluates alternatives under expert hesitation and uncertainty where evaluations are given as
+    IVIF values [[mu_L, mu_U], [nu_L, nu_U]].
+
+    Args:
+        ivif_matrix: 3D array of shape (M, N, 4) containing IVIF values for M alternatives across N criteria.
+                     The last dimension specifies [mu_L, mu_U, nu_L, nu_U].
+        weights: List or 1D array of length N containing criteria weights (summing to 1.0).
+        types: List or array of criteria types (1 / "+" for benefit, 0 / "-" for cost).
+
+    Returns:
+        Dict containing:
+          - 'closeness_coefficients': 1D float array (M,) of closeness coefficients CC_i in [0, 1].
+          - 'ranks': 1D int array (M,) of integer ranks (1 = best, highest CC_i).
+          - 'distance_to_pis': 1D float array (M,) of Euclidean distances to PIS.
+          - 'distance_to_nis': 1D float array (M,) of Euclidean distances to NIS.
+    """
+    mat = np.asarray(ivif_matrix, dtype=np.float64)
+    if mat.ndim != 3 or mat.shape[2] != 4:
+        raise ValueError("ivif_matrix must be a 3D array of shape (M, N, 4).")
+    m_alt, n_crit, _ = mat.shape
+    if m_alt < 2:
+        raise ValueError("At least 2 alternatives are required.")
+    if n_crit < 1:
+        raise ValueError("At least 1 criterion is required.")
+
+    w = np.asarray(weights, dtype=np.float64)
+    if len(w) != n_crit:
+        raise ValueError("Length of weights must match N criteria.")
+    if np.any(w < 0):
+        raise ValueError("Weights must be non-negative.")
+    w_sum = np.sum(w)
+    if w_sum <= 0:
+        raise ValueError("Sum of weights must be positive.")
+    w_norm = w / w_sum
+
+    mu_L = mat[:, :, 0]
+    mu_U = mat[:, :, 1]
+    nu_L = mat[:, :, 2]
+    nu_U = mat[:, :, 3]
+
+    if np.any((mu_L < 0) | (mu_U > 1) | (mu_L > mu_U)):
+        raise ValueError("IVIF membership bounds must satisfy 0 <= mu_L <= mu_U <= 1.")
+    if np.any((nu_L < 0) | (nu_U > 1) | (nu_L > nu_U)):
+        raise ValueError("IVIF non-membership bounds must satisfy 0 <= nu_L <= nu_U <= 1.")
+    if np.any((mu_U + nu_U) > 1.0 + 1e-6):
+        raise ValueError("IVIF bounds must satisfy mu_U + nu_U <= 1.")
+
+    t_clean = []
+    for item in types:
+        if isinstance(item, str):
+            st = item.lower().strip()
+            if st in ("+", "benefit", "1", "max"):
+                t_clean.append(1)
+            elif st in ("-", "cost", "0", "min"):
+                t_clean.append(0)
+            else:
+                raise ValueError(f"Unknown criterion type: {item}")
+        else:
+            t_clean.append(1 if int(item) == 1 else 0)
+    t_arr = np.array(t_clean, dtype=int)
+
+    w_grid = w_norm[None, :]
+    w_mu_L = 1.0 - (1.0 - mu_L) ** w_grid
+    w_mu_U = 1.0 - (1.0 - mu_U) ** w_grid
+    w_nu_L = nu_L ** w_grid
+    w_nu_U = nu_U ** w_grid
+
+    pis = np.zeros((n_crit, 4), dtype=np.float64)
+    nis = np.zeros((n_crit, 4), dtype=np.float64)
+
+    for j in range(n_crit):
+        if t_arr[j] == 1:
+            pis[j] = [np.max(w_mu_L[:, j]), np.max(w_mu_U[:, j]), np.min(w_nu_L[:, j]), np.min(w_nu_U[:, j])]
+            nis[j] = [np.min(w_mu_L[:, j]), np.min(w_mu_U[:, j]), np.max(w_nu_L[:, j]), np.max(w_nu_U[:, j])]
+        else:
+            pis[j] = [np.min(w_mu_L[:, j]), np.min(w_mu_U[:, j]), np.max(w_nu_L[:, j]), np.max(w_nu_U[:, j])]
+            nis[j] = [np.max(w_mu_L[:, j]), np.max(w_mu_U[:, j]), np.min(w_nu_L[:, j]), np.min(w_nu_U[:, j])]
+
+    d_pis = np.zeros(m_alt, dtype=np.float64)
+    d_nis = np.zeros(m_alt, dtype=np.float64)
+
+    w_mat = np.stack([w_mu_L, w_mu_U, w_nu_L, w_nu_U], axis=2)
+
+    for i in range(m_alt):
+        diff_pis = w_mat[i] - pis  # shape (N, 4)
+        dist_pis_j = np.sqrt(0.25 * np.sum(diff_pis**2, axis=1))
+        d_pis[i] = np.sum(dist_pis_j)
+
+        diff_nis = w_mat[i] - nis
+        dist_nis_j = np.sqrt(0.25 * np.sum(diff_nis**2, axis=1))
+        d_nis[i] = np.sum(dist_nis_j)
+
+    denom = d_pis + d_nis
+    cc = np.where(denom > 0, d_nis / denom, 0.0)
+
+    sort_idx = np.argsort(-cc)
+    ranks = np.empty_like(sort_idx)
+    ranks[sort_idx] = np.arange(1, m_alt + 1)
+
+    return {
+        "closeness_coefficients": cc,
+        "ranks": ranks,
+        "distance_to_pis": d_pis,
+        "distance_to_nis": d_nis,
+    }
+
+

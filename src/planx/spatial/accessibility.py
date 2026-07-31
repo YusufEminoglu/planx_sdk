@@ -1260,3 +1260,393 @@ def parking_spatial_mismatch_index(
         "total_parking_deficit": total_parking_deficit,
         "mismatch_gini": mismatch_gini,
     }
+
+
+def ev_charging_accessibility_index(
+    zone_demand: np.ndarray,
+    zone_coords: np.ndarray,
+    station_coords: np.ndarray,
+    station_chargers_kw: np.ndarray,
+    station_types: Optional[np.ndarray] = None,
+    transformer_capacity_kw: Optional[np.ndarray] = None,
+    decay_beta: float = 0.1,
+) -> dict[str, Any]:
+    """Calculates EV Charging Station Spatial Accessibility and Grid Stress Index.
+
+    Combines 2SFCA accessibility decay with station charging capacities (kW),
+    optional charger power types (L2 AC vs L3 DC Fast), and local transformer grid capacity limits.
+
+    Args:
+        zone_demand: 1D array of EV charging demand per zone of shape (N,).
+        zone_coords: 2D array of zone coordinates (N, 2).
+        station_coords: 2D array of station coordinates (M, 2).
+        station_chargers_kw: 1D array of station total power capacity (kW) of shape (M,).
+        station_types: Optional 1D array of 0 (L2 AC) or 1 (L3 DC Fast) of shape (M,).
+        transformer_capacity_kw: Optional 1D array of station grid transformer limits (kW) of shape (M,).
+        decay_beta: Distance decay exponential parameter (default 0.1).
+
+    Returns:
+        Dict containing:
+          - 'accessibility_score': 1D array (N,) of zone EV accessibility scores.
+          - 'grid_stress_ratio': 1D array (M,) of station grid stress demand/capacity ratios.
+          - 'station_capacity_ratios': 1D array (M,) of station capacity-to-demand ratios.
+          - 'spatial_gini': Float Gini inequality coefficient across zone scores.
+          - 'equity_index': Float (1.0 - Gini) spatial equity index.
+          - 'l2_accessibility': 1D array (N,) (if station_types provided, else None).
+          - 'dc_fast_accessibility': 1D array (N,) (if station_types provided, else None).
+    """
+    z_dem = np.asarray(zone_demand, dtype=np.float64)
+    z_xy = np.asarray(zone_coords, dtype=np.float64)
+    s_xy = np.asarray(station_coords, dtype=np.float64)
+    s_kw = np.asarray(station_chargers_kw, dtype=np.float64)
+
+    n_zones = len(z_dem)
+    m_stations = len(s_kw)
+
+    if z_xy.shape != (n_zones, 2):
+        raise ValueError("zone_coords shape must be (N, 2).")
+    if s_xy.ndim != 2 or s_xy.shape[1] != 2 or s_xy.shape[0] != m_stations:
+        raise ValueError("station_coords shape must be (M, 2) matching station_chargers_kw.")
+    if np.any(z_dem < 0):
+        raise ValueError("zone_demand values must be non-negative.")
+    if np.any(s_kw < 0):
+        raise ValueError("station_chargers_kw values must be non-negative.")
+    if decay_beta <= 0:
+        raise ValueError("decay_beta must be positive.")
+
+    eff_capacity = np.copy(s_kw)
+    if transformer_capacity_kw is not None:
+        t_kw = np.asarray(transformer_capacity_kw, dtype=np.float64)
+        if len(t_kw) != m_stations:
+            raise ValueError("transformer_capacity_kw length must equal number of stations M.")
+        eff_capacity = np.minimum(eff_capacity, t_kw)
+
+    from scipy.spatial.distance import cdist
+    dists = cdist(z_xy, s_xy, metric="euclidean")
+    f_decay = np.exp(-decay_beta * dists)
+
+    d_stations = np.sum(z_dem[:, None] * f_decay, axis=0)
+
+    safe_demand = np.maximum(d_stations, 1e-6)
+    r_j = eff_capacity / safe_demand
+
+    grid_stress = d_stations / np.maximum(eff_capacity, 1e-6)
+
+    a_i = np.sum(r_j[None, :] * f_decay, axis=1)
+
+    l2_access = None
+    dc_access = None
+    if station_types is not None:
+        s_types = np.asarray(station_types, dtype=int)
+        if len(s_types) != m_stations:
+            raise ValueError("station_types length must equal number of stations M.")
+
+        l2_mask = s_types == 0
+        dc_mask = s_types == 1
+
+        r_l2 = np.where(l2_mask, r_j, 0.0)
+        r_dc = np.where(dc_mask, r_j, 0.0)
+
+        l2_access = np.sum(r_l2[None, :] * f_decay, axis=1)
+        dc_access = np.sum(r_dc[None, :] * f_decay, axis=1)
+
+    gini = spatial_equity_gini(a_i, z_dem)
+    equity = float(1.0 - gini)
+
+    return {
+        "accessibility_score": a_i,
+        "grid_stress_ratio": grid_stress,
+        "station_capacity_ratios": r_j,
+        "spatial_gini": gini,
+        "equity_index": equity,
+        "l2_accessibility": l2_access,
+        "dc_fast_accessibility": dc_access,
+    }
+
+
+def multimodal_transit_isochrone_profiler(
+    origin_coord: np.ndarray,
+    destination_coords: np.ndarray,
+    transit_stop_coords: np.ndarray,
+    transit_headways_min: np.ndarray,
+    transit_travel_times: np.ndarray,
+    walk_speed_kmh: float = 4.8,
+    transfer_penalty_min: float = 5.0,
+    max_time_budget_min: float = 45.0,
+) -> dict[str, Any]:
+    """Generates Multi-Modal Transit Travel Time Isochrones and Reachability Metrics.
+
+    Evaluates shortest multi-modal travel times from an origin location to destinations,
+    incorporating walking access/egress speeds, transit headway initial waiting times,
+    in-vehicle travel times between stops, and transfer penalty friction.
+
+    Args:
+        origin_coord: 1D array of origin coordinate [x, y].
+        destination_coords: 2D array of shape (N, 2) for target destinations/centroids.
+        transit_stop_coords: 2D array of shape (S, 2) for public transit stop locations.
+        transit_headways_min: 1D array of shape (S,) for transit service headways in minutes.
+        transit_travel_times: 2D array of shape (S, S) for transit in-vehicle travel times in minutes.
+        walk_speed_kmh: Walking speed in km/h (default 4.8 km/h).
+        transfer_penalty_min: Fixed penalty per transfer in minutes (default 5.0 min).
+        max_time_budget_min: Maximum time threshold budget in minutes (default 45.0 min).
+
+    Returns:
+        Dict containing:
+          - 'travel_times_min': 1D float array (N,) of total multi-modal travel times in minutes.
+          - 'reachable_mask': 1D bool array (N,) indicating reachability within max_time_budget_min.
+          - 'isochrone_bands': 1D int array (N,) of band codes (1: <=15m, 2: 15-30m, 3: 30-45m, 4: 45-60m, 0: >60m/unreachable).
+          - 'mode_used': List of str ("direct_walk" or "multimodal_transit") per destination.
+          - 'reachable_count': Int count of reachable destinations.
+          - 'coverage_ratio': Float fraction of destinations reachable within time budget.
+    """
+    orig_raw = np.asarray(origin_coord, dtype=np.float64)
+    if orig_raw.ndim != 1 or orig_raw.shape != (2,):
+        raise ValueError("origin_coord must be a 1D array of shape (2,).")
+    orig_xy = orig_raw
+    dest_xy = np.asarray(destination_coords, dtype=np.float64)
+    stops_xy = np.asarray(transit_stop_coords, dtype=np.float64)
+    headways = np.asarray(transit_headways_min, dtype=np.float64)
+    t_matrix = np.asarray(transit_travel_times, dtype=np.float64)
+    n_dests = len(dest_xy)
+    if dest_xy.ndim != 2 or dest_xy.shape[1] != 2:
+        raise ValueError("destination_coords must be a 2D array of shape (N, 2).")
+    s_stops = len(stops_xy)
+    if stops_xy.ndim != 2 or stops_xy.shape[1] != 2:
+        raise ValueError("transit_stop_coords must be a 2D array of shape (S, 2).")
+    if len(headways) != s_stops:
+        raise ValueError("transit_headways_min length must match S stops.")
+    if t_matrix.shape != (s_stops, s_stops):
+        raise ValueError("transit_travel_times shape must be (S, S).")
+    if walk_speed_kmh <= 0:
+        raise ValueError("walk_speed_kmh must be positive.")
+    if transfer_penalty_min < 0:
+        raise ValueError("transfer_penalty_min must be non-negative.")
+    if max_time_budget_min <= 0:
+        raise ValueError("max_time_budget_min must be positive.")
+
+    from scipy.spatial.distance import cdist
+    walk_speed_mpm = (walk_speed_kmh * 1000.0) / 60.0
+
+    d_direct = np.sqrt(np.sum((dest_xy - orig_xy) ** 2, axis=1))
+    t_direct_walk = d_direct / walk_speed_mpm
+
+    d_access = np.sqrt(np.sum((stops_xy - orig_xy) ** 2, axis=1))
+    t_access_walk = d_access / walk_speed_mpm
+    t_initial_wait = 0.5 * headways
+    t_stop_arrival = t_access_walk + t_initial_wait
+
+    t_stops_net = np.copy(t_matrix)
+    np.fill_diagonal(t_stops_net, 0.0)
+
+    for k in range(s_stops):
+        for i in range(s_stops):
+            for j in range(s_stops):
+                if t_stops_net[i, k] > 0 and t_stops_net[k, j] > 0:
+                    cand = t_stops_net[i, k] + t_stops_net[k, j] + transfer_penalty_min
+                    if t_stops_net[i, j] == 0 or cand < t_stops_net[i, j]:
+                        t_stops_net[i, j] = cand
+
+    t_reach_stop = np.zeros(s_stops, dtype=np.float64)
+    for s in range(s_stops):
+        times_to_s = t_stop_arrival + t_stops_net[:, s]
+        t_reach_stop[s] = np.min(times_to_s)
+
+    d_egress = cdist(stops_xy, dest_xy, metric="euclidean")
+    t_egress_walk = d_egress / walk_speed_mpm
+
+    t_dest_transit = np.min(t_reach_stop[:, None] + t_egress_walk, axis=0)
+
+    total_travel_times = np.minimum(t_direct_walk, t_dest_transit)
+
+    modes_used = []
+    for i in range(n_dests):
+        if t_direct_walk[i] <= t_dest_transit[i]:
+            modes_used.append("direct_walk")
+        else:
+            modes_used.append("multimodal_transit")
+
+    reachable = total_travel_times <= max_time_budget_min
+    reachable_cnt = int(np.sum(reachable))
+    coverage = float(reachable_cnt / n_dests) if n_dests > 0 else 0.0
+
+    isochrone_bands = np.zeros(n_dests, dtype=int)
+    for i in range(n_dests):
+        t = total_travel_times[i]
+        if t <= 15.0:
+            isochrone_bands[i] = 1
+        elif t <= 30.0:
+            isochrone_bands[i] = 2
+        elif t <= 45.0:
+            isochrone_bands[i] = 3
+        elif t <= 60.0:
+            isochrone_bands[i] = 4
+        else:
+            isochrone_bands[i] = 0
+
+    return {
+        "travel_times_min": total_travel_times,
+        "reachable_mask": reachable,
+        "isochrone_bands": isochrone_bands,
+        "mode_used": modes_used,
+        "reachable_count": reachable_cnt,
+        "coverage_ratio": coverage,
+    }
+
+
+def ev_cvrp_multi_depot_routing(
+    depot_coords: np.ndarray,
+    customer_coords: np.ndarray,
+    customer_demands: np.ndarray,
+    charger_coords: Optional[np.ndarray] = None,
+    vehicle_capacity: float = 100.0,
+    battery_capacity_kwh: float = 60.0,
+    energy_consumption_kwh_km: float = 0.25,
+) -> dict[str, Any]:
+    """Multi-Depot Electric Vehicle Capacitated Vehicle Routing Problem (EV-CVRP).
+
+    Constructs vehicle routes from multiple depots serving customer demands, incorporating
+    vehicle payload capacities, battery SOC constraints, and en-route charging stations.
+
+    Args:
+        depot_coords: 2D array of shape (D, 2) for depot locations.
+        customer_coords: 2D array of shape (C, 2) for customer delivery locations.
+        customer_demands: 1D array of shape (C,) for customer delivery payloads (> 0).
+        charger_coords: Optional 2D array of shape (R, 2) for fast charger locations.
+        vehicle_capacity: Maximum payload capacity per vehicle (> 0, default 100.0).
+        battery_capacity_kwh: Vehicle battery energy capacity in kWh (default 60.0).
+        energy_consumption_kwh_km: Fleet energy depletion rate in kWh/km (default 0.25).
+
+    Returns:
+        Dict containing:
+          - 'routes': List of dicts per vehicle route with keys:
+                      'depot_index', 'stops', 'load_used', 'total_distance_km', 'energy_consumed_kwh', 'recharge_events_count'.
+          - 'total_distance_km': Float total travel distance across all routes.
+          - 'total_energy_kwh': Float total energy consumed in kWh across fleet.
+          - 'vehicles_used_count': Int number of active vehicle routes deployed.
+          - 'unserviced_customers_count': Int count of unserviced customers.
+    """
+    d_coords = np.asarray(depot_coords, dtype=np.float64)
+    c_coords = np.asarray(customer_coords, dtype=np.float64)
+    c_dem = np.asarray(customer_demands, dtype=np.float64)
+
+    n_cust = len(c_coords)
+
+    if d_coords.ndim != 2 or d_coords.shape[1] != 2:
+        raise ValueError("depot_coords must be a 2D array of shape (D, 2).")
+    if c_coords.ndim != 2 or c_coords.shape[1] != 2:
+        raise ValueError("customer_coords must be a 2D array of shape (C, 2).")
+    if len(c_dem) != n_cust:
+        raise ValueError("customer_demands length must match C customers.")
+    if np.any(c_dem < 0):
+        raise ValueError("customer_demands values must be non-negative.")
+    if vehicle_capacity <= 0:
+        raise ValueError("vehicle_capacity must be positive.")
+    if battery_capacity_kwh <= 0:
+        raise ValueError("battery_capacity_kwh must be positive.")
+    if energy_consumption_kwh_km <= 0:
+        raise ValueError("energy_consumption_kwh_km must be positive.")
+
+    from scipy.spatial.distance import cdist
+
+    r_coords = np.empty((0, 2), dtype=np.float64)
+    if charger_coords is not None:
+        r_coords = np.asarray(charger_coords, dtype=np.float64)
+        if r_coords.ndim != 2 or r_coords.shape[1] != 2:
+            raise ValueError("charger_coords must be a 2D array of shape (R, 2).")
+
+    unvisited = set(range(n_cust))
+    routes: list[dict[str, Any]] = []
+
+    while unvisited:
+        cust_list = list(unvisited)
+        sub_c_coords = c_coords[cust_list]
+        d_dep_cust = cdist(d_coords, sub_c_coords, metric="euclidean")
+
+        best_d_idx, best_sub_c = np.unravel_index(np.argmin(d_dep_cust), d_dep_cust.shape)
+        start_cust = cust_list[best_sub_c]
+
+        current_depot = best_d_idx
+        current_load = 0.0
+        current_soc_kwh = battery_capacity_kwh
+        current_pos = d_coords[current_depot]
+
+        route_stops = []
+        route_dist = 0.0
+        recharge_cnt = 0
+
+        curr_cust = start_cust
+        while curr_cust is not None and curr_cust in unvisited:
+            dem_val = c_dem[curr_cust]
+            if current_load + dem_val > vehicle_capacity:
+                break
+
+            step_dist = float(np.linalg.norm(c_coords[curr_cust] - current_pos))
+            energy_req = step_dist * energy_consumption_kwh_km
+
+            dist_to_depot = float(np.linalg.norm(c_coords[curr_cust] - d_coords[current_depot]))
+            energy_to_depot = dist_to_depot * energy_consumption_kwh_km
+
+            if current_soc_kwh < energy_req + energy_to_depot:
+                if len(r_coords) > 0:
+                    d_pos_chg = cdist(current_pos[None, :], r_coords, metric="euclidean")[0]
+                    chg_idx = int(np.argmin(d_pos_chg))
+                    chg_dist = float(d_pos_chg[chg_idx])
+                    if current_soc_kwh >= chg_dist * energy_consumption_kwh_km:
+                        route_dist += chg_dist
+                        current_pos = r_coords[chg_idx]
+                        current_soc_kwh = battery_capacity_kwh
+                        recharge_cnt += 1
+                        continue
+
+            if current_soc_kwh < energy_req:
+                break
+
+            unvisited.remove(curr_cust)
+            route_stops.append(int(curr_cust))
+            current_load += dem_val
+            current_soc_kwh -= energy_req
+            route_dist += step_dist
+            current_pos = c_coords[curr_cust]
+
+            if not unvisited:
+                break
+
+            rem_cust = list(unvisited)
+            d_curr_rem = cdist(current_pos[None, :], c_coords[rem_cust], metric="euclidean")[0]
+            next_sub = int(np.argmin(d_curr_rem))
+            next_cand = rem_cust[next_sub]
+
+            if current_load + c_dem[next_cand] <= vehicle_capacity:
+                curr_cust = next_cand
+            else:
+                break
+
+        ret_dist = float(np.linalg.norm(current_pos - d_coords[current_depot]))
+        route_dist += ret_dist
+        tot_energy = route_dist * energy_consumption_kwh_km
+
+        routes.append({
+            "depot_index": int(current_depot),
+            "stops": route_stops,
+            "load_used": float(current_load),
+            "total_distance_km": float(route_dist),
+            "energy_consumed_kwh": float(tot_energy),
+            "recharge_events_count": recharge_cnt,
+        })
+
+        if not route_stops:
+            unvisited.pop()
+
+    tot_dist = float(np.sum([r["total_distance_km"] for r in routes]))
+    tot_energy = float(np.sum([r["energy_consumed_kwh"] for r in routes]))
+
+    return {
+        "routes": routes,
+        "total_distance_km": tot_dist,
+        "total_energy_kwh": tot_energy,
+        "vehicles_used_count": len(routes),
+        "unserviced_customers_count": len(unvisited),
+    }
+
+
+

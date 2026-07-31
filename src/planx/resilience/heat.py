@@ -806,3 +806,169 @@ def optimize_tree_canopy_greening(
         "priority_scores": initial_priority_scores,
         "post_greening_heat_mitigation": post_greening_heat_mitigation,
     }
+
+
+def surface_cool_island_simulator(
+    albedo_grid: np.ndarray,
+    target_albedo_grid: np.ndarray,
+    solar_irradiance_wm2: float = 800.0,
+    ambient_temp_c: float = 35.0,
+    cell_size_m: float = 10.0,
+    green_fraction_grid: Optional[np.ndarray] = None,
+) -> dict[str, Any]:
+    """Simulates urban surface cooling and microclimate thermal comfort improvements.
+
+    Evaluates Land Surface Temperature (LST) and PET thermal comfort mitigation resulting from
+    surface albedo increases (cool roofs, cool pavements) and vegetation evapotranspiration.
+
+    Args:
+        albedo_grid: 2D NumPy array of baseline surface albedo [0.0, 1.0].
+        target_albedo_grid: 2D NumPy array of modified target albedo [0.0, 1.0].
+        solar_irradiance_wm2: Peak solar irradiance in W/m^2 (default 800.0).
+        ambient_temp_c: Baseline ambient air temperature in deg C (default 35.0).
+        cell_size_m: Spatial resolution in meters (default 10.0).
+        green_fraction_grid: Optional 2D array of green vegetation cover fraction [0.0, 1.0].
+
+    Returns:
+        Dict containing:
+          - 'lst_reduction_c': 2D float array of LST cooling in deg C (>= 0).
+          - 'new_lst_grid': 2D float array of resulting LST in deg C.
+          - 'net_radiation_change_wm2': 2D float array of net radiation reduction in W/m^2.
+          - 'mean_cooling_c': Float mean LST reduction across modified cells.
+          - 'max_cooling_c': Float peak LST reduction in deg C.
+          - 'total_heat_mitigated_mwh': Float total energy reflection equivalent in MWh.
+          - 'pet_comfort_improvement_c': 2D float array of estimated PET comfort improvement in deg C.
+    """
+    alb_base = np.asarray(albedo_grid, dtype=np.float64)
+    alb_targ = np.asarray(target_albedo_grid, dtype=np.float64)
+
+    if alb_base.ndim != 2:
+        raise ValueError("albedo_grid must be a 2D array.")
+    if alb_targ.shape != alb_base.shape:
+        raise ValueError("target_albedo_grid shape must match albedo_grid shape.")
+    if np.any((alb_base < 0.0) | (alb_base > 1.0)):
+        raise ValueError("albedo_grid values must be between 0.0 and 1.0.")
+    if np.any((alb_targ < 0.0) | (alb_targ > 1.0)):
+        raise ValueError("target_albedo_grid values must be between 0.0 and 1.0.")
+    if solar_irradiance_wm2 <= 0:
+        raise ValueError("solar_irradiance_wm2 must be positive.")
+    if cell_size_m <= 0:
+        raise ValueError("cell_size_m must be positive.")
+
+    delta_albedo = np.maximum(0.0, alb_targ - alb_base)
+    delta_rn = delta_albedo * solar_irradiance_wm2
+
+    h_combined = 20.0
+    lst_cooling_albedo = delta_rn / h_combined
+
+    veg_cooling = np.zeros_like(alb_base)
+    if green_fraction_grid is not None:
+        g_frac = np.asarray(green_fraction_grid, dtype=np.float64)
+        if g_frac.shape != alb_base.shape:
+            raise ValueError("green_fraction_grid shape must match albedo_grid shape.")
+        g_frac = np.clip(g_frac, 0.0, 1.0)
+        veg_cooling = g_frac * 3.0
+
+    total_lst_cooling = lst_cooling_albedo + veg_cooling
+
+    base_lst = ambient_temp_c + (1.0 - alb_base) * 15.0
+    new_lst = base_lst - total_lst_cooling
+
+    pet_improvement = 0.6 * total_lst_cooling
+
+    modified_mask = (delta_albedo > 0.0) | (veg_cooling > 0.0)
+    mean_cool = float(np.mean(total_lst_cooling[modified_mask])) if np.any(modified_mask) else 0.0
+    max_cool = float(np.max(total_lst_cooling)) if len(total_lst_cooling) > 0 else 0.0
+
+    cell_area_m2 = cell_size_m * cell_size_m
+    total_watts = np.sum(delta_rn) * cell_area_m2
+    total_mwh = float((total_watts * 6.0) / 1e6)
+
+    return {
+        "lst_reduction_c": total_lst_cooling,
+        "new_lst_grid": new_lst,
+        "net_radiation_change_wm2": delta_rn,
+        "mean_cooling_c": mean_cool,
+        "max_cooling_c": max_cool,
+        "total_heat_mitigated_mwh": total_mwh,
+        "pet_comfort_improvement_c": pet_improvement,
+    }
+
+
+def wind_canopy_aerodynamic_drag_simulator(
+    inflow_wind_speed_ms: float,
+    tree_lai_grid: np.ndarray,
+    building_frontal_density_grid: np.ndarray,
+    tree_height_m: float = 10.0,
+    drag_coefficient: float = 0.2,
+) -> dict[str, Any]:
+    """Simulates urban canopy aerodynamic drag, wind speed attenuation, and Lawson comfort classes.
+
+    Evaluates momentum absorption from tree Leaf Area Index (LAI) and building frontal area density
+    to model pedestrian-level (1.5m) wind velocity profiles and comfort classification.
+
+    Args:
+        inflow_wind_speed_ms: Open-terrain baseline wind speed in m/s at 10m height (> 0).
+        tree_lai_grid: 2D NumPy array of Leaf Area Index (LAI) values [0.0, 10.0].
+        building_frontal_density_grid: 2D NumPy array of building frontal area density lambda_f [0.0, 1.0].
+        tree_height_m: Mean canopy height in meters (default 10.0).
+        drag_coefficient: Canopy aerodynamic drag coefficient Cd (default 0.2).
+
+    Returns:
+        Dict containing:
+          - 'pedestrian_wind_speed_ms': 2D float array of wind speed at 1.5m height in m/s.
+          - 'attenuation_ratio': 2D float array of wind speed reduction ratios [0, 1].
+          - 'comfort_category_grid': 2D int array of Lawson wind comfort categories (1 to 5).
+          - 'mean_wind_speed_ms': Float mean pedestrian wind speed.
+          - 'max_wind_speed_ms': Float peak pedestrian wind speed.
+          - 'comfortable_area_ratio': Float fraction of grid cells with comfort category <= 3.
+    """
+    if inflow_wind_speed_ms <= 0:
+        raise ValueError("inflow_wind_speed_ms must be positive.")
+    if tree_height_m <= 0:
+        raise ValueError("tree_height_m must be positive.")
+    if drag_coefficient <= 0:
+        raise ValueError("drag_coefficient must be positive.")
+
+    lai = np.asarray(tree_lai_grid, dtype=np.float64)
+    lambda_f = np.asarray(building_frontal_density_grid, dtype=np.float64)
+
+    if lai.ndim != 2:
+        raise ValueError("tree_lai_grid must be a 2D array.")
+    if lambda_f.shape != lai.shape:
+        raise ValueError("building_frontal_density_grid shape must match tree_lai_grid shape.")
+    if np.any(lai < 0):
+        raise ValueError("tree_lai_grid values must be non-negative.")
+    if np.any((lambda_f < 0.0) | (lambda_f > 1.0)):
+        raise ValueError("building_frontal_density_grid values must be between 0.0 and 1.0.")
+
+    cd_eff = drag_coefficient * lai + 0.5 * lambda_f
+    atten_factor = np.exp(-0.5 * cd_eff)
+
+    u_attenuated = inflow_wind_speed_ms * atten_factor
+    u_pedestrian = u_attenuated * 0.75
+
+    attenuation_ratio = 1.0 - (u_pedestrian / inflow_wind_speed_ms)
+    attenuation_ratio = np.clip(attenuation_ratio, 0.0, 1.0)
+
+    categories = np.zeros_like(u_pedestrian, dtype=int)
+    categories[u_pedestrian < 1.8] = 1
+    categories[(u_pedestrian >= 1.8) & (u_pedestrian < 3.6)] = 2
+    categories[(u_pedestrian >= 3.6) & (u_pedestrian < 5.3)] = 3
+    categories[(u_pedestrian >= 5.3) & (u_pedestrian < 7.6)] = 4
+    categories[u_pedestrian >= 7.6] = 5
+
+    mean_u = float(np.mean(u_pedestrian))
+    max_u = float(np.max(u_pedestrian))
+    comfortable_ratio = float(np.sum(categories <= 3) / categories.size)
+
+    return {
+        "pedestrian_wind_speed_ms": u_pedestrian,
+        "attenuation_ratio": attenuation_ratio,
+        "comfort_category_grid": categories,
+        "mean_wind_speed_ms": mean_u,
+        "max_wind_speed_ms": max_u,
+        "comfortable_area_ratio": comfortable_ratio,
+    }
+
+

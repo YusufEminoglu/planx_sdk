@@ -16,6 +16,7 @@ from .active_travel import (
 from .evacuation import dynamic_evacuation_bottlenecks, evacuation_route_optimization
 from .flood import (
     coastal_flood_inundation,
+    coastal_storm_surge_inundation_engine,
     coastal_surge_inundation,
     detention_basin_sizing,
     pluvial_flood_susceptibility,
@@ -31,10 +32,12 @@ from .heat import (
     classify_local_climate_zones,
     optimize_canopy_placement,
     optimize_tree_canopy_greening,
+    surface_cool_island_simulator,
     tree_canopy_microclimate_cooling,
     urban_heat_comfort_risk,
     urban_heat_island_intensity,
     urban_heat_vulnerability_index,
+    wind_canopy_aerodynamic_drag_simulator,
 )
 from .infrastructure import (
     debris_clearance_routing,
@@ -106,4 +109,7 @@ __all__ = [
     "urban_heat_vulnerability_index",
     "stormwater_retention_basin_design",
     "urban_energy_vulnerability_index",
+    "coastal_storm_surge_inundation_engine",
+    "surface_cool_island_simulator",
+    "wind_canopy_aerodynamic_drag_simulator",
 ]

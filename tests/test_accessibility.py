@@ -465,3 +465,151 @@ def test_parking_spatial_mismatch_index_empty():
     )
     assert res2["deficit_zones_count"] == 1
     assert res2["total_parking_deficit"] == 100.0
+
+
+def test_ev_charging_accessibility_index_normal():
+    from planx.spatial import ev_charging_accessibility_index
+
+    z_dem = np.array([10.0, 20.0, 30.0])
+    z_xy = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
+    s_xy = np.array([[0.5, 0.5], [1.5, 1.5]])
+    s_kw = np.array([100.0, 150.0])
+    s_types = np.array([0, 1])
+    t_cap = np.array([80.0, 120.0])
+
+    res = ev_charging_accessibility_index(
+        zone_demand=z_dem,
+        zone_coords=z_xy,
+        station_coords=s_xy,
+        station_chargers_kw=s_kw,
+        station_types=s_types,
+        transformer_capacity_kw=t_cap,
+        decay_beta=0.1,
+    )
+
+    assert "accessibility_score" in res
+    assert "grid_stress_ratio" in res
+    assert "station_capacity_ratios" in res
+    assert "spatial_gini" in res
+    assert "equity_index" in res
+    assert "l2_accessibility" in res
+    assert "dc_fast_accessibility" in res
+
+    assert len(res["accessibility_score"]) == 3
+    assert len(res["grid_stress_ratio"]) == 2
+    assert res["l2_accessibility"] is not None
+    assert res["dc_fast_accessibility"] is not None
+    assert 0.0 <= res["spatial_gini"] <= 1.0
+
+
+def test_ev_charging_accessibility_index_validation():
+    from planx.spatial import ev_charging_accessibility_index
+
+    z_dem = np.array([10.0, 20.0])
+    z_xy = np.array([[0.0, 0.0], [1.0, 1.0]])
+    s_xy = np.array([[0.5, 0.5]])
+    s_kw = np.array([100.0])
+
+    with pytest.raises(ValueError, match="zone_coords shape"):
+        ev_charging_accessibility_index(z_dem, np.array([[0.0]]), s_xy, s_kw)
+
+    with pytest.raises(ValueError, match="station_coords shape"):
+        ev_charging_accessibility_index(z_dem, z_xy, np.array([0.5, 0.5]), s_kw)
+
+    with pytest.raises(ValueError, match="zone_demand values must be non-negative"):
+        ev_charging_accessibility_index(np.array([-10.0, 20.0]), z_xy, station_coords=s_xy, station_chargers_kw=s_kw)
+
+
+def test_multimodal_transit_isochrone_profiler_normal():
+    from planx.spatial import multimodal_transit_isochrone_profiler
+
+    orig = np.array([0.0, 0.0])
+    dests = np.array([[100.0, 100.0], [500.0, 500.0], [2000.0, 2000.0]])
+    stops = np.array([[50.0, 50.0], [450.0, 450.0]])
+    headways = np.array([10.0, 10.0])
+    t_travel = np.array([[0.0, 5.0], [5.0, 0.0]])
+
+    res = multimodal_transit_isochrone_profiler(
+        origin_coord=orig,
+        destination_coords=dests,
+        transit_stop_coords=stops,
+        transit_headways_min=headways,
+        transit_travel_times=t_travel,
+        walk_speed_kmh=4.8,
+        transfer_penalty_min=5.0,
+        max_time_budget_min=45.0,
+    )
+
+    assert "travel_times_min" in res
+    assert "reachable_mask" in res
+    assert "isochrone_bands" in res
+    assert "mode_used" in res
+    assert "reachable_count" in res
+    assert "coverage_ratio" in res
+
+    assert len(res["travel_times_min"]) == 3
+    assert len(res["isochrone_bands"]) == 3
+    assert res["reachable_count"] > 0
+    assert 0.0 <= res["coverage_ratio"] <= 1.0
+
+
+def test_multimodal_transit_isochrone_profiler_validation():
+    from planx.spatial import multimodal_transit_isochrone_profiler
+
+    orig = np.array([0.0, 0.0])
+    dests = np.array([[100.0, 100.0]])
+    stops = np.array([[50.0, 50.0]])
+    headways = np.array([10.0])
+    t_travel = np.array([[0.0]])
+
+    with pytest.raises(ValueError, match="origin_coord must be a 1D array"):
+        multimodal_transit_isochrone_profiler(np.array([[0.0, 0.0]]), dests, stops, headways, t_travel)
+
+    with pytest.raises(ValueError, match="transit_headways_min length"):
+        multimodal_transit_isochrone_profiler(orig, dests, stops, np.array([10.0, 5.0]), t_travel)
+
+
+def test_ev_cvrp_multi_depot_routing_normal():
+    from planx.spatial import ev_cvrp_multi_depot_routing
+
+    depots = np.array([[0.0, 0.0], [10.0, 10.0]])
+    customers = np.array([[1.0, 1.0], [2.0, 2.0], [9.0, 9.0]])
+    demands = np.array([20.0, 30.0, 40.0])
+    chargers = np.array([[5.0, 5.0]])
+
+    res = ev_cvrp_multi_depot_routing(
+        depot_coords=depots,
+        customer_coords=customers,
+        customer_demands=demands,
+        charger_coords=chargers,
+        vehicle_capacity=50.0,
+        battery_capacity_kwh=60.0,
+        energy_consumption_kwh_km=0.25,
+    )
+
+    assert "routes" in res
+    assert "total_distance_km" in res
+    assert "total_energy_kwh" in res
+    assert "vehicles_used_count" in res
+    assert "unserviced_customers_count" in res
+
+    assert res["vehicles_used_count"] > 0
+    assert res["total_distance_km"] > 0.0
+    assert res["total_energy_kwh"] > 0.0
+
+
+def test_ev_cvrp_multi_depot_routing_validation():
+    from planx.spatial import ev_cvrp_multi_depot_routing
+
+    depots = np.array([[0.0, 0.0]])
+    customers = np.array([[1.0, 1.0]])
+    demands = np.array([20.0])
+
+    with pytest.raises(ValueError, match="depot_coords must be a 2D array"):
+        ev_cvrp_multi_depot_routing(np.array([0.0, 0.0]), customers, demands)
+
+    with pytest.raises(ValueError, match="vehicle_capacity must be positive"):
+        ev_cvrp_multi_depot_routing(depots, customers, demands, vehicle_capacity=-10.0)
+
+
+

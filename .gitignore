@@ -56,3 +56,9 @@ venv.bak/
 .vscode/
 *.swp
 *.swo
+
+# Temporary / Scratch
+nul
+add_test.py
+scratch/
+

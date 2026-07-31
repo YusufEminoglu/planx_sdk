@@ -9,6 +9,7 @@ including reclassification, normalization, and weighted linear combination.
 from .facility import (
     capacitated_location_allocation,
     evaluate_tod_node_suitability,
+    ev_fleet_charging_location_allocation,
     greedy_lscp,
     greedy_mclp,
     greedy_p_median,
@@ -23,10 +24,12 @@ from .mcda import (
     electre_iii_method,
     fuzzy_topsis_method,
     fuzzy_vikor_method,
+    ivif_topsis_method,
     marcos_method,
     mcda_sensitivity_monte_carlo,
     normalize_array,
     promethee_ii_method,
+    spotis_method,
     topsis_method,
     vikor_method,
     waspas_method,
@@ -76,4 +79,7 @@ __all__ = [
     "critic_weights",
     "pca_weights",
     "evaluate_tod_node_suitability",
+    "spotis_method",
+    "ev_fleet_charging_location_allocation",
+    "ivif_topsis_method",
 ]

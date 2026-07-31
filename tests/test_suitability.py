@@ -1191,3 +1191,45 @@ def test_evaluate_tod_node_suitability():
         evaluate_tod_node_suitability(
             np.array([[1.0]]), np.array([1.0]), np.array([0.5]), np.array([50.0]), np.array([0.2])
         )
+
+
+def test_ev_fleet_charging_location_allocation_normal():
+    from planx.suitability import ev_fleet_charging_location_allocation
+
+    f_orig = np.array([[0.0, 0.0], [1.0, 1.0], [5.0, 5.0]])
+    f_dest = np.array([[10.0, 0.0], [11.0, 1.0], [15.0, 5.0]])
+    c_dep = np.array([[5.0, 0.0], [8.0, 2.0], [12.0, 4.0]])
+
+    res = ev_fleet_charging_location_allocation(
+        fleet_origins=f_orig,
+        fleet_destinations=f_dest,
+        candidate_depots=c_dep,
+        num_depots_to_select=2,
+        max_detour_km=15.0,
+    )
+
+    assert "selected_depot_indices" in res
+    assert "trip_allocations" in res
+    assert "fleet_coverage_ratio" in res
+    assert "mean_detour_km" in res
+    assert "depot_power_utilization_kw" in res
+    assert "total_detour_km" in res
+
+    assert len(res["selected_depot_indices"]) == 2
+    assert len(res["trip_allocations"]) == 3
+    assert 0.0 <= res["fleet_coverage_ratio"] <= 1.0
+
+
+def test_ev_fleet_charging_location_allocation_validation():
+    from planx.suitability import ev_fleet_charging_location_allocation
+
+    f_orig = np.array([[0.0, 0.0], [1.0, 1.0]])
+    f_dest = np.array([[10.0, 0.0], [11.0, 1.0]])
+    c_dep = np.array([[5.0, 0.0]])
+
+    with pytest.raises(ValueError, match="fleet_origins must be a 2D array"):
+        ev_fleet_charging_location_allocation(np.array([0.0, 0.0]), f_dest, c_dep, 1)
+
+    with pytest.raises(ValueError, match="num_depots_to_select must be between 1 and M"):
+        ev_fleet_charging_location_allocation(f_orig, f_dest, c_dep, 2)
+

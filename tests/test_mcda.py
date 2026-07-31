@@ -238,3 +238,100 @@ def test_fuzzy_vikor_method_validation_v_range():
 
     with pytest.raises(ValueError, match="between 0.0 and 1.0"):
         fuzzy_vikor_method(l_mat, m_mat, u_mat, wl, wm, wu, ctype, v=1.5)
+
+
+def test_spotis_method_normal():
+    from planx.suitability import spotis_method
+
+    mat = np.array([[10.0, 200.0], [20.0, 150.0], [15.0, 300.0]])
+    weights = [0.6, 0.4]
+    types = ["+", "-"]  # criterion 0 benefit, criterion 1 cost
+
+    res = spotis_method(matrix=mat, weights=weights, types=types)
+
+    assert "scores" in res
+    assert "ranks" in res
+    assert "ideal_solution" in res
+    assert "bounds" in res
+
+    assert len(res["scores"]) == 3
+    assert len(res["ranks"]) == 3
+    assert res["ideal_solution"][0] == 20.0  # max benefit
+    assert res["ideal_solution"][1] == 150.0  # min cost
+    assert np.min(res["ranks"]) == 1
+    assert np.max(res["ranks"]) == 3
+
+
+def test_spotis_method_explicit_bounds():
+    from planx.suitability import spotis_method
+
+    mat = np.array([[10.0, 200.0], [20.0, 150.0]])
+    weights = [0.5, 0.5]
+    types = [1, 0]
+    bounds = np.array([[0.0, 50.0], [100.0, 500.0]])
+
+    res = spotis_method(matrix=mat, weights=weights, types=types, bounds=bounds)
+
+    assert res["ideal_solution"][0] == 50.0
+    assert res["ideal_solution"][1] == 100.0
+    assert res["scores"].shape == (2,)
+
+
+def test_spotis_method_validation():
+    from planx.suitability import spotis_method
+
+    mat = np.array([[10.0, 200.0], [20.0, 150.0]])
+    weights = [0.5, 0.5]
+    types = [1, 0]
+
+    with pytest.raises(ValueError, match="matrix must be a 2D array"):
+        spotis_method(np.array([10.0, 200.0]), weights, types)
+
+    with pytest.raises(ValueError, match="bounds must be a \\(N, 2\\) array"):
+        spotis_method(mat, weights, types, bounds=np.array([[0.0, 50.0]]))
+
+
+def test_ivif_topsis_method_normal():
+    from planx.suitability import ivif_topsis_method
+
+    # 3 alternatives, 2 criteria, 4 IVIF values [mu_L, mu_U, nu_L, nu_U]
+    ivif_mat = np.array([
+        [[0.5, 0.7, 0.1, 0.2], [0.4, 0.6, 0.2, 0.3]],
+        [[0.6, 0.8, 0.1, 0.15], [0.5, 0.7, 0.1, 0.2]],
+        [[0.3, 0.5, 0.3, 0.4], [0.2, 0.4, 0.4, 0.5]],
+    ])
+    weights = [0.6, 0.4]
+    types = ["+", "+"]
+
+    res = ivif_topsis_method(ivif_matrix=ivif_mat, weights=weights, types=types)
+
+    assert "closeness_coefficients" in res
+    assert "ranks" in res
+    assert "distance_to_pis" in res
+    assert "distance_to_nis" in res
+
+    assert len(res["closeness_coefficients"]) == 3
+    assert len(res["ranks"]) == 3
+    assert np.min(res["ranks"]) == 1
+    assert np.max(res["ranks"]) == 3
+    assert np.all((res["closeness_coefficients"] >= 0.0) & (res["closeness_coefficients"] <= 1.0))
+
+
+def test_ivif_topsis_method_validation():
+    from planx.suitability import ivif_topsis_method
+
+    ivif_mat = np.array([
+        [[0.5, 0.7, 0.1, 0.2], [0.4, 0.6, 0.2, 0.3]],
+        [[0.6, 0.8, 0.1, 0.15], [0.5, 0.7, 0.1, 0.2]],
+    ])
+
+    with pytest.raises(ValueError, match="ivif_matrix must be a 3D array"):
+        ivif_topsis_method(np.ones((2, 2)), [0.5, 0.5], ["+", "+"])
+
+    with pytest.raises(ValueError, match="IVIF membership bounds"):
+        invalid_mat = np.copy(ivif_mat)
+        invalid_mat[0, 0, 0] = 0.8
+        invalid_mat[0, 0, 1] = 0.5  # mu_L > mu_U
+        ivif_topsis_method(invalid_mat, [0.5, 0.5], ["+", "+"])
+
+

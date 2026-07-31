@@ -1676,3 +1676,195 @@ def test_fit_spatial_probit_panel_invalid_y_shape():
 def test_fit_spatial_probit_panel_invalid_x_shape():
     with pytest.raises(ValueError, match="independent_vars shape"):
         fit_spatial_probit_panel(np.zeros(6), np.ones((3, 3, 2)), np.eye(3), 2)
+
+
+# ---------------------------------------------------------------------------
+# fit_spatial_count_panel
+# ---------------------------------------------------------------------------
+
+
+def test_fit_spatial_count_panel_poisson():
+    from planx.geostats import fit_spatial_count_panel
+
+    np.random.seed(42)
+    N, T, K = 4, 3, 2
+    W = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.0, 0.5, 0.0, 0.5],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
+    X = np.random.randn(N * T, K)
+    y = np.random.poisson(lam=5.0, size=N * T)
+
+    res = fit_spatial_count_panel(y, X, W, time_periods=T, model_type="poisson")
+
+    assert "coefficients" in res
+    assert "spatial_rho" in res
+    assert "dispersion_alpha" in res
+    assert "log_likelihood" in res
+    assert "deviance" in res
+    assert "pseudo_r_squared" in res
+    assert "fitted_values" in res
+    assert "residuals" in res
+
+    assert len(res["coefficients"]) == K
+    assert len(res["fitted_values"]) == N * T
+    assert len(res["residuals"]) == N * T
+    assert res["dispersion_alpha"] == 0.0
+    assert isinstance(res["spatial_rho"], float)
+
+
+def test_fit_spatial_count_panel_negative_binomial():
+    from planx.geostats import fit_spatial_count_panel
+
+    np.random.seed(42)
+    N, T, K = 4, 3, 2
+    W = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.0, 0.5, 0.0, 0.5],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
+    X = np.random.randn(N * T, K)
+    y = np.random.negative_binomial(n=5, p=0.5, size=N * T)
+
+    res = fit_spatial_count_panel(y, X, W, time_periods=T, model_type="negative_binomial")
+
+    assert len(res["coefficients"]) == K
+    assert res["dispersion_alpha"] > 0.0
+    assert len(res["fitted_values"]) == N * T
+
+
+def test_fit_spatial_count_panel_validation():
+    from planx.geostats import fit_spatial_count_panel
+
+    y = np.array([1, 2, 3, 4, 5, 6])
+    X = np.ones((6, 2))
+    W = np.eye(3)
+
+    with pytest.raises(ValueError, match="model_type"):
+        fit_spatial_count_panel(y, X, W, time_periods=2, model_type="invalid")
+
+    with pytest.raises(ValueError, match="time_periods must be >= 2"):
+        fit_spatial_count_panel(y, X, W, time_periods=1)
+
+    with pytest.raises(ValueError, match="non-negative"):
+        fit_spatial_count_panel(np.array([-1, 2, 3, 4, 5, 6]), X, W, time_periods=2)
+
+
+# ---------------------------------------------------------------------------
+# fit_spatial_zip_panel
+# ---------------------------------------------------------------------------
+
+
+def test_fit_spatial_zip_panel_normal():
+    from planx.geostats import fit_spatial_zip_panel
+
+    np.random.seed(42)
+    N, T, K = 4, 3, 2
+    W = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.0, 0.5, 0.0, 0.5],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
+    X = np.random.randn(N * T, K)
+    y = np.random.poisson(lam=3.0, size=N * T)
+    y[0] = 0
+    y[3] = 0
+    y[7] = 0
+
+    res = fit_spatial_zip_panel(y, X, W, time_periods=T, dist="poisson")
+
+    assert "count_coefficients" in res
+    assert "zero_coefficients" in res
+    assert "spatial_rho" in res
+    assert "dispersion_alpha" in res
+    assert "zero_inflation_mean" in res
+    assert "log_likelihood" in res
+    assert "pseudo_r_squared" in res
+    assert "fitted_values" in res
+    assert "zero_probabilities" in res
+
+    assert len(res["count_coefficients"]) == K
+    assert len(res["zero_coefficients"]) == K
+    assert len(res["fitted_values"]) == N * T
+    assert len(res["zero_probabilities"]) == N * T
+    assert 0.0 <= res["zero_inflation_mean"] <= 1.0
+
+
+def test_fit_spatial_zip_panel_validation():
+    from planx.geostats import fit_spatial_zip_panel
+
+    y = np.array([0, 1, 2, 0, 3, 4])
+    X = np.ones((6, 2))
+    W = np.eye(3)
+
+    with pytest.raises(ValueError, match="dist must be"):
+        fit_spatial_zip_panel(y, X, W, time_periods=2, dist="invalid")
+
+    with pytest.raises(ValueError, match="time_periods must be >= 2"):
+        fit_spatial_zip_panel(y, X, W, time_periods=1)
+
+    with pytest.raises(ValueError, match="non-negative"):
+        fit_spatial_zip_panel(np.array([-1, 0, 1, 2, 3, 4]), X, W, time_periods=2)
+
+
+# ---------------------------------------------------------------------------
+# fit_spatial_dynamic_panel_gmm
+# ---------------------------------------------------------------------------
+
+
+def test_fit_spatial_dynamic_panel_gmm_normal():
+    from planx.geostats import fit_spatial_dynamic_panel_gmm
+
+    np.random.seed(42)
+    N, T, K = 4, 3, 2
+    W = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.0],
+            [0.5, 0.0, 0.5, 0.0],
+            [0.0, 0.5, 0.0, 0.5],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
+    X = np.random.randn(N * T, K)
+    y = np.random.randn(N * T)
+
+    res = fit_spatial_dynamic_panel_gmm(y, X, W, time_periods=T)
+
+    assert "gamma_lag" in res
+    assert "spatial_rho" in res
+    assert "beta" in res
+    assert "std_errors" in res
+    assert "z_stat" in res
+    assert "p_values" in res
+    assert "r_squared" in res
+    assert "residuals" in res
+
+    assert isinstance(res["gamma_lag"], float)
+    assert isinstance(res["spatial_rho"], float)
+    assert len(res["beta"]) == K
+    assert len(res["std_errors"]) == K + 2
+    assert 0.0 <= res["r_squared"] <= 1.0
+
+
+def test_fit_spatial_dynamic_panel_gmm_validation():
+    from planx.geostats import fit_spatial_dynamic_panel_gmm
+
+    y = np.ones(6)
+    X = np.ones((6, 2))
+    W = np.eye(3)
+
+    with pytest.raises(ValueError, match="time_periods must be >= 3"):
+        fit_spatial_dynamic_panel_gmm(y, X, W, time_periods=2)
+
+
+

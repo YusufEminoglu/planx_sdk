@@ -4046,3 +4046,446 @@ def fit_spatial_quantile_panel(
         "pseudo_r_squared": float(pseudo_r2),
         "residuals": residuals,
     }
+
+
+def fit_spatial_count_panel(
+    dependent_var: np.ndarray,
+    independent_vars: np.ndarray,
+    weights_matrix: np.ndarray,
+    time_periods: int,
+    model_type: str = "poisson",
+    max_iter: int = 50,
+    tol: float = 1e-6,
+) -> dict[str, Any]:
+    """Fits a Spatial Panel Poisson or Negative Binomial Count Regression model.
+
+    Args:
+        dependent_var: 1D or 2D array of non-negative count response variables, shape (N*T,) or (N, T).
+        independent_vars: 2D array of K regressors, shape (N*T, K).
+        weights_matrix: 2D spatial weights matrix (row-standardized), shape (N, N).
+        time_periods: Number of time periods (T >= 2).
+        model_type: 'poisson' or 'negative_binomial' (default 'poisson').
+        max_iter: Maximum number of IRLS iterations (default 50).
+        tol: Iteration convergence tolerance (default 1e-6).
+
+    Returns:
+        A dictionary containing:
+            - 'coefficients': (K,) array of regression coefficients.
+            - 'spatial_rho': Spatial lag parameter float.
+            - 'dispersion_alpha': Estimated negative binomial dispersion parameter float (0.0 for Poisson).
+            - 'log_likelihood': Model log-likelihood float.
+            - 'deviance': Model deviance float.
+            - 'pseudo_r_squared': McFadden's pseudo R-squared float.
+            - 'fitted_values': (N*T,) array of predicted mean counts mu.
+            - 'residuals': (N*T,) array of Pearson residuals.
+    """
+    model_type_clean = model_type.lower().strip()
+    if model_type_clean not in ("poisson", "negative_binomial", "nb"):
+        raise ValueError("model_type must be 'poisson' or 'negative_binomial'.")
+
+    if time_periods < 2:
+        raise ValueError("time_periods must be >= 2.")
+
+    y = np.asarray(dependent_var, dtype=np.float64).ravel()
+    X = np.asarray(independent_vars, dtype=np.float64)
+    W = np.asarray(weights_matrix, dtype=np.float64)
+
+    n = W.shape[0]
+    if n < 3:
+        raise ValueError("Number of spatial units must be >= 3.")
+    if W.shape != (n, n):
+        raise ValueError("weights_matrix must be a square (N, N) array.")
+    if len(y) != n * time_periods:
+        raise ValueError("Length of dependent_var must equal N * T.")
+    if np.any(y < 0):
+        raise ValueError("dependent_var counts must be non-negative.")
+    if X.ndim != 2 or X.shape[0] != n * time_periods:
+        raise ValueError("independent_vars must be a 2D array with N * T rows.")
+
+    W_full = np.kron(np.eye(time_periods), W)
+    Wy = W_full @ y
+
+    # 2SLS Spatial Lag instrument stage: Z = [X, W_full @ X, W_full^2 @ X]
+    WX = W_full @ X
+    WWX = W_full @ WX
+    Z = np.hstack((X, WX, WWX))
+
+    beta_z, _, _, _ = np.linalg.lstsq(Z, Wy, rcond=None)
+    Wy_hat = Z @ beta_z
+
+    X_aug = np.hstack((X, Wy_hat.reshape(-1, 1)))
+    n_obs, p = X_aug.shape
+
+    # IRLS fitting
+    y_start = np.maximum(y, 0.1)
+    beta_aug, _, _, _ = np.linalg.lstsq(X_aug, np.log(y_start), rcond=None)
+
+    dispersion_alpha = 0.0
+    if model_type_clean in ("negative_binomial", "nb"):
+        dispersion_alpha = 0.5
+
+    for _ in range(max_iter):
+        eta = np.clip(X_aug @ beta_aug, -30.0, 30.0)
+        mu = np.exp(eta)
+        mu = np.maximum(mu, 1e-10)
+
+        if model_type_clean in ("negative_binomial", "nb"):
+            var = mu + dispersion_alpha * (mu**2)
+            pearson = ((y - mu) ** 2) / var
+            dispersion_alpha = max(1e-4, float(dispersion_alpha * (np.sum(pearson) / max(n_obs - p, 1))))
+            var = mu + dispersion_alpha * (mu**2)
+        else:
+            var = mu
+
+        weights_irls = (mu**2) / var
+        weights_irls = np.maximum(weights_irls, 1e-10)
+
+        z_working = eta + (y - mu) / mu
+
+        W_sqrt = np.sqrt(weights_irls)
+        X_w = X_aug * W_sqrt[:, None]
+        z_w = z_working * W_sqrt
+
+        beta_new, _, _, _ = np.linalg.lstsq(X_w, z_w, rcond=None)
+
+        if np.max(np.abs(beta_new - beta_aug)) < tol:
+            beta_aug = beta_new
+            break
+        beta_aug = beta_new
+
+    eta = np.clip(X_aug @ beta_aug, -30.0, 30.0)
+    mu = np.exp(eta)
+
+    beta_final = beta_aug[:-1]
+    rho_final = float(beta_aug[-1])
+
+    if model_type_clean == "poisson":
+        ll_i = y * np.log(np.maximum(mu, 1e-10)) - mu
+        ll_model = float(np.sum(ll_i))
+        deviance = float(2.0 * np.sum(np.where(y > 0, y * np.log(y / np.maximum(mu, 1e-10)) - (y - mu), mu)))
+
+        y_mean = max(np.mean(y), 1e-10)
+        ll_null = float(np.sum(y * np.log(y_mean) - y_mean))
+    else:
+        r = 1.0 / dispersion_alpha
+        ll_i = stats.nbinom.logpmf(np.floor(y).astype(int), r, r / (r + mu))
+        ll_model = float(np.sum(ll_i))
+        deviance = float(np.sum(2.0 * ((y + r) * np.log((y + r) / (mu + r)) - y * np.log(np.maximum(y, 1e-10) / mu))))
+
+        y_mean = max(np.mean(y), 1e-10)
+        ll_null = float(np.sum(stats.nbinom.logpmf(np.floor(y).astype(int), r, r / (r + y_mean))))
+
+    pseudo_r2 = float(1.0 - (ll_model / ll_null)) if ll_null != 0 else 0.0
+    var_final = mu if model_type_clean == "poisson" else (mu + dispersion_alpha * (mu**2))
+    pearson_residuals = (y - mu) / np.sqrt(np.maximum(var_final, 1e-10))
+
+    return {
+        "coefficients": beta_final,
+        "spatial_rho": rho_final,
+        "dispersion_alpha": float(dispersion_alpha),
+        "log_likelihood": ll_model,
+        "deviance": deviance,
+        "pseudo_r_squared": max(0.0, pseudo_r2),
+        "fitted_values": mu,
+        "residuals": pearson_residuals,
+    }
+
+
+def fit_spatial_zip_panel(
+    dependent_var: np.ndarray,
+    independent_vars: np.ndarray,
+    weights_matrix: np.ndarray,
+    time_periods: int,
+    zero_inflation_vars: Optional[np.ndarray] = None,
+    dist: str = "poisson",
+    max_iter: int = 50,
+    tol: float = 1e-6,
+) -> dict[str, Any]:
+    """Fits a Spatial Panel Zero-Inflated Poisson or Negative Binomial model (ZIP / ZINB).
+
+    Combines an EM algorithm for structural zero inflation with 2SLS spatial lag estimation.
+
+    Args:
+        dependent_var: 1D array of count observations of shape (N*T,).
+        independent_vars: 2D array of K count regressors of shape (N*T, K).
+        weights_matrix: 2D spatial weights matrix (N, N).
+        time_periods: Number of time periods (T >= 2).
+        zero_inflation_vars: Optional 2D array of P zero-inflation regressors of shape (N*T, P).
+        dist: Distribution choice 'poisson' or 'negative_binomial' (default 'poisson').
+        max_iter: Maximum EM iterations (default 50).
+        tol: Convergence tolerance (default 1e-6).
+
+    Returns:
+        Dict containing:
+            - 'count_coefficients': (K,) array of count model parameters.
+            - 'zero_coefficients': (P,) array of zero-inflation logistic parameters.
+            - 'spatial_rho': Spatial lag autoregressive parameter float.
+            - 'dispersion_alpha': Dispersion parameter float (0.0 for Poisson).
+            - 'zero_inflation_mean': Mean structural zero probability across observations.
+            - 'log_likelihood': Model log-likelihood float.
+            - 'pseudo_r_squared': McFadden's pseudo R-squared float.
+            - 'fitted_values': (N*T,) array of expected count values E[Y] = (1 - pi) * mu.
+            - 'zero_probabilities': (N*T,) array of estimated zero probabilities pi.
+    """
+    dist_clean = dist.lower().strip()
+    if dist_clean not in ("poisson", "negative_binomial", "zinb", "zip"):
+        raise ValueError("dist must be 'poisson' or 'negative_binomial'.")
+
+    if time_periods < 2:
+        raise ValueError("time_periods must be >= 2.")
+
+    y = np.asarray(dependent_var, dtype=np.float64).ravel()
+    X = np.asarray(independent_vars, dtype=np.float64)
+    W = np.asarray(weights_matrix, dtype=np.float64)
+
+    n = W.shape[0]
+    if n < 3:
+        raise ValueError("Number of spatial units must be >= 3.")
+    if W.shape != (n, n):
+        raise ValueError("weights_matrix must be a square (N, N) array.")
+    if len(y) != n * time_periods:
+        raise ValueError("Length of dependent_var must equal N * T.")
+    if np.any(y < 0):
+        raise ValueError("dependent_var counts must be non-negative.")
+    if X.ndim != 2 or X.shape[0] != n * time_periods:
+        raise ValueError("independent_vars must be a 2D array with N * T rows.")
+
+    if zero_inflation_vars is not None:
+        Z_zero = np.asarray(zero_inflation_vars, dtype=np.float64)
+        if Z_zero.ndim != 2 or Z_zero.shape[0] != n * time_periods:
+            raise ValueError("zero_inflation_vars must be a 2D array with N * T rows.")
+    else:
+        Z_zero = np.copy(X)
+
+    n_obs, _ = X.shape
+    p_zero = Z_zero.shape[1]
+
+    W_full = np.kron(np.eye(time_periods), W)
+    Wy = W_full @ y
+    WX = W_full @ X
+    WWX = W_full @ WX
+    Z_inst = np.hstack((X, WX, WWX))
+
+    beta_z, _, _, _ = np.linalg.lstsq(Z_inst, Wy, rcond=None)
+    Wy_hat = Z_inst @ beta_z
+
+    X_aug = np.hstack((X, Wy_hat.reshape(-1, 1)))
+
+    gamma = np.zeros(p_zero)
+    beta_aug, _, _, _ = np.linalg.lstsq(X_aug, np.log(np.maximum(y, 0.1)), rcond=None)
+    dispersion_alpha = 0.5 if dist_clean in ("negative_binomial", "zinb") else 0.0
+
+    zero_mask = (y == 0)
+
+    for _ in range(max_iter):
+        logit_pi = np.clip(Z_zero @ gamma, -30.0, 30.0)
+        pi = 1.0 / (1.0 + np.exp(-logit_pi))
+
+        mu = np.exp(np.clip(X_aug @ beta_aug, -30.0, 30.0))
+        mu = np.maximum(mu, 1e-10)
+
+        if dist_clean in ("negative_binomial", "zinb"):
+            r = 1.0 / max(dispersion_alpha, 1e-4)
+            p_count_zero = (r / (r + mu)) ** r
+        else:
+            p_count_zero = np.exp(-mu)
+
+        w_zero = np.zeros(n_obs)
+        w_zero[zero_mask] = pi[zero_mask] / np.maximum(
+            pi[zero_mask] + (1.0 - pi[zero_mask]) * p_count_zero[zero_mask], 1e-12
+        )
+
+        pi_w = np.clip(pi, 1e-6, 1.0 - 1e-6)
+        v_zero = pi_w * (1.0 - pi_w)
+        z_logit = logit_pi + (w_zero - pi) / np.maximum(v_zero, 1e-6)
+        W_sqrt_z = np.sqrt(v_zero)
+        Z_w = Z_zero * W_sqrt_z[:, None]
+        z_w = z_logit * W_sqrt_z
+        gamma_new, _, _, _ = np.linalg.lstsq(Z_w, z_w, rcond=None)
+
+        w_count = 1.0 - w_zero
+        weights_count = w_count * mu
+        weights_count = np.maximum(weights_count, 1e-10)
+
+        eta = np.log(mu)
+        z_count = eta + (y - mu) / np.maximum(mu, 1e-6)
+
+        W_sqrt_c = np.sqrt(weights_count)
+        X_w = X_aug * W_sqrt_c[:, None]
+        z_w_c = z_count * W_sqrt_c
+        beta_new, _, _, _ = np.linalg.lstsq(X_w, z_w_c, rcond=None)
+
+        diff = np.max(np.abs(beta_new - beta_aug)) + np.max(np.abs(gamma_new - gamma))
+        beta_aug = beta_new
+        gamma = gamma_new
+
+        if diff < tol:
+            break
+
+    logit_pi = np.clip(Z_zero @ gamma, -30.0, 30.0)
+    pi = 1.0 / (1.0 + np.exp(-logit_pi))
+    mu = np.exp(np.clip(X_aug @ beta_aug, -30.0, 30.0))
+
+    beta_final = beta_aug[:-1]
+    rho_final = float(beta_aug[-1])
+
+    fitted_expected = (1.0 - pi) * mu
+
+    if dist_clean in ("negative_binomial", "zinb"):
+        r = 1.0 / max(dispersion_alpha, 1e-4)
+        p_count_zero = (r / (r + mu)) ** r
+        ll_zero = np.log(np.maximum(pi + (1.0 - pi) * p_count_zero, 1e-12))
+        ll_pos = np.log(np.maximum(1.0 - pi, 1e-12)) + stats.nbinom.logpmf(
+            np.floor(y).astype(int), r, r / (r + mu)
+        )
+    else:
+        ll_zero = np.log(np.maximum(pi + (1.0 - pi) * np.exp(-mu), 1e-12))
+        ll_pos = np.log(np.maximum(1.0 - pi, 1e-12)) + y * np.log(np.maximum(mu, 1e-10)) - mu
+
+    ll_i = np.where(zero_mask, ll_zero, ll_pos)
+    ll_model = float(np.sum(ll_i))
+
+    y_mean = max(np.mean(y), 1e-10)
+    ll_null = float(np.sum(y * np.log(y_mean) - y_mean))
+    pseudo_r2 = float(1.0 - (ll_model / ll_null)) if ll_null != 0 else 0.0
+
+    return {
+        "count_coefficients": beta_final,
+        "zero_coefficients": gamma,
+        "spatial_rho": rho_final,
+        "dispersion_alpha": float(dispersion_alpha),
+        "zero_inflation_mean": float(np.mean(pi)),
+        "log_likelihood": ll_model,
+        "pseudo_r_squared": max(0.0, pseudo_r2),
+        "fitted_values": fitted_expected,
+        "zero_probabilities": pi,
+    }
+
+
+def fit_spatial_dynamic_panel_gmm(
+    dependent_var: np.ndarray,
+    independent_vars: np.ndarray,
+    weights_matrix: np.ndarray,
+    time_periods: int,
+) -> dict[str, Any]:
+    """Fits a Dynamic Spatial Panel Data GMM model (Arellano-Bond / Blundell-Bond style).
+
+    Estimates y_{i,t} = gamma * y_{i,t-1} + rho * (W y)_{i,t} + X_{i,t} * beta + mu_i + eps_{i,t}
+    using first-difference transformation and 2SLS GMM instrumental variables.
+
+    Args:
+        dependent_var: 1D array of response variable values of shape (N*T,).
+        independent_vars: 2D array of K regressors of shape (N*T, K).
+        weights_matrix: 2D spatial weights matrix (N, N).
+        time_periods: Number of time periods T (T >= 3).
+
+    Returns:
+        Dict containing:
+            - 'gamma_lag': Float estimated coefficient for lagged response y_{t-1}.
+            - 'spatial_rho': Float estimated spatial autoregressive parameter rho.
+            - 'beta': 1D array (K,) of regression parameters for X.
+            - 'std_errors': 1D array of parameter standard errors.
+            - 'z_stat': 1D array of z-statistics.
+            - 'p_values': 1D array of p-values.
+            - 'r_squared': Float coefficient of determination.
+            - 'residuals': 1D array of first-differenced model residuals.
+    """
+    if time_periods < 3:
+        raise ValueError("time_periods must be >= 3 for dynamic panel GMM estimation.")
+
+    y = np.asarray(dependent_var, dtype=np.float64).ravel()
+    X = np.asarray(independent_vars, dtype=np.float64)
+    W = np.asarray(weights_matrix, dtype=np.float64)
+
+    n = W.shape[0]
+    if n < 3:
+        raise ValueError("Number of spatial units (N) must be >= 3.")
+    if W.shape != (n, n):
+        raise ValueError("weights_matrix must be a square (N, N) array.")
+    if len(y) != n * time_periods:
+        raise ValueError("Length of dependent_var must equal N * T.")
+    if X.ndim != 2 or X.shape[0] != n * time_periods:
+        raise ValueError("independent_vars must be a 2D array with N * T rows.")
+
+    k = X.shape[1]
+    T = time_periods
+
+    Y_mat = y.reshape(n, T)
+    X_cube = X.reshape(n, T, k)
+
+    if T == 3:
+        delta_Y_lag = (Y_mat[:, 1] - Y_mat[:, 0])[:, None]
+        delta_Y_target = (Y_mat[:, 2] - Y_mat[:, 1])[:, None]
+        delta_X = (X_cube[:, 2, :] - X_cube[:, 1, :])[:, None, :]
+        delta_WY_target = (W @ delta_Y_target[:, 0])[:, None]
+        Z_inst_0 = np.hstack((
+            Y_mat[:, 0:1],
+            (W @ Y_mat[:, 0])[:, None],
+            X_cube[:, 0, :],
+            W @ X_cube[:, 0, :]
+        ))
+    else:
+        delta_Y_target = Y_mat[:, 2:] - Y_mat[:, 1:-1]
+        delta_Y_lag = Y_mat[:, 1:-1] - Y_mat[:, :-2]
+        delta_X = X_cube[:, 2:, :] - X_cube[:, 1:-1, :]
+        delta_WY_target = np.zeros_like(delta_Y_target)
+        for t_idx in range(delta_Y_target.shape[1]):
+            delta_WY_target[:, t_idx] = W @ delta_Y_target[:, t_idx]
+
+        Z_inst_list = []
+        for t_idx in range(delta_Y_target.shape[1]):
+            z_t = np.hstack((
+                Y_mat[:, t_idx:t_idx+1],
+                (W @ Y_mat[:, t_idx])[:, None],
+                X_cube[:, t_idx, :],
+                W @ X_cube[:, t_idx, :]
+            ))
+            Z_inst_list.append(z_t)
+        Z_inst_0 = np.vstack(Z_inst_list)
+
+    dy_vec = delta_Y_target.ravel(order="F")
+    dy_lag_vec = delta_Y_lag.ravel(order="F")
+    dwy_vec = delta_WY_target.ravel(order="F")
+    dx_mat = delta_X.reshape(-1, k, order="F")
+
+    Regressors = np.hstack((dy_lag_vec[:, None], dwy_vec[:, None], dx_mat))
+
+    Z_gmm = Z_inst_0
+    z_tz_inv = np.linalg.pinv(Z_gmm.T @ Z_gmm)
+    reg_z = Regressors.T @ Z_gmm
+    bread = np.linalg.pinv(reg_z @ z_tz_inv @ reg_z.T)
+    coefs = bread @ (reg_z @ z_tz_inv @ (Z_gmm.T @ dy_vec))
+
+    gamma_est = float(coefs[0])
+    rho_est = float(coefs[1])
+    beta_est = coefs[2:]
+
+    fitted = Regressors @ coefs
+    residuals = dy_vec - fitted
+
+    ss_res = float(np.sum(residuals**2))
+    ss_tot = float(np.sum((dy_vec - np.mean(dy_vec)) ** 2))
+    r2 = max(0.0, 1.0 - ss_res / max(ss_tot, 1e-12))
+
+    n_gmm = len(dy_vec)
+    p_gmm = len(coefs)
+    sigma2 = ss_res / max(n_gmm - p_gmm, 1)
+    var_cov = sigma2 * bread
+    std_errors = np.sqrt(np.maximum(np.diag(var_cov), 1e-12))
+
+    z_stat = coefs / std_errors
+    p_vals = 2.0 * (1.0 - stats.norm.cdf(np.abs(z_stat)))
+
+    return {
+        "gamma_lag": gamma_est,
+        "spatial_rho": rho_est,
+        "beta": beta_est,
+        "std_errors": std_errors,
+        "z_stat": z_stat,
+        "p_values": p_vals,
+        "r_squared": float(r2),
+        "residuals": residuals,
+    }
+
+
+
