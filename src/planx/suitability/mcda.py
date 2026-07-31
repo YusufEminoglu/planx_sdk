@@ -1508,3 +1508,49 @@ def ivif_topsis_method(
     }
 
 
+def neutrosophic_waspas_method(
+    decision_matrix: np.ndarray,
+    weights: np.ndarray,
+    lambda_param: float = 0.5,
+) -> dict[str, Any]:
+    """Single-Valued Neutrosophic WASPAS MCDA Engine.
+
+    Aggregates alternatives under neutrosophic truth (T), indeterminacy (I), and falsity (F) degrees
+    using Weighted Sum Model (WSM) and Weighted Product Model (WPM).
+
+    Args:
+        decision_matrix: Array of shape (n_alt, n_crit) containing performance values.
+        weights: Criteria importance weights summing to 1.
+        lambda_param: Trade-off parameter between WSM and WPM (0 to 1).
+
+    Returns:
+        Dict containing alternative scores, ranks, WSM scores, and WPM scores.
+    """
+    n_alt, n_crit = decision_matrix.shape
+    weights_norm = weights / np.sum(weights)
+
+    mins = np.min(decision_matrix, axis=0)
+    maxs = np.max(decision_matrix, axis=0)
+    ranges = np.where(maxs - mins == 0, 1.0, maxs - mins)
+    norm_matrix = (decision_matrix - mins) / ranges
+
+    t_deg = norm_matrix
+    i_deg = 1.0 - norm_matrix
+    f_deg = 1.0 - (norm_matrix ** 2)
+    s_scores = (2.0 + t_deg - i_deg - f_deg) / 3.0
+
+    wsm = np.sum(s_scores * weights_norm, axis=1)
+    wpm = np.prod(s_scores ** weights_norm, axis=1)
+
+    q_score = lambda_param * wsm + (1.0 - lambda_param) * wpm
+    ranks = np.argsort(-q_score).argsort() + 1
+
+    return {
+        "waspas_scores": q_score,
+        "rankings": ranks,
+        "wsm_scores": wsm,
+        "wpm_scores": wpm,
+    }
+
+
+

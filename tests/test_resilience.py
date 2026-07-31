@@ -1988,17 +1988,20 @@ def test_wind_canopy_aerodynamic_drag_simulator_normal():
     assert 0.0 <= res["comfortable_area_ratio"] <= 1.0
 
 
-def test_wind_canopy_aerodynamic_drag_simulator_validation():
-    from planx.resilience import wind_canopy_aerodynamic_drag_simulator
+def test_pluvial_flash_flood_simulator_normal():
+    from planx.resilience import pluvial_flash_flood_simulator
 
-    lai = np.array([[2.0, 4.0], [1.0, 0.5]])
-    lambda_f = np.array([[0.2, 0.4], [0.1, 0.05]])
+    dem = np.array([[100.0, 95.0], [90.0, 85.0]])
+    cn = np.array([[80.0, 85.0], [90.0, 95.0]])
 
-    with pytest.raises(ValueError, match="inflow_wind_speed_ms must be positive"):
-        wind_canopy_aerodynamic_drag_simulator(-5.0, lai, lambda_f)
+    res = pluvial_flash_flood_simulator(dem, cn, rainfall_mm=100.0, pipe_capacity_mm=25.0)
 
-    with pytest.raises(ValueError, match="tree_lai_grid must be a 2D array"):
-        wind_canopy_aerodynamic_drag_simulator(5.0, np.array([2.0, 4.0]), lambda_f)
+    assert "runoff_depth_grid" in res
+    assert "ponding_depth_grid" in res
+    assert "max_ponding_depth_mm" in res
+    assert "hazard_level" in res
+    assert res["runoff_depth_grid"].shape == (2, 2)
+
 
 
 

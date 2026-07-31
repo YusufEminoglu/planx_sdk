@@ -19,6 +19,7 @@ from .flood import (
     coastal_storm_surge_inundation_engine,
     coastal_surge_inundation,
     detention_basin_sizing,
+    pluvial_flash_flood_simulator,
     pluvial_flood_susceptibility,
     scs_unit_hydrograph,
     socio_economic_flood_risk,
@@ -112,4 +113,5 @@ __all__ = [
     "coastal_storm_surge_inundation_engine",
     "surface_cool_island_simulator",
     "wind_canopy_aerodynamic_drag_simulator",
+    "pluvial_flash_flood_simulator",
 ]

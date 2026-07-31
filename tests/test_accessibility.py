@@ -612,4 +612,21 @@ def test_ev_cvrp_multi_depot_routing_validation():
         ev_cvrp_multi_depot_routing(depots, customers, demands, vehicle_capacity=-10.0)
 
 
+def test_micromobility_equity_index():
+    from planx.spatial import micromobility_equity_index
+
+    counts = np.array([10, 5, 2, 20])
+    dists = np.array([100.0, 300.0, 800.0, 200.0])
+    vuln = np.array([0.8, 0.5, 0.2, 0.9])
+
+    res = micromobility_equity_index(counts, dists, vuln)
+
+    assert "zone_equity_scores" in res
+    assert "mean_equity_score" in res
+    assert "equity_gini_index" in res
+    assert len(res["zone_equity_scores"]) == 4
+    assert 0.0 <= res["equity_gini_index"] <= 1.0
+
+
+
 

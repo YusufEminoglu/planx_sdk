@@ -14,6 +14,7 @@ from .accessibility import (
     ev_cvrp_multi_depot_routing,
     gravity_accessibility,
     healthcare_equity_index,
+    micromobility_equity_index,
     huff_gravity_model,
     huff_retail_market_share,
     kernel_density_2sfca,
@@ -108,4 +109,5 @@ __all__ = [
     "ev_charging_accessibility_index",
     "multimodal_transit_isochrone_profiler",
     "ev_cvrp_multi_depot_routing",
+    "micromobility_equity_index",
 ]

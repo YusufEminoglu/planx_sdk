@@ -26,6 +26,7 @@ from .mcda import (
     fuzzy_vikor_method,
     ivif_topsis_method,
     marcos_method,
+    neutrosophic_waspas_method,
     mcda_sensitivity_monte_carlo,
     normalize_array,
     promethee_ii_method,
@@ -82,4 +83,5 @@ __all__ = [
     "spotis_method",
     "ev_fleet_charging_location_allocation",
     "ivif_topsis_method",
+    "neutrosophic_waspas_method",
 ]
