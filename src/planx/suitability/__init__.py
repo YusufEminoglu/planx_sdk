@@ -14,9 +14,11 @@ from .facility import (
     greedy_lscp,
     greedy_mclp,
     greedy_p_median,
+    label_components,
     logistics_microhub_location_allocation,
     mclp_distance_decay,
     pareto_facility_location,
+    rank_sites,
     tod_spatial_diversity_index,
 )
 from .mcda import (
@@ -112,4 +114,6 @@ __all__ = [
     "calculate_entropy_weights",
     "calculate_critic_weights",
     "calculate_pca_weights",
+    "label_components",
+    "rank_sites",
 ]
