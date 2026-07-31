@@ -773,7 +773,7 @@ def coastal_storm_surge_inundation_engine(
 
     from collections import deque
 
-    queue = deque()
+    queue: deque[tuple[int, int]] = deque()
 
     for r in range(rows):
         for c in range(cols):

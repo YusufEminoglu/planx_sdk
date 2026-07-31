@@ -879,7 +879,7 @@ def logistics_microhub_location_allocation(
 
     dists = cdist(demand_coords, candidate_hub_coords) / 1000.0
 
-    selected = []
+    selected: list[int] = []
     unselected = list(range(m_cands))
 
     for _ in range(num_hubs_to_select):
