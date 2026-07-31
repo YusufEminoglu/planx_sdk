@@ -1316,7 +1316,17 @@ def test_label_components_and_rank_sites():
 
 
 def test_macroform_generators():
-    from planx.suitability import gen_dikdortgen, gen_L, gen_U
+    from planx.suitability import (
+        gen_arti,
+        gen_avlu,
+        gen_C,
+        gen_dikdortgen,
+        gen_E,
+        gen_H,
+        gen_L,
+        gen_T,
+        gen_U,
+    )
 
     rect = gen_dikdortgen(20.0, 30.0)
     assert rect["type_name"] == "dikdortgen"
@@ -1329,3 +1339,22 @@ def test_macroform_generators():
     u_shape = gen_U(40.0, 40.0)
     assert u_shape["type_name"] == "U"
     assert len(u_shape["coordinates"]) == 9
+
+    t_shape = gen_T(30.0, 30.0)
+    assert t_shape["type_name"] == "T"
+
+    h_shape = gen_H(30.0, 30.0)
+    assert h_shape["type_name"] == "H"
+
+    avlu_shape = gen_avlu(40.0, 40.0)
+    assert avlu_shape["type_name"] == "avlu"
+    assert len(avlu_shape["courtyard_coordinates"]) == 5
+
+    c_shape = gen_C(30.0, 30.0)
+    assert c_shape["type_name"] == "C"
+
+    e_shape = gen_E(30.0, 40.0)
+    assert e_shape["type_name"] == "E"
+
+    arti_shape = gen_arti(30.0, 30.0)
+    assert arti_shape["type_name"] == "arti"
