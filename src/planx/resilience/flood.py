@@ -875,3 +875,54 @@ def pluvial_flash_flood_simulator(
     }
 
 
+def tsunami_evacuation_routing_engine(
+    coastline_coords: np.ndarray,
+    refuge_building_coords: np.ndarray,
+    refuge_capacities: np.ndarray,
+    population_coords: np.ndarray,
+    population_counts: np.ndarray,
+    tsunami_wave_height_m: float = 10.0,
+) -> dict[str, Any]:
+    """Urban Tsunami Inundation & Vertical Evacuation Router.
+
+    Models tsunami wave attenuation and evaluates vertical refuge building allocation and capacity deficit.
+
+    Args:
+        coastline_coords: Array of shape (C, 2) for coast line seed coordinates.
+        refuge_building_coords: Array of shape (R, 2) for vertical refuge building locations.
+        refuge_capacities: Array of shape (R,) for building vertical capacity (persons).
+        population_coords: Array of shape (P, 2) for evacuee origin locations.
+        population_counts: Array of shape (P,) for population per origin point.
+        tsunami_wave_height_m: Initial tsunami wave run-up height (meters).
+
+    Returns:
+        Dict containing evacuation assignment, total evacuees saved, and capacity deficit.
+    """
+    from scipy.spatial.distance import cdist
+
+    d_to_coast = np.min(cdist(population_coords, coastline_coords), axis=1)
+    wave_inundation_hazard = tsunami_wave_height_m * np.exp(-d_to_coast / 1000.0)
+
+    d_to_refuge = cdist(population_coords, refuge_building_coords)
+    nearest_refuge = np.argmin(d_to_refuge, axis=1)
+
+    assigned_counts = np.zeros(len(refuge_capacities), dtype=np.float64)
+    for i in range(len(population_coords)):
+        r_idx = nearest_refuge[i]
+        assigned_counts[r_idx] += population_counts[i]
+
+    capacity_deficit = np.maximum(0.0, assigned_counts - refuge_capacities)
+    total_evacuees = float(np.sum(population_counts))
+    saved_evacuees = float(total_evacuees - np.sum(capacity_deficit))
+
+    return {
+        "nearest_refuge_indices": nearest_refuge,
+        "hazard_depth_per_pop_zone": wave_inundation_hazard,
+        "refuge_assigned_counts": assigned_counts,
+        "total_saved_evacuees": saved_evacuees,
+        "survival_rate": float(saved_evacuees / max(total_evacuees, 1.0)),
+        "capacity_deficit": capacity_deficit,
+    }
+
+
+
