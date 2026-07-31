@@ -1998,6 +1998,29 @@ def test_fit_spatial_panel_probit_lag():
     assert len(res["marginal_effects"]) == 2
 
 
+def test_fit_spatial_pvar():
+    from planx.geostats import fit_spatial_pvar
+
+    np.random.seed(42)
+    N, T = 4, 5
+    W = np.array([
+        [0.0, 0.5, 0.5, 0.0],
+        [0.5, 0.0, 0.5, 0.0],
+        [0.3, 0.3, 0.0, 0.4],
+        [0.0, 0.0, 1.0, 0.0],
+    ])
+    y1 = np.random.randn(N, T)
+    y2 = np.random.randn(N, T)
+
+    res = fit_spatial_pvar([y1, y2], W, time_periods=T, lag_order=1)
+
+    assert "pvar_coefficients" in res
+    assert "residual_covariance" in res
+    assert res["num_variables"] == 2
+    assert res["residual_covariance"].shape == (2, 2)
+
+
+
 
 
 

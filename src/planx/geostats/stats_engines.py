@@ -4807,6 +4807,65 @@ def fit_spatial_panel_probit_lag(
     }
 
 
+def fit_spatial_pvar(
+    y_var_list: list[np.ndarray],
+    w: np.ndarray,
+    time_periods: int,
+    lag_order: int = 1,
+) -> dict[str, Any]:
+    """Spatio-Temporal Panel Vector Autoregression (Spatial PVAR).
+
+    Fits a dynamic multi-variable spatio-temporal vector autoregressive panel system.
+
+    Args:
+        y_var_list: List of M arrays of shape (N, T) for M endogenous panel variables.
+        w: Spatial weight matrix (N, N).
+        time_periods: Number of time periods T.
+        lag_order: Time lag order p (default 1).
+
+    Returns:
+        Dict containing PVAR coefficient matrices, spatial rho per variable, and residual covariance.
+    """
+    m_vars = len(y_var_list)
+    if m_vars == 0:
+        raise ValueError("At least 1 variable array must be provided.")
+    n, t = y_var_list[0].shape
+
+    pvar_coefs = []
+    residuals = []
+
+    for m in range(m_vars):
+        y_m = y_var_list[m][:, lag_order:].ravel(order="F")
+
+        wy_m = np.zeros((n, t - lag_order))
+        for t_i in range(lag_order, t):
+            wy_m[:, t_i - lag_order] = w @ y_var_list[m][:, t_i]
+        wy_vec = wy_m.ravel(order="F")
+
+        time_lags = []
+        for p_i in range(1, lag_order + 1):
+            for v in range(m_vars):
+                l_v = y_var_list[v][:, lag_order - p_i : t - p_i].ravel(order="F")
+                time_lags.append(l_v)
+
+        x_reg = np.column_stack([wy_vec] + time_lags)
+        coef_m, _, _, _ = np.linalg.lstsq(x_reg, y_m, rcond=None)
+        res_m = y_m - x_reg @ coef_m
+
+        pvar_coefs.append(coef_m)
+        residuals.append(res_m)
+
+    sigma_matrix = (np.column_stack(residuals).T @ np.column_stack(residuals)) / len(y_m)
+
+    return {
+        "pvar_coefficients": pvar_coefs,
+        "residual_covariance": sigma_matrix,
+        "num_variables": m_vars,
+        "lag_order": lag_order,
+    }
+
+
+
 
 
 

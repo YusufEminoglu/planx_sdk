@@ -13,6 +13,7 @@ from .facility import (
     greedy_lscp,
     greedy_mclp,
     greedy_p_median,
+    logistics_microhub_location_allocation,
     mclp_distance_decay,
     pareto_facility_location,
     tod_spatial_diversity_index,
@@ -33,6 +34,7 @@ from .mcda import (
     neutrosophic_waspas_method,
     picture_fuzzy_topsis,
     rough_topsis_method,
+    spherical_fuzzy_topsis,
     mcda_sensitivity_monte_carlo,
     normalize_array,
     promethee_ii_method,
@@ -96,4 +98,6 @@ __all__ = [
     "fuzzy_copras_method",
     "picture_fuzzy_topsis",
     "hesitant_fuzzy_dematel",
+    "logistics_microhub_location_allocation",
+    "spherical_fuzzy_topsis",
 ]
