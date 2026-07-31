@@ -359,3 +359,16 @@ def test_interpolation_additional_coverage():
 
     est, var = kriging_to_points(np.zeros((0, 2)), np.zeros(0), target_coords)
     assert np.isnan(est[0]) and np.isnan(var[0])
+
+
+def test_spatial_weights_builder():
+    from planx.geostats import auto_distance_band, build_weights, neighbour_counts
+
+    coords = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (10.0, 10.0)]
+    d_band = auto_distance_band(coords)
+    assert d_band >= 1.0
+
+    adj_knn = build_weights(coords, mode="knn", k=2, include_self=True, row_standardize=True)
+    assert len(adj_knn) == 4
+    counts = neighbour_counts(adj_knn)
+    assert len(counts) == 4
