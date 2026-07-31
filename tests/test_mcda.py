@@ -396,6 +396,26 @@ def test_rough_topsis_method():
     assert len(res["rankings"]) == 3
 
 
+def test_fuzzy_copras_method():
+    from planx.suitability import fuzzy_copras_method
+
+    fuzzy_mat = np.array([
+        [[0.2, 0.4, 0.6], [0.5, 0.7, 0.9]],
+        [[0.4, 0.6, 0.8], [0.3, 0.5, 0.7]],
+        [[0.6, 0.8, 1.0], [0.2, 0.4, 0.6]],
+    ])
+    w = np.array([0.5, 0.5])
+    types = ["+", "-"]
+
+    res = fuzzy_copras_method(fuzzy_mat, w, types)
+
+    assert "utility_degrees" in res
+    assert "rankings" in res
+    assert len(res["utility_degrees"]) == 3
+    assert len(res["rankings"]) == 3
+
+
+
 
 
 

@@ -642,6 +642,22 @@ def test_transit_fleet_electrification_scheduler():
     assert res["grid_cap_compliant"] is True
 
 
+def test_canopy_sky_view_factor_profiler():
+    from planx.spatial import canopy_sky_view_factor_profiler
+
+    grid = np.array([[0.0, 0.0], [10.0, 10.0]])
+    b_heights = np.array([20.0, 30.0])
+    b_coords = np.array([[5.0, 5.0], [15.0, 15.0]])
+
+    res = canopy_sky_view_factor_profiler(grid, b_heights, b_coords)
+
+    assert "sky_view_factor_grid" in res
+    assert "mean_sky_view_factor" in res
+    assert len(res["sky_view_factor_grid"]) == 2
+    assert 0.0 <= res["mean_sky_view_factor"] <= 1.0
+
+
+
 
 
 

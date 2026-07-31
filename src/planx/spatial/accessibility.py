@@ -1723,6 +1723,46 @@ def transit_fleet_electrification_scheduler(
     }
 
 
+def canopy_sky_view_factor_profiler(
+    grid_coords: np.ndarray,
+    building_heights: np.ndarray,
+    building_coords: np.ndarray,
+    max_search_radius_m: float = 100.0,
+) -> dict[str, Any]:
+    """Urban Sky View Factor (SVF) & Solar Envelope Profiler.
+
+    Computes 3D Sky View Factor across urban canopy evaluation points.
+
+    Args:
+        grid_coords: Array of shape (G, 2) for evaluation points.
+        building_heights: Array of shape (B,) for building heights (m).
+        building_coords: Array of shape (B, 2) for building centroids.
+        max_search_radius_m: Maximum search radius for obstacle elevation angles.
+
+    Returns:
+        Dict containing Sky View Factor array (0-1), mean SVF, and open sky area ratio.
+    """
+    from scipy.spatial.distance import cdist
+
+    dists = cdist(grid_coords, building_coords)
+    dists_clamped = np.maximum(dists, 1.0)
+
+    angles = np.arctan(building_heights[None, :] / dists_clamped)
+    in_range = dists <= max_search_radius_m
+    angles_masked = np.where(in_range, angles, 0.0)
+
+    max_obstacle_angle = np.max(angles_masked, axis=1)
+    svf = np.cos(max_obstacle_angle)
+
+    return {
+        "sky_view_factor_grid": svf,
+        "mean_sky_view_factor": float(np.mean(svf)),
+        "min_sky_view_factor": float(np.min(svf)),
+        "open_sky_ratio": float(np.mean(svf > 0.7)),
+    }
+
+
+
 
 
 

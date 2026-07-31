@@ -23,6 +23,7 @@ from .mcda import (
     edas_method,
     electre_i_method,
     electre_iii_method,
+    fuzzy_copras_method,
     fuzzy_topsis_method,
     fuzzy_vikor_method,
     if_vikor_method,
@@ -90,4 +91,5 @@ __all__ = [
     "tod_spatial_diversity_index",
     "if_vikor_method",
     "rough_topsis_method",
+    "fuzzy_copras_method",
 ]
