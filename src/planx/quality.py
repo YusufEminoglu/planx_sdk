@@ -134,9 +134,7 @@ def gini_coefficient(values, weights=None) -> float:
     previous_lorenz = np.r_[0.0, lorenz[:-1]]
     area = float(
         np.sum(
-            (previous_lorenz + lorenz)
-            * 0.5
-            * (cumulative_weight / total_weight - previous_weight)
+            (previous_lorenz + lorenz) * 0.5 * (cumulative_weight / total_weight - previous_weight)
         )
     )
     return float(np.clip(1.0 - 2.0 * area, 0.0, 1.0))
