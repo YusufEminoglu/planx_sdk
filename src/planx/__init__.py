@@ -12,6 +12,7 @@ from planx import (
     generative,
     geostats,
     mobility,
+    quality,
     realestate,
     resilience,
     spatial,
@@ -20,7 +21,7 @@ from planx import (
     urban_physics,
 )
 
-__version__ = "2.16.0"
+__version__ = "2.17.0"
 __author__ = "Yusuf Eminoğlu"
 
 __all__ = [
@@ -35,5 +36,6 @@ __all__ = [
     "urban_physics",
     "generative",
     "mobility",
+    "quality",
     "climate",
 ]

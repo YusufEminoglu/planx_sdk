@@ -1,0 +1,22 @@
+name: No AI attribution
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject AI authorship and trailers
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git log --all --format='%an <%ae>%n%cn <%ce>%n%B' | grep -Eiq \
+            '(claude|anthropic|copilot|github-actions\[bot\]|gemini|chatgpt|openai|co-authored-by:.*(ai|bot|claude|copilot|gemini|chatgpt|openai))'; then
+            echo 'AI or bot attribution found in git history.'
+            exit 1
+          fi
