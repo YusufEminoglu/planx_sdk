@@ -39,9 +39,7 @@ def test_weight_normalization_and_break_classification():
     assert np.allclose(normalize_weights([1.0, 2.0, 1.0]), [0.25, 0.5, 0.25])
     breaks = quantile_breaks(np.arange(1.0, 11.0), n_classes=4)
     assert np.allclose(breaks, [3.25, 5.5, 7.75])
-    assert np.array_equal(
-        classify_values([1.0, 3.25, 5.5, 10.0, np.nan], breaks), [1, 2, 3, 4, -1]
-    )
+    assert np.array_equal(classify_values([1.0, 3.25, 5.5, 10.0, np.nan], breaks), [1, 2, 3, 4, -1])
 
 
 def test_rank_is_stable_and_averages_ties():
