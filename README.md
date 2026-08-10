@@ -479,6 +479,34 @@ pip install -e .[dev]
 
 ---
 
+## Quality and Decision Support Utilities
+
+Version 2.17 adds a dependency-light `planx.quality` module for turning spatial
+indicator arrays into reproducible summaries and decisions. It covers weighted
+statistics, missing-value-safe classification, uncertainty estimation, and
+multi-objective screening:
+
+```python
+import numpy as np
+from planx.quality import (
+    array_summary,
+    bootstrap_mean_ci,
+    classify_values,
+    pareto_front,
+)
+
+values = np.array([12.0, 18.0, 25.0, np.nan])
+summary = array_summary(values)
+classes = classify_values(values, breaks=[15.0, 22.0])
+mean, low, high = bootstrap_mean_ci(values, random_state=7)
+front = pareto_front([[0.8, 12.0], [0.6, 9.0], [0.9, 15.0]], maximize=[True, False])
+```
+
+All public functions validate shapes, weights, quantiles, and finite inputs so
+they can be used directly in plugin-facing decision pipelines.
+
+---
+
 ## 🧪 Tests and Code Standards
 
 All modules are verified using unit tests in `pytest`. To execute the test suite:

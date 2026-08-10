@@ -5,6 +5,12 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.17.0] - 2026-08-10
+### Added
+- **Quality and Decision Support Toolkit (`planx.quality`)**: robust array summaries, weighted quantiles, Gini inequality, weight normalization, quantile classification, ranking, bootstrap confidence intervals, z-scores, top-k selection, and Pareto-front detection.
+- Public type hints and validation for all quality utilities, including finite-value and weight checks.
+- Unit coverage for normal results, ties, missing values, weighted calculations, multi-objective minimization, and invalid inputs.
+
 ## [2.16.0] - 2026-07-31
 ### Added
 - **Seismic Liquefaction Potential Index Engine (`planx.resilience.seismic`)**: `seismic_liquefaction_potential_index` (Iwasaki LPI method with SPT-N soil depth layers and Peak Ground Acceleration).
