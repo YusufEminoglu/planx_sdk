@@ -12,15 +12,49 @@ description = "Core spatial analytics, spatial statistics, and urban resilience 
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
+keywords = [
+    "gis",
+    "spatial-analysis",
+    "spatial-statistics",
+    "urban-resilience",
+    "accessibility",
+    "space-syntax",
+    "mcda",
+    "geostats",
+    "moran-i",
+    "getis-ord",
+    "e2sfca",
+    "flood-simulation",
+    "seismic-debris",
+    "spacemate",
+    "bpr",
+    "urban-informatics",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
 ]
 dependencies = [
     "numpy>=1.20.0",
     "scipy>=1.7.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/YusufEminoglu/planx_sdk"
+Documentation = "https://yusufeminoglu.github.io/planx_sdk/"
+Repository = "https://github.com/YusufEminoglu/planx_sdk"
+Issues = "https://github.com/YusufEminoglu/planx_sdk/issues"
+Changelog = "https://github.com/YusufEminoglu/planx_sdk/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
