@@ -7,27 +7,33 @@
 <meta name="description" content="Official academic reference manual and complete Python SDK documentation for PlanX: Headless Spatial Analytics, Spatial Statistics, Network Routing, and Urban Climate Resilience Engines.">
 <meta name="author" content="Yusuf Eminoğlu">
 
-<!-- KaTeX & MathJax for high-speed mathematical formula rendering -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<!-- MathJax for high-fidelity mathematical formula rendering -->
 <script>
-MathJax = {
+window.MathJax = {
   tex: {
-    inlineMath: [['$', '$']],
-    displayMath: [['$$', '$$']],
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true,
     tags: 'ams',
     macros: {
-      arg: '\mathop{\mathrm{arg}}\nolimits',
-      min: '\mathop{\mathrm{min}}\nolimits',
-      max: '\mathop{\mathrm{max}}\nolimits',
+      arg: '\\mathop{\\mathrm{arg}}\\nolimits',
+      min: '\\mathop{\\mathrm{min}}\\nolimits',
+      max: '\\mathop{\\mathrm{max}}\\nolimits',
     }
   },
   options: {
     skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
-    ignoreHtmlClass: 'no-math'
+    ignoreHtmlClass: 'no-math|tex2jax_ignore'
+  },
+  startup: {
+    pageReady: () => {
+      return MathJax.startup.defaultPageReady();
+    }
   }
 };
 </script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 
 <!-- Typography -->
@@ -829,7 +835,7 @@ tr:nth-child(even) td {
 <div class="sandbox-card">
   <div class="sandbox-badge"><i data-lucide="sliders" style="width:12px;height:12px;margin-right:4px;"></i> Interactive Live Sandbox</div>
   <h3 style="margin-top:0;">Gravity Accessibility Decay Simulator</h3>
-  <p style="font-size:0.88rem;color:var(--muted);">Test how the spatial decay parameter $eta$ and amenity capacity affect accessibility score $A_i = W \cdot e^{-eta d}$:</p>
+  <p style="font-size:0.88rem;color:var(--muted);">Test how the spatial decay parameter $\beta$ and amenity capacity affect accessibility score $A_i = W \cdot e^{-\beta d}$:</p>
   
   <div class="sandbox-grid">
     <div>
@@ -838,7 +844,7 @@ tr:nth-child(even) td {
         <input type="range" id="distSlider" class="slider" min="50" max="2500" step="25" value="450">
       </div>
       <div class="control-item">
-        <label>Decay Parameter ($eta$): <span class="val" id="betaVal">0.0020</span></label>
+        <label>Decay Parameter ($\beta$): <span class="val" id="betaVal">0.0020</span></label>
         <input type="range" id="betaSlider" class="slider" min="0.0005" max="0.0080" step="0.0005" value="0.0020">
       </div>
       <div class="control-item">
