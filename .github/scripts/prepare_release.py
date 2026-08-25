@@ -49,7 +49,6 @@ def bump_version_files(version: str) -> None:
         init_path.write_text(new_init_text, encoding="utf-8")
 
 
-
 def changelog_bullets() -> list[str]:
     try:
         rng = f"{_git('describe', '--tags', '--abbrev=0')}..HEAD"
