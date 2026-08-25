@@ -1,6 +1,10 @@
-# PlanX SDK
-
 <div align="center">
+
+<a href="https://yusufeminoglu.github.io/planx_sdk/">
+  <img src="https://raw.githubusercontent.com/YusufEminoglu/planx_sdk/main/docs/icons/logo.svg" width="140" height="140" alt="PlanX SDK Logo" />
+</a>
+
+# PlanX SDK
 
 [![CI](https://github.com/YusufEminoglu/planx_sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/YusufEminoglu/planx_sdk/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/planx-sdk.svg?color=06b6d4)](https://pypi.org/project/planx-sdk/)

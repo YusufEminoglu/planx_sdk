@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1120"/>
+      <stop offset="100%" stop-color="#111d33"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="50%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#3b82f6" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="url(#bg)" stroke="url(#glow)" stroke-width="6" filter="url(#shadow)"/>
+
+  <!-- Hexagonal Spatial Planning Grid -->
+  <polygon points="256,70 395,150 395,310 256,390 117,310 117,150" fill="#0f1f38" stroke="url(#glow)" stroke-width="4"/>
+
+  <!-- Masterplan Land-use Zones (Residential, Green, Water) -->
+  <polygon points="256,70 395,150 256,230 117,150" fill="#3b82f6" opacity="0.35"/>
+  <polygon points="256,230 395,150 395,310 256,390" fill="#10b981" opacity="0.3"/>
+  <polygon points="256,230 256,390 117,310 117,150" fill="#06b6d4" opacity="0.25"/>
+
+  <!-- Spatial Statistics & Network Graph Nodes -->
+  <g stroke="#ffffff" stroke-width="3">
+    <line x1="256" y1="130" x2="190" y2="230"/>
+    <line x1="256" y1="130" x2="320" y2="210"/>
+    <line x1="190" y1="230" x2="256" y2="330"/>
+    <line x1="320" y1="210" x2="256" y2="330"/>
+    <line x1="190" y1="230" x2="320" y2="210"/>
+  </g>
+
+  <circle cx="256" cy="130" r="14" fill="#3b82f6" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="190" cy="230" r="12" fill="#06b6d4" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="320" cy="210" r="12" fill="#10b981" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="256" cy="330" r="16" fill="#f59e0b" stroke="#ffffff" stroke-width="3"/>
+
+  <!-- Badge -->
+  <rect x="156" y="405" width="200" height="42" rx="21" fill="#0f172a" stroke="url(#glow)" stroke-width="3"/>
+  <text x="256" y="432" font-family="'Plus Jakarta Sans', 'Inter', sans-serif" font-size="17" font-weight="800" fill="#60a5fa" text-anchor="middle" letter-spacing="1.5">PLANX &middot; RESILIENCE</text>
+</svg>
