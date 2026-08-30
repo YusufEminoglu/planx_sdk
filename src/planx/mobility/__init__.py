@@ -12,6 +12,12 @@ from .traffic_assignment import (
     frank_wolfe_user_equilibrium,
 )
 
+from .transit_signal_priority_tsp import (
+    SignalizedJunction,
+    TSPPerformanceResult,
+    simulate_transit_signal_priority,
+)
+
 __all__ = [
     "bpr_link_performance_function",
     "frank_wolfe_user_equilibrium",
@@ -20,4 +26,7 @@ __all__ = [
     "optimize_ev_fleet_charging",
     "ChargingDepotResult",
     "EVBusProfile",
+    "simulate_transit_signal_priority",
+    "TSPPerformanceResult",
+    "SignalizedJunction",
 ]

@@ -1,6 +1,8 @@
-# -*- coding: utf-8 -*-
-"""PlanX Municipal Infrastructure & Utilities Submodule."""
-
+from .district_cooling_heating import (
+    BuildingThermalDemandProfile,
+    DHCNetworkResult,
+    simulate_dhc_thermal_network,
+)
 from .water_distribution_epanet import (
     PipeHydraulicSegment,
     WaterNetworkResult,
@@ -11,4 +13,7 @@ __all__ = [
     "simulate_water_pipe_network",
     "WaterNetworkResult",
     "PipeHydraulicSegment",
+    "simulate_dhc_thermal_network",
+    "DHCNetworkResult",
+    "BuildingThermalDemandProfile",
 ]
