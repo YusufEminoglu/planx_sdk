@@ -5,6 +5,11 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.26.0] - 2026-08-30
+### Added
+- **Municipal Land Value Capture & Betterment Levy Calculator (`planx.economics.land_value_capture_betterment`)**: Added `calculate_betterment_levy_assessment` computing unearned land value increment from rezoning and transit proximity.
+- **Urban Biodiversity Habitat Connectivity Corridors (`planx.environment.urban_biodiversity_corridor`)**: Added `evaluate_biodiversity_corridor_connectivity` modeling Least-Cost Path ecological permeability and stepping stones.
+
 ## [2.25.0] - 2026-08-30
 ### Added
 - **Municipal Solid Waste Collection Routing Engine (`planx.infrastructure.solid_waste_route_allocator`)**: Added `optimize_waste_collection_routes` solving CVRP for compactor truck bin pickups, landfill haulage, and fuel consumption.

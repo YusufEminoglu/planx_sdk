@@ -12,6 +12,7 @@ from planx import (
     economics,
     energy,
     engine,
+    environment,
     generative,
     geostats,
     infrastructure,
@@ -25,7 +26,7 @@ from planx import (
     urban_physics,
 )
 
-__version__ = "2.25.0"
+__version__ = "2.26.0"
 __author__ = "Yusuf Eminoğlu"
 
 __all__ = [
@@ -39,11 +40,12 @@ __all__ = [
     "cellular_automata",
     "urban_physics",
     "generative",
+    "infrastructure",
     "mobility",
     "quality",
     "climate",
-    "energy",
     "demographics",
-    "infrastructure",
+    "energy",
     "economics",
+    "environment",
 ]
