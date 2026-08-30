@@ -5,6 +5,11 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.24.0] - 2026-08-30
+### Added
+- **4th Generation District Heating & Cooling Thermal Network Balancer (`planx.infrastructure.district_cooling_heating`)**: Added `simulate_dhc_thermal_network` calculating distribution heat losses, pumping power, and CO2 emissions avoided.
+- **Smart Intersection Transit Signal Priority (TSP) Simulator (`planx.mobility.transit_signal_priority_tsp`)**: Added `simulate_transit_signal_priority` modeling green extension and early green recall for municipal bus corridors.
+
 ## [2.23.0] - 2026-08-30
 ### Added
 - **Municipal Water Distribution Network Hydraulic Simulator (`planx.infrastructure.water_distribution_epanet`)**: Added `simulate_water_pipe_network` calculating Hazen-Williams head loss, nodal pressure heads, and flow velocities.
