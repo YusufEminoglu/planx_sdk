@@ -33,6 +33,12 @@ from .accessibility import (
     transit_fleet_electrification_scheduler,
     transit_frequency_accessibility,
 )
+from .fifteen_minute_city import (
+    DimensionScore,
+    FifteenMinuteCityResult,
+    ZoneAccessibilityScore,
+    evaluate_15min_city,
+)
 from .centrality import (
     angular_segment_centrality,
     axial_to_segment_conversion,
@@ -45,6 +51,12 @@ from .centrality import (
     street_orientation_entropy,
 )
 from .paths import many_to_many, multi_source
+from .school_catchment import (
+    SchoolCapacityRecord,
+    SchoolCatchmentResult,
+    StudentDemandZone,
+    optimize_school_catchments,
+)
 from .walkability import (
     active_mobility_permeability,
     bike_network_low_stress_connectivity,
@@ -124,4 +136,13 @@ __all__ = [
     "edge_criticality",
     "calculate_space_syntax_integration",
     "calculate_landuse_entropy_balance",
+    "evaluate_15min_city",
+    "FifteenMinuteCityResult",
+    "ZoneAccessibilityScore",
+    "DimensionScore",
+    # School Catchment
+    "optimize_school_catchments",
+    "SchoolCatchmentResult",
+    "SchoolCapacityRecord",
+    "StudentDemandZone",
 ]

@@ -67,6 +67,11 @@ from .seismic import (
     seismic_road_blockage_simulation,
     simulate_seismic_debris,
 )
+from .seismic_vulnerability_pml import (
+    BuildingStructureAsset,
+    SeismicPMLReport,
+    calculate_seismic_pml_risk,
+)
 from .social import social_vulnerability_index, urban_energy_vulnerability_index
 from .synthesis import compound_hazard_cascade, equity_adjusted_priority, multi_hazard_composite
 from .wildfire import (
@@ -136,4 +141,8 @@ __all__ = [
     "intervention_priority_class",
     "calculate_solar_radiation_surface",
     "seismic_liquefaction_potential_index",
+    # Seismic Vulnerability & PML
+    "calculate_seismic_pml_risk",
+    "SeismicPMLReport",
+    "BuildingStructureAsset",
 ]
