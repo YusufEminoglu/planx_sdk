@@ -3,6 +3,11 @@ from .district_cooling_heating import (
     DHCNetworkResult,
     simulate_dhc_thermal_network,
 )
+from .solid_waste_route_allocator import (
+    CollectionZoneDemand,
+    WasteRouteResult,
+    optimize_waste_collection_routes,
+)
 from .water_distribution_epanet import (
     PipeHydraulicSegment,
     WaterNetworkResult,
@@ -16,4 +21,7 @@ __all__ = [
     "simulate_dhc_thermal_network",
     "DHCNetworkResult",
     "BuildingThermalDemandProfile",
+    "optimize_waste_collection_routes",
+    "WasteRouteResult",
+    "CollectionZoneDemand",
 ]
