@@ -5,6 +5,11 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.25.0] - 2026-08-30
+### Added
+- **Municipal Solid Waste Collection Routing Engine (`planx.infrastructure.solid_waste_route_allocator`)**: Added `optimize_waste_collection_routes` solving CVRP for compactor truck bin pickups, landfill haulage, and fuel consumption.
+- **2D Urban Stormwater Flash Flood & Depression Ponding Model (`planx.resilience.urban_flood_inundation_2d`)**: Added `simulate_urban_flash_flood` simulating topographic sink ponding and critical infrastructure submergence depths.
+
 ## [2.24.0] - 2026-08-30
 ### Added
 - **4th Generation District Heating & Cooling Thermal Network Balancer (`planx.infrastructure.district_cooling_heating`)**: Added `simulate_dhc_thermal_network` calculating distribution heat losses, pumping power, and CO2 emissions avoided.

@@ -50,6 +50,11 @@ from .heat import (
     wind_canopy_aerodynamic_drag_simulator,
     wui_ember_transport_simulator,
 )
+from .urban_flood_inundation_2d import (
+    FloodInundationResult,
+    SurfaceDepressionCell,
+    simulate_urban_flash_flood,
+)
 from .infrastructure import (
     debris_clearance_routing,
     identify_critical_bottlenecks,
@@ -145,4 +150,8 @@ __all__ = [
     "calculate_seismic_pml_risk",
     "SeismicPMLReport",
     "BuildingStructureAsset",
+    # 2D Urban Flash Flood Inundation & Depression Ponding
+    "simulate_urban_flash_flood",
+    "FloodInundationResult",
+    "SurfaceDepressionCell",
 ]
