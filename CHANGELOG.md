@@ -5,6 +5,11 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.27.0] - 2026-08-30
+### Added
+- **Multi-Server EV Fast-Charging Station Queue Simulator (`mobility/ev_charging_queue_markov.py`)**: Added `simulate_ev_charging_station_queues` implementing M/M/c/K Markov birth-death queuing models and grid peak load estimators.
+- **FEMA HAZUS Seismic Building Damage & Shelter Engine (`resilience/seismic_building_vulnerability_hazus.py`)**: Added `evaluate_seismic_building_damage_hazus` calculating spectral acceleration fragility curves and shelter demand.
+
 ## [2.26.0] - 2026-08-30
 ### Added
 - **Municipal Land Value Capture & Betterment Levy Calculator (`planx.economics.land_value_capture_betterment`)**: Added `calculate_betterment_levy_assessment` computing unearned land value increment from rezoning and transit proximity.

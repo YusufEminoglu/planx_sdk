@@ -77,6 +77,11 @@ from .seismic_vulnerability_pml import (
     SeismicPMLReport,
     calculate_seismic_pml_risk,
 )
+from .seismic_building_vulnerability_hazus import (
+    BuildingFragilityCurve,
+    SeismicDamageResult,
+    evaluate_seismic_building_damage_hazus,
+)
 from .social import social_vulnerability_index, urban_energy_vulnerability_index
 from .synthesis import compound_hazard_cascade, equity_adjusted_priority, multi_hazard_composite
 from .wildfire import (
@@ -154,4 +159,8 @@ __all__ = [
     "simulate_urban_flash_flood",
     "FloodInundationResult",
     "SurfaceDepressionCell",
+    # FEMA HAZUS Seismic Building Damage
+    "evaluate_seismic_building_damage_hazus",
+    "SeismicDamageResult",
+    "BuildingFragilityCurve",
 ]

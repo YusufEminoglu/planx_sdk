@@ -26,7 +26,7 @@ from planx import (
     urban_physics,
 )
 
-__version__ = "2.26.0"
+__version__ = "2.27.0"
 __author__ = "Yusuf Eminoğlu"
 
 __all__ = [
