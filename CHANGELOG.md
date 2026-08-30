@@ -5,6 +5,42 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.23.0] - 2026-08-30
+### Added
+- **Municipal Water Distribution Network Hydraulic Simulator (`planx.infrastructure.water_distribution_epanet`)**: Added `simulate_water_pipe_network` calculating Hazen-Williams head loss, nodal pressure heads, and flow velocities.
+- **Tax Increment Financing (TIF) & Municipal Bond Engine (`planx.economics.tax_increment_financing_tif`)**: Added `simulate_tif_district_cashflows` computing 20-year incremental property tax capture, NPV, and debt service coverage ratios (DSCR).
+
+## [2.22.0] - 2026-08-30
+### Added
+- **Municipal EV Fleet Charging Schedule Optimizer (`planx.mobility.ev_fleet_charging_optimizer`)**: Added `optimize_ev_fleet_charging` with grid transformer capacity headroom peak-shaving and off-peak tariff cost minimization.
+- **Structural Seismic Vulnerability & Probable Maximum Loss (PML) (`planx.resilience.seismic_vulnerability_pml`)**: Added `calculate_seismic_pml_risk` according to Eurocode 8 / TBEC fragility curves.
+
+## [2.21.0] - 2026-08-30
+### Added
+- **Community Solar PV + Battery Storage Microgrid Simulator (`planx.energy.solar_microgrid`)**: Added `simulate_community_solar_microgrid` calculating 24h energy balance and self-sufficiency ratio (SSR).
+- **Universal Silver Mobility & Senior Accessibility Index (`planx.demographics.aging_mobility_index`)**: Added `calculate_silver_mobility_score` evaluating pedestrian age-friendliness, bench frequency, and slope comfort.
+
+## [2.20.0] - 2026-08-30
+### Added
+- **Urban Heat Island (UHI) Mitigation Simulator (`planx.urban_physics.uhi_mitigation`)**: Added `simulate_uhi_temperature_reduction` for cool roofs, shade canopy, and evaporative pavements.
+- **Capacitated School Catchment & Educational Equity Allocator (`planx.spatial.school_catchment`)**: Added `optimize_school_catchments` with student walking distance Gini equity calculation.
+
+## [2.19.0] - 2026-08-30
+### Added
+- **Sponge City & LID Urban Hydrology Simulator (`planx.climate.sponge_city`)**: Added `simulate_sponge_city_runoff` with SCS-CN retention and Low Impact Development facilities.
+- **Generative Land Subdivision & Parcel Layout Optimizer (`planx.generative.parcel_generator`)**: Added `generate_optimized_parcels` with frontage and depth constraints.
+- **Continuous 3D Sky View Factor & Daylight Autonomy (`planx.urban_physics.daylight_svf`)**: Added `compute_3d_sky_view_factor` across urban street canyons.
+- **Transit-Oriented Development (TOD) Typology & Density Optimizer (`planx.suitability.tod_optimizer`)**: Added `evaluate_tod_potential` and FAR density envelope optimization.
+
+## [2.18.0] - 2026-08-30
+### Added
+- **15-Minute City Proximity & Equity Evaluation Engine (`planx.spatial.fifteen_minute_city`)**:
+  - Multi-dimensional scoring across all 6 core urban functions (Living, Working, Supplying, Caring, Learning, Enjoying).
+  - Calculates composite 15m city accessibility score per zone, compliance rate, Hoover index, and Gini coefficient of accessibility equity (`evaluate_15min_city`).
+- **Urban Wind Ventilation Corridor & Aerodynamics Simulator (`planx.urban_physics.wind_corridor`)**:
+  - Morphometric aerodynamic roughness modeling (Grimmond & Oke / Macdonald models) calculating displacement height $z_d$, roughness length $z_0$, and pedestrian height wind velocity ratios $U / U_{ref}$.
+  - Identifies continuous fresh air ventilation paths and thermal stagnation traps (`simulate_wind_corridors`).
+
 ## [2.17.0] - 2026-08-10
 ### Added
 - **Quality and Decision Support Toolkit (`planx.quality`)**: robust array summaries, weighted quantiles, Gini inequality, weight normalization, quantile classification, ranking, bootstrap confidence intervals, z-scores, top-k selection, and Pareto-front detection.

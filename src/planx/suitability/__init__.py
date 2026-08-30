@@ -30,6 +30,11 @@ from .facility import (
     rank_sites,
     tod_spatial_diversity_index,
 )
+from .tod_optimizer import (
+    TODStationScore,
+    TODTypologyResult,
+    evaluate_tod_potential,
+)
 from .mcda import (
     ahp_weights_from_json,
     aras_method,
@@ -134,4 +139,7 @@ __all__ = [
     "gen_C",
     "gen_E",
     "gen_arti",
+    "evaluate_tod_potential",
+    "TODTypologyResult",
+    "TODStationScore",
 ]

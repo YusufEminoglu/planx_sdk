@@ -62,3 +62,13 @@ nul
 add_test.py
 scratch/
 
+
+__pycache__/
+*.py[cod]
+*.class
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
