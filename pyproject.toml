@@ -50,11 +50,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/YusufEminoglu/planx_sdk"
-Documentation = "https://yusufeminoglu.github.io/planx_sdk/"
-Repository = "https://github.com/YusufEminoglu/planx_sdk"
-Issues = "https://github.com/YusufEminoglu/planx_sdk/issues"
-Changelog = "https://github.com/YusufEminoglu/planx_sdk/blob/main/CHANGELOG.md"
+Homepage = "https://geophilo.com/"
+Documentation = "https://geophilo.com/"
+Repository = "https://gitlab.com/geospacephilo/planx_sdk"
+Issues = "https://gitlab.com/geospacephilo/planx_sdk/-/issues"
+Changelog = "https://gitlab.com/geospacephilo/planx_sdk/-/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
