@@ -51,7 +51,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://geophilo.com/"
-Documentation = "https://geophilo.com/"
+Documentation = "https://geophilo.com/planx_sdk/"
 Repository = "https://gitlab.com/geospacephilo/planx_sdk"
 Issues = "https://gitlab.com/geospacephilo/planx_sdk/-/issues"
 Changelog = "https://gitlab.com/geospacephilo/planx_sdk/-/blob/main/CHANGELOG.md"

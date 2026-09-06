@@ -9,14 +9,14 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/planx-sdk.svg?color=06b6d4)](https://pypi.org/project/planx-sdk/)
 [![Python version support](https://img.shields.io/pypi/pyversions/planx-sdk.svg?color=3b82f6)](https://pypi.org/project/planx-sdk/)
-[![Documentation](https://img.shields.io/badge/docs-GEOPHILO-10b981.svg)](https://geophilo.com/)
+[![Documentation](https://img.shields.io/badge/docs-GEOPHILO-10b981.svg)](https://geophilo.com/planx_sdk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-D7FF64.svg)](https://docs.astral.sh/ruff/)
 [![Test Coverage](https://img.shields.io/badge/coverage-90%25%2B-brightgreen.svg)](#-tests-and-quality-assurance)
 
 **High-Performance Headless Spatial Analytics, Spatial Statistics, Network Routing, and Urban Resilience Engine.**
 
-[📖 **Open Interactive Web Manual (GitLab Pages)**](https://geophilo.com/) • [📦 **PyPI Package**](https://pypi.org/project/planx-sdk/) • [🐛 **Issue Tracker**](https://gitlab.com/geospacephilo/planx_sdk/-/issues)
+[📖 **Open Interactive Web Manual**](https://geophilo.com/planx_sdk/) • [📦 **PyPI Package**](https://pypi.org/project/planx-sdk/) • [🐛 **Issue Tracker**](https://gitlab.com/geospacephilo/planx_sdk/-/issues)
 
 </div>
 
