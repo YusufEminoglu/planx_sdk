@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -39,7 +38,9 @@ def calculate_betterment_levy_assessment(
     municipal_betterment_tax_rate_pct: float = 40.0,  # 40% value capture rate
     transit_proximity_elasticity: float = 0.25,  # 25% price bump per 500m proximity
 ) -> BettermentLevyResult:
-    """Calculate municipal unearned increment land value capture and developer betterment levies following transit rezoning."""
+    """Calculate municipal unearned increment land value capture and developer
+    betterment levies following transit rezoning.
+    """
     records: list[ZoningUpliftZone] = []
     for z in zones:
         if isinstance(z, ZoningUpliftZone):
@@ -49,8 +50,12 @@ def calculate_betterment_levy_assessment(
                 ZoningUpliftZone(
                     zone_id=str(z.get("zone_id", z.get("id", "Z1"))),
                     parcel_area_m2=float(z.get("parcel_area_m2", z.get("area_m2", 1000.0))),
-                    baseline_land_value_per_m2=float(z.get("baseline_land_value_per_m2", z.get("base_val", 500.0))),
-                    distance_to_new_transit_hub_m=float(z.get("distance_to_new_transit_hub_m", z.get("dist_m", 300.0))),
+                    baseline_land_value_per_m2=float(
+                        z.get("baseline_land_value_per_m2", z.get("base_val", 500.0))
+                    ),
+                    distance_to_new_transit_hub_m=float(
+                        z.get("distance_to_new_transit_hub_m", z.get("dist_m", 300.0))
+                    ),
                     rezoned_far_increase=float(z.get("rezoned_far_increase", 1.5)),
                 )
             )

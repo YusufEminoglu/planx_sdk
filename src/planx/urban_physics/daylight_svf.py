@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -35,7 +35,10 @@ def compute_3d_sky_view_factor(
     grid_resolution: float = 25.0,
     num_ray_azimuths: int = 16,
 ) -> DaylightAutonomyResult:
-    r"""Calculate continuous 3D Sky View Factor (SVF = (1/2pi) \int \cos^2(\beta(\phi)) d\phi) across urban canyons."""
+    r"""Calculate continuous 3D Sky View Factor across urban canyons.
+
+    SVF = (1/2pi) \int \cos^2(\beta(\phi)) d\phi
+    """
     min_x, min_y, max_x, max_y = domain_bbox
     cols = max(1, int((max_x - min_x) / grid_resolution))
     rows = max(1, int((max_y - min_y) / grid_resolution))
@@ -54,8 +57,6 @@ def compute_3d_sky_view_factor(
             # Cast rays in all azimuth directions to find maximum obstacle elevation angle beta
             ray_svf_sum = 0.0
             for az in azimuths:
-                dx = math.cos(az)
-                dy = math.sin(az)
                 max_tan_beta = 0.0
 
                 for b in buildings:

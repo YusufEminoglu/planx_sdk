@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -43,7 +42,9 @@ def simulate_transit_signal_priority(
     bus_cruising_speed_kmh: float = 40.0,
     dwell_time_per_stop_seconds: float = 20.0,
 ) -> TSPPerformanceResult:
-    """Simulate municipal bus corridor transit travel times with Green Extension and Early Green algorithms."""
+    """Simulate municipal bus corridor transit travel times with Green Extension
+    and Early Green algorithms.
+    """
     juncs: list[SignalizedJunction] = []
     for j in junctions:
         if isinstance(j, dict):
@@ -98,7 +99,10 @@ def simulate_transit_signal_priority(
             priority_count += 1
         else:
             # Still small remaining red wait
-            tsp_wait = max(0.0, (junc.cycle_time_seconds - tsp_phase) - junc.early_green_truncation_seconds)
+            tsp_wait = max(
+                0.0,
+                (junc.cycle_time_seconds - tsp_phase) - junc.early_green_truncation_seconds,
+            )
             tsp_time += tsp_wait
 
         current_dist = junc.distance_along_corridor_m

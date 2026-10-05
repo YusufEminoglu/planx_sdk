@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -65,7 +65,16 @@ def simulate_community_solar_microgrid(
     hourly_demand = []
     base_demand = total_daily_demand_kwh / 24.0
     for h in range(24):
-        factor = 0.6 if h < 6 else (1.2 if 8 <= h <= 11 else (0.9 if 12 <= h <= 16 else (1.5 if 18 <= h <= 22 else 0.8)))
+        if h < 6:
+            factor = 0.6
+        elif 8 <= h <= 11:
+            factor = 1.2
+        elif 12 <= h <= 16:
+            factor = 0.9
+        elif 18 <= h <= 22:
+            factor = 1.5
+        else:
+            factor = 0.8
         hourly_demand.append(base_demand * factor)
 
     # Normalize demand to match total_daily_demand_kwh
@@ -105,7 +114,9 @@ def simulate_community_solar_microgrid(
 
         soc_history.append(round(soc, 2))
 
-    total_local_used = direct_self_consumed + (battery.initial_charge_kwh - soc + sum(hourly_pv) - grid_export - direct_self_consumed)
+    total_local_used = direct_self_consumed + (
+        battery.initial_charge_kwh - soc + sum(hourly_pv) - grid_export - direct_self_consumed
+    )
     total_local_used = min(total_daily_demand_kwh, max(0.0, total_daily_demand_kwh - grid_import))
 
     ssr = (total_local_used / max(1.0, total_daily_demand_kwh)) * 100.0

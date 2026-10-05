@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """PlanX Mobility & Traffic Engineering Submodule."""
 
+from .ev_charging_queue_markov import (
+    EVChargingQueueResult,
+    EVStationQueueConfig,
+    simulate_ev_charging_station_queues,
+)
 from .ev_fleet_charging_optimizer import (
     ChargingDepotResult,
     EVBusProfile,
@@ -11,16 +16,10 @@ from .traffic_assignment import (
     bpr_link_performance_function,
     frank_wolfe_user_equilibrium,
 )
-
 from .transit_signal_priority_tsp import (
     SignalizedJunction,
     TSPPerformanceResult,
     simulate_transit_signal_priority,
-)
-from .ev_charging_queue_markov import (
-    EVChargingQueueResult,
-    EVStationQueueConfig,
-    simulate_ev_charging_station_queues,
 )
 
 __all__ = [

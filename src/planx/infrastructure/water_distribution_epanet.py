@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -79,7 +79,9 @@ def simulate_water_pipe_network(
 
         # Hazen-Williams head loss formula (SI metric):
         # h_f = 10.67 * L * Q^1.852 / (C^1.852 * D^4.87)
-        h_loss = (10.67 * pipe.length_m * (q_m3s**1.852)) / ((pipe.roughness_c**1.852) * (d_m**4.87))
+        h_loss = (10.67 * pipe.length_m * (q_m3s**1.852)) / (
+            (pipe.roughness_c**1.852) * (d_m**4.87)
+        )
         tot_head_loss += h_loss
 
         current_head -= h_loss

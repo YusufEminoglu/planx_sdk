@@ -20,8 +20,22 @@ from planx.infrastructure.water_distribution_epanet import (
 class TestPlanXRound7(unittest.TestCase):
     def test_water_distribution_network(self) -> None:
         pipes = [
-            PipeHydraulicSegment(pipe_id="Main_P1", from_node="Tank", to_node="Junction1", length_m=200.0, diameter_mm=200.0, flow_rate_lps=40.0),
-            PipeHydraulicSegment(pipe_id="Branch_P2", from_node="Junction1", to_node="NodeA", length_m=150.0, diameter_mm=150.0, flow_rate_lps=20.0),
+            PipeHydraulicSegment(
+                pipe_id="Main_P1",
+                from_node="Tank",
+                to_node="Junction1",
+                length_m=200.0,
+                diameter_mm=200.0,
+                flow_rate_lps=40.0,
+            ),
+            PipeHydraulicSegment(
+                pipe_id="Branch_P2",
+                from_node="Junction1",
+                to_node="NodeA",
+                length_m=150.0,
+                diameter_mm=150.0,
+                flow_rate_lps=20.0,
+            ),
         ]
 
         res = simulate_water_pipe_network(pipes, source_pressure_head_m=50.0)
@@ -38,11 +52,23 @@ class TestPlanXRound7(unittest.TestCase):
 
     def test_tif_district_cashflows(self) -> None:
         props = [
-            PropertyTaxAssessment(property_id="Block_1", base_assessed_value_usd=2000000.0, current_assessed_value_usd=2000000.0, annual_appreciation_rate_pct=5.0),
-            PropertyTaxAssessment(property_id="Block_2", base_assessed_value_usd=3000000.0, current_assessed_value_usd=3000000.0, annual_appreciation_rate_pct=4.0),
+            PropertyTaxAssessment(
+                property_id="Block_1",
+                base_assessed_value_usd=2000000.0,
+                current_assessed_value_usd=2000000.0,
+                annual_appreciation_rate_pct=5.0,
+            ),
+            PropertyTaxAssessment(
+                property_id="Block_2",
+                base_assessed_value_usd=3000000.0,
+                current_assessed_value_usd=3000000.0,
+                annual_appreciation_rate_pct=4.0,
+            ),
         ]
 
-        tif_res = simulate_tif_district_cashflows(props, lifespan_years=15, annual_bond_debt_service_usd=80000.0)
+        tif_res = simulate_tif_district_cashflows(
+            props, lifespan_years=15, annual_bond_debt_service_usd=80000.0
+        )
 
         self.assertIsInstance(tif_res, TIFDistrictResult)
         self.assertGreater(tif_res.total_base_tax_revenue_usd, 0.0)

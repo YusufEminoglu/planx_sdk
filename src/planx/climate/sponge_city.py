@@ -3,14 +3,14 @@
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
 class LIDFacilityAssessment:
-    facility_type: str  # 'bioswale', 'permeable_pavement', 'rain_garden', 'green_roof', 'retention_pond'
+    # 'bioswale', 'permeable_pavement', 'rain_garden', 'green_roof', 'retention_pond'
+    facility_type: str
     area_m2: float
     storage_volume_m3: float
     retention_efficiency_percent: float
@@ -61,8 +61,10 @@ def simulate_sponge_city_runoff(
     """Simulate urban runoff retention and Low Impact Development (LID) sponge city performance.
 
     Args:
-        landuse_areas_m2: Dict of landuse types and areas (e.g. {'impervious': 40000, 'green': 15000}).
-        lid_facilities: List of dicts with 'type', 'area_m2', 'storage_depth_mm', 'soil_infiltration_rate_mmh'.
+        landuse_areas_m2: Dict of landuse types and areas
+            (e.g. {'impervious': 40000, 'green': 15000}).
+        lid_facilities: List of dicts with 'type', 'area_m2',
+            'storage_depth_mm', 'soil_infiltration_rate_mmh'.
         design_rainfall_depth_mm: Total precipitation in mm.
     """
     cn_table = {
@@ -82,7 +84,9 @@ def simulate_sponge_city_runoff(
         landuse_areas_m2 = {"impervious": 6000.0, "green": 4000.0}
 
     # Area-weighted Curve Number
-    weighted_cn_sum = sum(area * cn_table.get(k.lower(), 80.0) for k, area in landuse_areas_m2.items())
+    weighted_cn_sum = sum(
+        area * cn_table.get(k.lower(), 80.0) for k, area in landuse_areas_m2.items()
+    )
     composite_cn = weighted_cn_sum / tot_area
 
     # Baseline Runoff

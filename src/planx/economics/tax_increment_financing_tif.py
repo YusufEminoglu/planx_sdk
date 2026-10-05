@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -40,7 +39,9 @@ def simulate_tif_district_cashflows(
     annual_bond_debt_service_usd: float = 250000.0,
     discount_rate_pct: float = 5.0,
 ) -> TIFDistrictResult:
-    """Simulate 20-30 year municipal TIF district incremental property tax capture and debt service coverage."""
+    """Simulate 20-30 year municipal TIF district incremental property tax capture
+    and debt service coverage.
+    """
     props: list[PropertyTaxAssessment] = []
     for p in properties:
         if isinstance(p, dict):
@@ -68,7 +69,11 @@ def simulate_tif_district_cashflows(
 
     for yr in range(1, lifespan_years + 1):
         # Escalate assessed value
-        yr_val = sum(pr.current_assessed_value_usd * ((1.0 + pr.annual_appreciation_rate_pct / 100.0) ** yr) for pr in props)
+        yr_val = sum(
+            pr.current_assessed_value_usd
+            * ((1.0 + pr.annual_appreciation_rate_pct / 100.0) ** yr)
+            for pr in props
+        )
         base_rev = tot_base_val * avg_tax_rate
         total_rev = yr_val * avg_tax_rate
         inc_rev = max(0.0, total_rev - base_rev)

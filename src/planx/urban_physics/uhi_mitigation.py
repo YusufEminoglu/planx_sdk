@@ -3,9 +3,8 @@
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -41,7 +40,9 @@ def simulate_uhi_temperature_reduction(
     ambient_air_temp_c: float = 34.0,  # Peak summer heatwave
     solar_irradiance_w_m2: float = 850.0,
 ) -> UHIMitigationResult:
-    """Simulate surface and 2m ambient air temperature reduction from urban cooling interventions."""
+    """Simulate surface and 2m ambient air temperature reduction from urban
+    cooling interventions.
+    """
     # Baseline surface temperatures: T_surf = T_air + (1 - alpha) * I / h_c
     h_c = 20.0  # Convective heat transfer coefficient (W/m2.K)
     base_alpha_roof = 0.15
@@ -52,7 +53,9 @@ def simulate_uhi_temperature_reduction(
     base_t_pave = ambient_air_temp_c + ((1.0 - base_alpha_pave) * solar_irradiance_w_m2) / h_c
 
     # Weighted baseline surface temp
-    base_surf_temp = (base_t_roof * roof_area_m2 + base_t_pave * pavement_area_m2) / max(1.0, (roof_area_m2 + pavement_area_m2))
+    base_surf_temp = (base_t_roof * roof_area_m2 + base_t_pave * pavement_area_m2) / max(
+        1.0, (roof_area_m2 + pavement_area_m2)
+    )
 
     # Mitigated surface temperatures
     cool_roof_area = roof_area_m2 * cool_roof_fraction
@@ -78,7 +81,8 @@ def simulate_uhi_temperature_reduction(
 
     surf_reduction = max(0.0, base_surf_temp - mit_surf_temp)
 
-    # 2m Air Temperature Reduction: empirical Akbari & Pomerantz rule: ~0.18 °C air drop per 1.0 °C surface drop
+    # 2m Air Temperature Reduction: empirical Akbari & Pomerantz rule,
+    # ~0.18 °C air drop per 1.0 °C surface drop
     air_reduction = surf_reduction * 0.18
     base_air = ambient_air_temp_c
     mit_air = base_air - air_reduction

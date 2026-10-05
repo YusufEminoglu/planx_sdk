@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -42,7 +41,9 @@ def simulate_dhc_thermal_network(
     ambient_ground_temp_c: float = 12.0,
     pipe_insulation_u_value_w_mk: float = 0.22,
 ) -> DHCNetworkResult:
-    """Simulate low-temperature district energy network thermal losses, mass flow rates, and decarbonization yield."""
+    """Simulate low-temperature district energy network thermal losses,
+    mass flow rates, and decarbonization yield.
+    """
     buildings: list[BuildingThermalDemandProfile] = []
     for b in consumer_buildings:
         if isinstance(b, dict):

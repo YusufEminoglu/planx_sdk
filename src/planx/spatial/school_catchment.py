@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -32,7 +32,8 @@ class SchoolCatchmentResult:
     mean_student_walk_distance_m: float
     max_student_walk_distance_m: float
     overcapacity_schools_count: int
-    gini_accessibility_index: float  # Gini coefficient of travel distance equity (0 = perfect equity)
+    # Gini coefficient of travel distance equity (0 = perfect equity)
+    gini_accessibility_index: float
     schools: list[SchoolCapacityRecord]
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,7 +51,9 @@ def optimize_school_catchments(
     schools_data: list[dict[str, Any]],  # List of dicts with 'id', 'capacity', 'position': (x, y)
     zones_data: list[dict[str, Any]],  # List of dicts with 'id', 'students', 'position': (x, y)
 ) -> SchoolCatchmentResult:
-    """Capacitated greedy nearest allocation of neighborhood zones to schools minimizing travel distance."""
+    """Capacitated greedy nearest allocation of neighborhood zones to schools
+    minimizing travel distance.
+    """
     school_records: dict[str, dict[str, Any]] = {}
     for s in schools_data:
         s_id = str(s.get("id", "school"))
@@ -91,7 +94,10 @@ def optimize_school_catchments(
             assigned_students += cnt
             all_distances_weighted.extend([best_dist] * cnt)
 
-    mean_dist = float(sum(all_distances_weighted) / max(1, len(all_distances_weighted))) if all_distances_weighted else 0.0
+    if all_distances_weighted:
+        mean_dist = float(sum(all_distances_weighted) / max(1, len(all_distances_weighted)))
+    else:
+        mean_dist = 0.0
     max_dist = max(all_distances_weighted) if all_distances_weighted else 0.0
 
     # Calculate Gini coefficient of distances

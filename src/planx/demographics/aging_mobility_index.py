@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -41,7 +40,10 @@ class AgingMobilityResult:
 def calculate_silver_mobility_score(
     zones: Sequence[SeniorZoneProfile | dict[str, Any]],
 ) -> AgingMobilityResult:
-    """Evaluate pedestrian urban environment friendliness for aging populations (WHO Age-Friendly Cities guidelines)."""
+    """Evaluate pedestrian urban environment friendliness for aging populations.
+
+    Follows the WHO Age-Friendly Cities guidelines.
+    """
     scores = []
     grades = {}
     deficiencies = []
@@ -92,7 +94,13 @@ def calculate_silver_mobility_score(
         s_shade = min(100.0, (z.shade_coverage_pct / 40.0) * 100.0)
 
         # Weighted aggregate score
-        z_score = (s_width * 0.20 + s_ramp * 0.25 + s_bench * 0.25 + s_slope * 0.20 + s_shade * 0.10)
+        z_score = (
+            s_width * 0.20
+            + s_ramp * 0.25
+            + s_bench * 0.25
+            + s_slope * 0.20
+            + s_shade * 0.10
+        )
         scores.append(z_score)
 
         if z_score >= 85.0:

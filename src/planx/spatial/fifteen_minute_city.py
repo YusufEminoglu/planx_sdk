@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -66,7 +66,9 @@ DEFAULT_DIMENSION_WEIGHTS: dict[str, float] = {
 
 
 def _decay_function(travel_time_min: float, threshold_min: float = 15.0) -> float:
-    """Continuous logistic / Gaussian decay from 100 (at 0 min) to 50 (at 15 min) and ~0 (at 30 min)."""
+    """Continuous logistic / Gaussian decay from 100 (at 0 min) to
+    50 (at 15 min) and ~0 (at 30 min).
+    """
     if travel_time_min <= 0:
         return 100.0
     # Sigmoidal smooth decay
@@ -85,7 +87,8 @@ def evaluate_15min_city(
 
     Args:
         origin_zones: List of dicts with 'id', 'x', 'y', optional 'population'.
-        amenities: List of dicts with 'id', 'x', 'y', 'category' ('supplying', 'caring', 'learning', etc.).
+        amenities: List of dicts with 'id', 'x', 'y', 'category'
+            ('supplying', 'caring', 'learning', etc.).
         weights: Optional dimension weight dictionary summing to 1.0.
         walking_speed_kmh: Pedestrian walking speed (default: 4.8 km/h).
 
@@ -180,7 +183,9 @@ def evaluate_15min_city(
     else:
         hoover = 0.0
 
-    dim_averages = {d: (sum(scores) / n_zones if scores else 0.0) for d, scores in dim_accum.items()}
+    dim_averages = {
+        d: (sum(scores) / n_zones if scores else 0.0) for d, scores in dim_accum.items()
+    }
 
     return FifteenMinuteCityResult(
         total_zones=len(origin_zones),

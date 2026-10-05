@@ -20,9 +20,24 @@ from planx.resilience.seismic_vulnerability_pml import (
 class TestPlanXRound6(unittest.TestCase):
     def test_ev_fleet_charging_optimizer(self) -> None:
         fleet = [
-            EVBusProfile(bus_id="Bus_101", battery_capacity_kwh=300.0, arrival_soc_pct=20.0, target_departure_soc_pct=85.0),
-            EVBusProfile(bus_id="Bus_102", battery_capacity_kwh=300.0, arrival_soc_pct=30.0, target_departure_soc_pct=90.0),
-            EVBusProfile(bus_id="Bus_103", battery_capacity_kwh=350.0, arrival_soc_pct=15.0, target_departure_soc_pct=80.0),
+            EVBusProfile(
+                bus_id="Bus_101",
+                battery_capacity_kwh=300.0,
+                arrival_soc_pct=20.0,
+                target_departure_soc_pct=85.0,
+            ),
+            EVBusProfile(
+                bus_id="Bus_102",
+                battery_capacity_kwh=300.0,
+                arrival_soc_pct=30.0,
+                target_departure_soc_pct=90.0,
+            ),
+            EVBusProfile(
+                bus_id="Bus_103",
+                battery_capacity_kwh=350.0,
+                arrival_soc_pct=15.0,
+                target_departure_soc_pct=80.0,
+            ),
         ]
 
         res = optimize_ev_fleet_charging(fleet, max_grid_transformer_capacity_kw=500.0)
