@@ -30,11 +30,6 @@ from .facility import (
     rank_sites,
     tod_spatial_diversity_index,
 )
-from .tod_optimizer import (
-    TODStationScore,
-    TODTypologyResult,
-    evaluate_tod_potential,
-)
 from .mcda import (
     ahp_weights_from_json,
     aras_method,
@@ -65,6 +60,11 @@ from .mcda import (
     vikor_method,
     waspas_method,
     weighted_linear_combination,
+)
+from .tod_optimizer import (
+    TODStationScore,
+    TODTypologyResult,
+    evaluate_tod_potential,
 )
 from .weights import (
     ahp_weights,

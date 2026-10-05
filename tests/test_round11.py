@@ -40,13 +40,22 @@ class TestPlanXRound11(unittest.TestCase):
         self.assertIn("waiting_time_min", d)
 
     def test_seismic_building_damage_hazus(self) -> None:
-        curve = BuildingFragilityCurve(building_class="C2M", median_spectral_accel_moderate_g=0.40)
-        res = evaluate_seismic_building_damage_hazus(peak_ground_spectral_accel_sa_g=0.60, building_occupants_count=300, fragility=curve)
+        curve = BuildingFragilityCurve(
+            building_class="C2M", median_spectral_accel_moderate_g=0.40
+        )
+        res = evaluate_seismic_building_damage_hazus(
+            peak_ground_spectral_accel_sa_g=0.60, building_occupants_count=300, fragility=curve
+        )
 
         self.assertIsInstance(res, SeismicDamageResult)
         self.assertGreaterEqual(res.peak_spectral_acceleration_sa_g, 0.0)
-        self.assertGreater(res.prob_moderate_damage + res.prob_extensive_damage + res.prob_complete_collapse, 0.0)
-        self.assertIn(res.building_damage_state_modal, ["NONE", "SLIGHT", "MODERATE", "EXTENSIVE", "COMPLETE"])
+        self.assertGreater(
+            res.prob_moderate_damage + res.prob_extensive_damage + res.prob_complete_collapse, 0.0
+        )
+        self.assertIn(
+            res.building_damage_state_modal,
+            ["NONE", "SLIGHT", "MODERATE", "EXTENSIVE", "COMPLETE"],
+        )
         self.assertGreaterEqual(res.post_earthquake_shelter_demand_persons, 0)
 
         d = res.to_dict()

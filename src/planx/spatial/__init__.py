@@ -33,12 +33,6 @@ from .accessibility import (
     transit_fleet_electrification_scheduler,
     transit_frequency_accessibility,
 )
-from .fifteen_minute_city import (
-    DimensionScore,
-    FifteenMinuteCityResult,
-    ZoneAccessibilityScore,
-    evaluate_15min_city,
-)
 from .centrality import (
     angular_segment_centrality,
     axial_to_segment_conversion,
@@ -49,6 +43,12 @@ from .centrality import (
     network_criticality,
     pagerank_centrality,
     street_orientation_entropy,
+)
+from .fifteen_minute_city import (
+    DimensionScore,
+    FifteenMinuteCityResult,
+    ZoneAccessibilityScore,
+    evaluate_15min_city,
 )
 from .paths import many_to_many, multi_source
 from .school_catchment import (

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 import numpy as np
@@ -87,7 +87,8 @@ def simulate_wind_corridors(
 
     Uses Grimmond & Oke / Macdonald morphometric aerodynamic models:
     - Zero-plane displacement height: z_d = H * (1 + alpha^(-lambda_p) * (lambda_p - 1))
-    - Roughness length: z_0 = H * (1 - z_d / H) * exp(-(0.5 * beta * C_d / kappa^2 * (1 - z_d / H) * lambda_f)^(-0.5))
+    - Roughness length: z_0 = H * (1 - z_d / H)
+      * exp(-(0.5 * beta * C_d / kappa^2 * (1 - z_d / H) * lambda_f)^(-0.5))
     - Velocity ratio U / U_ref based on log wind profile at pedestrian height (1.5m).
 
     Args:
@@ -98,7 +99,8 @@ def simulate_wind_corridors(
         grid_resolution: Grid cell size in meters (default: 20m).
 
     Returns:
-        WindCorridorResult containing cell-by-cell wind velocity ratios and corridor classifications.
+        WindCorridorResult containing cell-by-cell wind velocity ratios and
+        corridor classifications.
     """
     min_x, min_y, max_x, max_y = domain_bbox
     cols = max(1, int((max_x - min_x) / grid_resolution))

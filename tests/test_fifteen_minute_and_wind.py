@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import unittest
+
 from planx.spatial.fifteen_minute_city import (
     FifteenMinuteCityResult,
     evaluate_15min_city,
@@ -38,7 +39,9 @@ class TestFifteenMinuteAndWind(unittest.TestCase):
         self.assertLessEqual(result.mean_composite_score, 100.0)
 
         # Z1 should have higher score than remote Z3
-        self.assertGreater(result.zone_scores[0].composite_15m_score, result.zone_scores[2].composite_15m_score)
+        self.assertGreater(
+            result.zone_scores[0].composite_15m_score, result.zone_scores[2].composite_15m_score
+        )
         self.assertIn("Z3", result.deficit_zone_ids)
 
         d = result.to_dict()

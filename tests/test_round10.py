@@ -20,8 +20,20 @@ from planx.environment.urban_biodiversity_corridor import (
 class TestPlanXRound10(unittest.TestCase):
     def test_land_value_capture_betterment_levy(self) -> None:
         zones = [
-            ZoningUpliftZone("Zone_A", parcel_area_m2=2500.0, baseline_land_value_per_m2=800.0, distance_to_new_transit_hub_m=200.0, rezoned_far_increase=2.0),
-            ZoningUpliftZone("Zone_B", parcel_area_m2=4000.0, baseline_land_value_per_m2=600.0, distance_to_new_transit_hub_m=800.0, rezoned_far_increase=1.0),
+            ZoningUpliftZone(
+                "Zone_A",
+                parcel_area_m2=2500.0,
+                baseline_land_value_per_m2=800.0,
+                distance_to_new_transit_hub_m=200.0,
+                rezoned_far_increase=2.0,
+            ),
+            ZoningUpliftZone(
+                "Zone_B",
+                parcel_area_m2=4000.0,
+                baseline_land_value_per_m2=600.0,
+                distance_to_new_transit_hub_m=800.0,
+                rezoned_far_increase=1.0,
+            ),
         ]
 
         res = calculate_betterment_levy_assessment(zones, municipal_betterment_tax_rate_pct=35.0)
@@ -38,12 +50,29 @@ class TestPlanXRound10(unittest.TestCase):
 
     def test_urban_biodiversity_corridors(self) -> None:
         patches = [
-            EcologicalHabitatPatch("Forest_Park", area_hectares=15.0, center_coordinates=(100.0, 100.0), habitat_quality_score=0.95),
-            EcologicalHabitatPatch("River_Wetland", area_hectares=8.0, center_coordinates=(350.0, 200.0), habitat_quality_score=0.90),
-            EcologicalHabitatPatch("Botanical_Garden", area_hectares=5.0, center_coordinates=(1500.0, 1500.0), habitat_quality_score=0.75),
+            EcologicalHabitatPatch(
+                "Forest_Park",
+                area_hectares=15.0,
+                center_coordinates=(100.0, 100.0),
+                habitat_quality_score=0.95,
+            ),
+            EcologicalHabitatPatch(
+                "River_Wetland",
+                area_hectares=8.0,
+                center_coordinates=(350.0, 200.0),
+                habitat_quality_score=0.90,
+            ),
+            EcologicalHabitatPatch(
+                "Botanical_Garden",
+                area_hectares=5.0,
+                center_coordinates=(1500.0, 1500.0),
+                habitat_quality_score=0.75,
+            ),
         ]
 
-        res = evaluate_biodiversity_corridor_connectivity(patches, max_species_dispersal_distance_m=800.0)
+        res = evaluate_biodiversity_corridor_connectivity(
+            patches, max_species_dispersal_distance_m=800.0
+        )
 
         self.assertIsInstance(res, BiodiversityCorridorResult)
         self.assertEqual(res.total_habitat_patches, 3)

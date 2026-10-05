@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Multi-Server EV Fast-Charging Station Queue & Waiting Time Simulator (M/M/c/K Markov Chain) for PlanX."""
+"""Multi-Server EV Fast-Charging Station Queue & Waiting Time Simulator
+(M/M/c/K Markov Chain) for PlanX.
+"""
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -42,7 +44,9 @@ def simulate_ev_charging_station_queues(
     config: EVStationQueueConfig | None = None,
     charger_rated_power_kw: float = 150.0,  # 150 kW DC Fast Charger
 ) -> EVChargingQueueResult:
-    """Compute steady-state M/M/c/K Markov birth-death queuing probabilities and waiting times for EV charging hubs."""
+    """Compute steady-state M/M/c/K Markov birth-death queuing probabilities
+    and waiting times for EV charging hubs.
+    """
     cfg = config or EVStationQueueConfig()
     c = max(1, cfg.num_fast_chargers_c)
     k = max(c, cfg.max_queue_capacity_k)

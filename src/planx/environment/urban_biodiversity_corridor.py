@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -39,7 +39,9 @@ def evaluate_biodiversity_corridor_connectivity(
     max_species_dispersal_distance_m: float = 600.0,  # e.g., urban birds / pollinator threshold
     urban_matrix_resistance_cost: float = 1.4,  # Asphalt / building barrier penalty
 ) -> BiodiversityCorridorResult:
-    """Compute Least-Cost Path ecological connectivity and stepping-stone corridor permeability across fragmented urban landscapes."""
+    """Compute Least-Cost Path ecological connectivity and stepping-stone
+    corridor permeability across fragmented urban landscapes.
+    """
     patches: list[EcologicalHabitatPatch] = []
     for p in habitat_patches:
         if isinstance(p, EcologicalHabitatPatch):
@@ -75,7 +77,9 @@ def evaluate_biodiversity_corridor_connectivity(
             if effective_cost_dist <= max_species_dispersal_distance_m:
                 permeability = math.exp(-effective_cost_dist / max_species_dispersal_distance_m)
                 combined_quality = (p1.habitat_quality_score + p2.habitat_quality_score) / 2.0
-                corridor_flux = permeability * combined_quality * (p1.area_hectares * p2.area_hectares) ** 0.5
+                corridor_flux = (
+                    permeability * combined_quality * (p1.area_hectares * p2.area_hectares) ** 0.5
+                )
 
                 connected_pairs += 1
                 links.append({

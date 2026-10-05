@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -42,7 +41,9 @@ def optimize_ev_fleet_charging(
     max_grid_transformer_capacity_kw: float = 800.0,
     electricity_price_schedule_per_kwh: Sequence[float] | None = None,
 ) -> ChargingDepotResult:
-    """Smart charging schedule optimization leveling peak demand and prioritizing off-peak night tariff."""
+    """Smart charging schedule optimization leveling peak demand and
+    prioritizing off-peak night tariff.
+    """
     # Default 24h tariff: off-peak (00-06) = $0.08, normal = $0.14, peak (17-22) = $0.24
     if electricity_price_schedule_per_kwh is None:
         tariffs = [
@@ -78,7 +79,11 @@ def optimize_ev_fleet_charging(
     schedules = []
 
     for bus in bus_list:
-        needed_kwh = (bus.target_departure_soc_pct - bus.arrival_soc_pct) / 100.0 * bus.battery_capacity_kwh
+        needed_kwh = (
+            (bus.target_departure_soc_pct - bus.arrival_soc_pct)
+            / 100.0
+            * bus.battery_capacity_kwh
+        )
         if needed_kwh <= 0:
             continue
 

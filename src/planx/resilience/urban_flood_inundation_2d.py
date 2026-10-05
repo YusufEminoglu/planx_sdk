@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -40,7 +39,9 @@ def simulate_urban_flash_flood(
     storm_rainfall_mm: float = 85.0,  # 100-year return storm downpour
     storm_duration_hours: float = 2.0,
 ) -> FloodInundationResult:
-    """Simulate 2D cell overland stormwater ponding, depression storage filling, and flood hazard depths."""
+    """Simulate 2D cell overland stormwater ponding, depression storage filling,
+    and flood hazard depths.
+    """
     cells: list[SurfaceDepressionCell] = []
     for c in surface_cells:
         if isinstance(c, dict):

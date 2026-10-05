@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 
@@ -43,7 +43,9 @@ def optimize_waste_collection_routes(
     depot_location_xy: tuple[float, float] = (0.0, 0.0),
     landfill_location_xy: tuple[float, float] = (15.0, 15.0),
 ) -> WasteRouteResult:
-    """Solve Capacitated Vehicle Routing Problem (CVRP) for municipal solid waste recycling and disposal."""
+    """Solve Capacitated Vehicle Routing Problem (CVRP) for municipal solid
+    waste recycling and disposal.
+    """
     zone_list: list[CollectionZoneDemand] = []
     for z in zones:
         if isinstance(z, dict):
@@ -74,7 +76,9 @@ def optimize_waste_collection_routes(
     dist_last_to_landfill = math.dist(zone_coords[-1], landfill_location_xy)
     dist_landfill_to_depot = math.dist(landfill_location_xy, depot_location_xy)
 
-    single_tour_dist = dist_depot_to_first + inter_zone_dist + dist_last_to_landfill + dist_landfill_to_depot
+    single_tour_dist = (
+        dist_depot_to_first + inter_zone_dist + dist_last_to_landfill + dist_landfill_to_depot
+    )
     total_km = single_tour_dist * trips_needed
 
     # Average municipal refuse truck diesel fuel consumption: ~45 L / 100 km (with compactor PTO)

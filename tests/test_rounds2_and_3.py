@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for PlanX Rounds 2 and 3 features (Sponge City, Parcel Gen, Daylight SVF, TOD Optimizer)."""
+"""Unit tests for PlanX Rounds 2 and 3 features.
+
+Covers Sponge City, Parcel Gen, Daylight SVF and TOD Optimizer.
+"""
 
 from __future__ import annotations
 
@@ -66,12 +69,27 @@ class TestPlanXRounds2And3(unittest.TestCase):
 
     def test_tod_typology_optimizer(self) -> None:
         stations = [
-            {"id": "ST_01", "peak_trips_per_hour": 28.0, "landuse_shares": {"res": 0.4, "com": 0.4, "civ": 0.2}, "intersection_density_km2": 110.0},
-            {"id": "ST_02", "peak_trips_per_hour": 6.0, "landuse_shares": {"res": 0.9, "com": 0.1}, "intersection_density_km2": 30.0},
+            {
+                "id": "ST_01",
+                "peak_trips_per_hour": 28.0,
+                "landuse_shares": {"res": 0.4, "com": 0.4, "civ": 0.2},
+                "intersection_density_km2": 110.0,
+            },
+            {
+                "id": "ST_02",
+                "peak_trips_per_hour": 6.0,
+                "landuse_shares": {"res": 0.9, "com": 0.1},
+                "intersection_density_km2": 30.0,
+            },
         ]
         res = evaluate_tod_potential(stations)
 
         self.assertIsInstance(res, TODTypologyResult)
         self.assertEqual(res.total_stations_evaluated, 2)
-        self.assertGreater(res.station_scores[0].composite_tod_index, res.station_scores[1].composite_tod_index)
-        self.assertGreater(res.station_scores[0].recommended_far_density, res.station_scores[1].recommended_far_density)
+        self.assertGreater(
+            res.station_scores[0].composite_tod_index, res.station_scores[1].composite_tod_index
+        )
+        self.assertGreater(
+            res.station_scores[0].recommended_far_density,
+            res.station_scores[1].recommended_far_density,
+        )

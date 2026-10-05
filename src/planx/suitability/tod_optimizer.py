@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -54,7 +54,9 @@ def evaluate_tod_potential(
     for st in transit_stations:
         s_id = str(st.get("id", "station"))
         trips_per_hour = float(st.get("peak_trips_per_hour", 12.0))
-        landuse_mix = st.get("landuse_shares", {"residential": 0.5, "commercial": 0.3, "civic": 0.2})
+        landuse_mix = st.get(
+            "landuse_shares", {"residential": 0.5, "commercial": 0.3, "civic": 0.2}
+        )
         ped_density = float(st.get("intersection_density_km2", 80.0))
 
         # Transit Score (normalized 0-100, 30 trips/hr = 100)
@@ -63,7 +65,8 @@ def evaluate_tod_potential(
         # Land-use Shannon Entropy H = - \sum p_i ln(p_i) / ln(K)
         k = len(landuse_mix)
         if k > 1:
-            h = -sum(p * math.log(max(1e-6, p)) for p in landuse_mix.values() if p > 0) / math.log(k)
+            entropy_sum = sum(p * math.log(max(1e-6, p)) for p in landuse_mix.values() if p > 0)
+            h = -entropy_sum / math.log(k)
         else:
             h = 0.0
         entropy_score = max(0.0, min(1.0, h))
