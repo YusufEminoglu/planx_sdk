@@ -25,6 +25,7 @@ class BettermentLevyResult:
     zone_assessments: list[dict[str, Any]]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "parcels_assessed": self.total_parcels_assessed,
             "total_uplift_usd": round(self.total_unearned_land_value_uplift_usd, 2),
@@ -69,8 +70,8 @@ def calculate_betterment_levy_assessment(
         # Distance decay factor for transit uplift: max 1.0 at 0m, decaying out to 1500m
         dist_factor = max(0.05, 1.0 - (r.distance_to_new_transit_hub_m / 1500.0))
         # Value uplift formula: FAR increase * base value * transit elasticity * distance factor
-        far_multiplier = (1.0 + 0.30 * r.rezoned_far_increase)
-        transit_multiplier = (1.0 + transit_proximity_elasticity * dist_factor)
+        far_multiplier = 1.0 + 0.30 * r.rezoned_far_increase
+        transit_multiplier = 1.0 + transit_proximity_elasticity * dist_factor
 
         post_val_m2 = r.baseline_land_value_per_m2 * far_multiplier * transit_multiplier
         delta_val_m2 = post_val_m2 - r.baseline_land_value_per_m2
@@ -83,13 +84,15 @@ def calculate_betterment_levy_assessment(
         tot_revenue += levy_due
         pcts.append(uplift_pct)
 
-        details.append({
-            "zone_id": r.zone_id,
-            "post_val_m2": round(post_val_m2, 2),
-            "parcel_uplift_usd": round(parcel_uplift, 2),
-            "levy_due_usd": round(levy_due, 2),
-            "uplift_pct": round(uplift_pct, 1),
-        })
+        details.append(
+            {
+                "zone_id": r.zone_id,
+                "post_val_m2": round(post_val_m2, 2),
+                "parcel_uplift_usd": round(parcel_uplift, 2),
+                "levy_due_usd": round(levy_due, 2),
+                "uplift_pct": round(uplift_pct, 1),
+            }
+        )
 
     avg_pct = sum(pcts) / max(1, len(pcts))
 

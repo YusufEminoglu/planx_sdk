@@ -85,7 +85,7 @@ OSM_HIGHWAY_WIDTHS_M = {
 }
 
 
-def parse_width_m(value):
+def parse_width_m(value: object) -> float | None:
     """Lenient road-width parser for attribute values.
 
     Accepts numbers and strings such as "6.5", "6,5" or "6.5 m" and returns
@@ -112,7 +112,7 @@ def parse_width_m(value):
     return width if np.isfinite(width) and width > 0.0 else None
 
 
-def highway_width_m(highway_class, fallback: float) -> float:
+def highway_width_m(highway_class: object, fallback: float) -> float:
     """Full carriageway width (m) for an OSM ``highway`` class value.
 
     Matching is case- and whitespace-tolerant; "_link" ramp variants inherit

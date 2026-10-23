@@ -10,7 +10,7 @@ by containment, first hit wins.
 from __future__ import annotations
 
 
-def parse_standards(text: str):
+def parse_standards(text: str) -> list[tuple[str, float]]:
     """``"green=10, park=10"`` -> [("green", 10.0), ("park", 10.0)].
 
     Separators: comma or semicolon. Raises ValueError on malformed entries.
@@ -36,7 +36,9 @@ def parse_standards(text: str):
     return standards
 
 
-def match_standard(category: str, standards):
+def match_standard(
+    category: str, standards: list[tuple[str, float]]
+) -> tuple[str | None, float | None]:
     """First standard whose keyword is contained in the category name."""
     cat = str(category).lower()
     for key, per_capita in standards:
@@ -45,7 +47,11 @@ def match_standard(category: str, standards):
     return None, None
 
 
-def balance_rows(category_areas: dict, population: float, standards):
+def balance_rows(
+    category_areas: dict[str, float],
+    population: float,
+    standards: list[tuple[str, float]],
+) -> list[dict[str, object]]:
     """Compute the land-use balance table.
 
     ``category_areas``: {category name: total area m2}. Returns a list of

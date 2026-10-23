@@ -249,6 +249,7 @@ def socio_economic_flood_risk(
 
     # Helper function to normalize arrays to [0.0, 100.0]
     def min_max_normalize(arr: np.ndarray) -> np.ndarray:
+        """Scale valid cells of ``arr`` to [0, 100]."""
         val_subset = arr[valid]
         mn = np.min(val_subset)
         mx = np.max(val_subset)
@@ -466,6 +467,7 @@ def detention_basin_sizing(
 
     # SCS runoff equation: Q = (P - 0.2*S)^2 / (P + 0.8*S) when P > 0.2*S
     def _scs_runoff(cn: float) -> float:
+        """SCS curve-number runoff depth (mm) for the design storm."""
         S = 25400.0 / max(cn, 1.0) - 254.0  # potential maximum retention (mm)
         Ia = 0.2 * S  # initial abstraction
         if P <= Ia:

@@ -271,6 +271,7 @@ def calculate_grid_sky_view_factor(
 
     # Shift helper
     def _shift_grid(grid: np.ndarray, oy: int, ox: int) -> np.ndarray:
+        """Return ``grid`` shifted by ``(oy, ox)`` pixels, zero-filled."""
         shifted = np.zeros_like(grid)
         if oy >= 0:
             t_ystart, t_yend = oy, rows
@@ -458,6 +459,7 @@ def calculate_solar_access(
 
     # Shift helper
     def _shift_grid(grid: np.ndarray, oy: int, ox: int) -> np.ndarray:
+        """Return ``grid`` shifted by ``(oy, ox)`` pixels, zero-filled."""
         shifted = np.zeros_like(grid)
         if oy >= 0:
             t_ystart, t_yend = oy, rows
@@ -654,6 +656,7 @@ def urban_heat_vulnerability_index(
         raise ValueError("uhi_intensity, sensitivity_density, and canopy_cover_ratio must match.")
 
     def min_max(arr: np.ndarray) -> np.ndarray:
+        """Scale ``arr`` to [0, 1], returning zeros when it is constant."""
         min_v, max_v = np.min(arr), np.max(arr)
         if max_v > min_v:
             return (arr - min_v) / (max_v - min_v)
@@ -744,6 +747,7 @@ def optimize_tree_canopy_greening(
         raise ValueError("cooling_radius must be positive.")
 
     def min_max(arr: np.ndarray) -> np.ndarray:
+        """Scale ``arr`` to [0, 1], returning zeros when it is constant."""
         min_v, max_v = np.min(arr), np.max(arr)
         if max_v > min_v:
             return (arr - min_v) / (max_v - min_v)

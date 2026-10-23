@@ -43,6 +43,7 @@ class FifteenMinuteCityResult:
     deficit_zone_ids: list[str]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "total_zones": self.total_zones,
             "mean_composite_score": round(self.mean_composite_score, 2),
@@ -57,11 +58,11 @@ class FifteenMinuteCityResult:
 
 DEFAULT_DIMENSION_WEIGHTS: dict[str, float] = {
     "supplying": 0.25,  # Grocery, pharmacies, daily retail
-    "caring": 0.20,     # Clinics, medical centers, pharmacy
-    "learning": 0.20,   # Schools, libraries, nurseries
-    "enjoying": 0.15,   # Parks, sports, green spaces
-    "working": 0.10,    # Local offices, co-working
-    "living": 0.10,     # Community spaces, public squares
+    "caring": 0.20,  # Clinics, medical centers, pharmacy
+    "learning": 0.20,  # Schools, libraries, nurseries
+    "enjoying": 0.15,  # Parks, sports, green spaces
+    "working": 0.10,  # Local offices, co-working
+    "living": 0.10,  # Community spaces, public squares
 }
 
 

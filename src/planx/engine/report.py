@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import html as _html
 from datetime import datetime
+from typing import Any, Iterable, Sequence
 
 # ---------------------------------------------------------------------------
 # Colour ramp (bad red -> amber -> good green), used by cards and SVG maps.
@@ -46,7 +47,8 @@ def ramp_color(t: float) -> str:
     return "#%02x%02x%02x" % rgb
 
 
-def _tone(pct, good: float, warn: float) -> str:
+def _tone(pct: float | None, good: float, warn: float) -> str:
+    """Map a percentage to a card tone: good, warn, bad or info."""
     if pct is None:
         return "info"
     if pct >= good:
@@ -56,12 +58,14 @@ def _tone(pct, good: float, warn: float) -> str:
     return "bad"
 
 
-def _mean(values):
+def _mean(values: Iterable[float]) -> float:
+    """Arithmetic mean of ``values`` (0.0 for an empty input)."""
     values = list(values)
     return sum(values) / len(values) if values else 0.0
 
 
-def _median(values):
+def _median(values: Iterable[float]) -> float:
+    """Median of ``values`` (0.0 for an empty input)."""
     values = sorted(values)
     n = len(values)
     if n == 0:
@@ -73,7 +77,7 @@ def _median(values):
 # ---------------------------------------------------------------------------
 # Summaries: plain rows in, plain dicts out.
 # ---------------------------------------------------------------------------
-def access_summary(scores) -> dict:
+def access_summary(scores: Iterable[float]) -> dict[str, float | int]:
     """Scores are the 0-100 'score' values of the access-score layer."""
     scores = [float(s) for s in scores]
     n = len(scores)
@@ -88,7 +92,9 @@ def access_summary(scores) -> dict:
     }
 
 
-def balance_summary(rows) -> dict:
+def balance_summary(
+    rows: Iterable[dict[str, Any]],
+) -> dict[str, float | int | str | None]:
     """Rows from the Land-Use Balance table.
 
     Each row needs ``status`` and ``balance_m2`` (and ``category`` for the
@@ -110,7 +116,10 @@ def balance_summary(rows) -> dict:
     }
 
 
-def adequacy_summary(facility_rows, demand_rows) -> dict:
+def adequacy_summary(
+    facility_rows: Iterable[dict[str, Any]],
+    demand_rows: Iterable[dict[str, Any]],
+) -> dict[str, float | int | None]:
     """Facility rows need ``status`` (+ ``utilization``); demand rows need
     ``covered`` (0/1) and optionally ``pop`` (defaults to 1 per row)."""
     facility_rows = list(facility_rows)
@@ -145,7 +154,8 @@ def adequacy_summary(facility_rows, demand_rows) -> dict:
     }
 
 
-def density_summary(values) -> dict:
+def density_summary(values: Iterable[float]) -> dict[str, float | int]:
+    """Summarise occupied density cells by count, mean and maximum."""
     values = [float(v) for v in values]
     return {
         "n_cells": len(values),
@@ -154,7 +164,11 @@ def density_summary(values) -> dict:
     }
 
 
-def overall_score(access=None, balance=None, adequacy=None):
+def overall_score(
+    access: dict[str, Any] | None = None,
+    balance: dict[str, Any] | None = None,
+    adequacy: dict[str, Any] | None = None,
+) -> float | None:
     """Unweighted mean of the available 0-100 components."""
     parts = []
     if access and access.get("n"):
@@ -169,7 +183,12 @@ def overall_score(access=None, balance=None, adequacy=None):
 # ---------------------------------------------------------------------------
 # Score cards
 # ---------------------------------------------------------------------------
-def report_cards(access=None, balance=None, adequacy=None, density=None) -> list:
+def report_cards(
+    access: dict[str, Any] | None = None,
+    balance: dict[str, Any] | None = None,
+    adequacy: dict[str, Any] | None = None,
+    density: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
     """Build the score-card list from the summary dicts (None = skip)."""
     cards = []
     overall = overall_score(access, balance, adequacy)
@@ -233,7 +252,14 @@ def report_cards(access=None, balance=None, adequacy=None, density=None) -> list
 # ---------------------------------------------------------------------------
 # SVG helpers
 # ---------------------------------------------------------------------------
-def svg_histogram(values, vmin=0.0, vmax=100.0, bins=10, width=460, height=150):
+def svg_histogram(
+    values: Iterable[float],
+    vmin: float = 0.0,
+    vmax: float = 100.0,
+    bins: int = 10,
+    width: int = 460,
+    height: int = 150,
+) -> str:
     """Bar histogram; bars coloured by the ramp position of their bin."""
     values = [float(v) for v in values]
     counts = [0] * bins
@@ -269,7 +295,15 @@ def svg_histogram(values, vmin=0.0, vmax=100.0, bins=10, width=460, height=150):
     return "".join(parts)
 
 
-def svg_point_map(points, values, vmin=0.0, vmax=100.0, width=460, height=340, max_points=4000):
+def svg_point_map(
+    points: Sequence[Sequence[float]],
+    values: Iterable[float],
+    vmin: float = 0.0,
+    vmax: float = 100.0,
+    width: int = 460,
+    height: int = 340,
+    max_points: int = 4000,
+) -> str:
     """Scatter map of (x, y) points coloured by value on the ramp.
 
     Keeps the data aspect ratio; deterministically thins to ``max_points``.
@@ -304,7 +338,7 @@ def svg_point_map(points, values, vmin=0.0, vmax=100.0, width=460, height=340, m
     return "".join(parts)
 
 
-def svg_balance_bars(rows, width=560, bar_h=16):
+def svg_balance_bars(rows: Iterable[dict[str, Any]], width: int = 560, bar_h: int = 16) -> str:
     """Provided vs required horizontal bars per category with a standard."""
     rows = [r for r in rows if r.get("status") != "No standard"]
     if not rows:
@@ -376,6 +410,7 @@ footer { text-align: center; font-size: 11px; color: #90a4ae;
 
 
 def _badge(status: str) -> str:
+    """Render an HTML status badge, colour-coded by the status text."""
     tone = {
         "Meets standard": "good",
         "Adequate": "good",
@@ -389,7 +424,8 @@ def _badge(status: str) -> str:
     )
 
 
-def _cards_html(cards) -> str:
+def _cards_html(cards: Iterable[dict[str, str]]) -> str:
+    """Render the score-card list as a flex HTML container."""
     out = ['<div class="cards">']
     for c in cards:
         color = TONE_COLORS.get(c.get("tone", "info"), TONE_COLORS["info"])
@@ -403,7 +439,8 @@ def _cards_html(cards) -> str:
     return "".join(out)
 
 
-def _access_section(access_data, summary) -> str:
+def _access_section(access_data: dict[str, Any], summary: dict[str, Any]) -> str:
+    """Render the accessibility section (summary, histogram, point map)."""
     scores = access_data.get("scores", [])
     points = access_data.get("points") or []
     parts = ["<section><h2>Accessibility - 15-Minute City</h2>"]
@@ -427,7 +464,8 @@ def _access_section(access_data, summary) -> str:
     return "".join(parts)
 
 
-def _balance_section(rows, summary) -> str:
+def _balance_section(rows: Iterable[dict[str, Any]], summary: dict[str, Any]) -> str:
+    """Render the land-use balance bars and table section."""
     parts = ["<section><h2>Land-Use Balance vs Standards</h2>"]
     if summary["compliance_pct"] is None:
         parts.append("<p>No category matched a per-capita standard.</p>")
@@ -461,7 +499,8 @@ def _balance_section(rows, summary) -> str:
     return "".join(parts)
 
 
-def _adequacy_section(facility_rows, summary) -> str:
+def _adequacy_section(facility_rows: Iterable[dict[str, Any]], summary: dict[str, Any]) -> str:
+    """Render the facility-adequacy summary and per-facility table."""
     parts = ["<section><h2>Facility Adequacy</h2>"]
     share = summary["covered_share"]
     share_txt = "n/a" if share is None else f"{share:.1f}%"
@@ -489,7 +528,8 @@ def _adequacy_section(facility_rows, summary) -> str:
     return "".join(parts)
 
 
-def _density_section(summary) -> str:
+def _density_section(summary: dict[str, Any]) -> str:
+    """Render the single-paragraph density summary section."""
     return (
         "<section><h2>Density</h2><p>"
         f"{summary['n_cells']} occupied grid cells; mean density "
@@ -498,7 +538,15 @@ def _density_section(summary) -> str:
     )
 
 
-def svg_pyramid(labels, start, end, width=460, bar_h=16, start_name="now", end_name="horizon"):
+def svg_pyramid(
+    labels: Sequence[str],
+    start: Sequence[float],
+    end: Sequence[float],
+    width: int = 460,
+    bar_h: int = 16,
+    start_name: str = "now",
+    end_name: str = "horizon",
+) -> str:
     """Age-structure comparison: per group, the start population (grey)
     behind the projected end population (coloured by growth/decline)."""
     labels = [str(v) for v in labels]
@@ -544,7 +592,8 @@ def svg_pyramid(labels, start, end, width=460, bar_h=16, start_name="now", end_n
     return "".join(parts)
 
 
-def _fmt_metric(value) -> str:
+def _fmt_metric(value: float | None) -> str:
+    """Format a comparison metric for display (``-`` when missing)."""
     if value is None:
         return "-"
     v = float(value)
@@ -553,7 +602,7 @@ def _fmt_metric(value) -> str:
     return f"{v:,.2f}"
 
 
-def compare_section(rows, name_a="A", name_b="B") -> str:
+def compare_section(rows: Iterable[dict[str, Any]], name_a: str = "A", name_b: str = "B") -> str:
     """Render the scenario A/B comparison rows as an HTML section.
 
     ``rows`` come from ``scenario.compare``: dicts with label / a / b /
@@ -591,7 +640,13 @@ def compare_section(rows, name_a="A", name_b="B") -> str:
 
 
 def build_compare_html(
-    title, rows, name_a="A", name_b="B", verdict="", generated=None, plugin_version=""
+    title: str,
+    rows: Iterable[dict[str, Any]],
+    name_a: str = "A",
+    name_b: str = "B",
+    verdict: str = "",
+    generated: str | None = None,
+    plugin_version: str = "",
 ) -> str:
     """One-file HTML page for a scenario A/B comparison."""
     when = generated or datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -619,14 +674,14 @@ def build_compare_html(
 
 
 def build_html(
-    title,
-    population=None,
-    access=None,
-    balance=None,
-    adequacy=None,
-    density=None,
-    generated=None,
-    plugin_version="",
+    title: str,
+    population: float | None = None,
+    access: dict[str, Any] | None = None,
+    balance: Iterable[dict[str, Any]] | None = None,
+    adequacy: dict[str, Any] | None = None,
+    density: dict[str, Any] | None = None,
+    generated: str | None = None,
+    plugin_version: str = "",
 ) -> str:
     """Render the one-file Plan Performance Report.
 
@@ -678,7 +733,12 @@ def build_html(
     )
 
 
-def build_rank_html(title, result, weights_note="", generated=""):
+def build_rank_html(
+    title: str,
+    result: dict[str, Any],
+    weights_note: str = "",
+    generated: str = "",
+) -> str:
     """One-file HTML ranking board for a scenario.rank result. Stdlib only.
 
     Sections: (1) scoreboard - one row per scenario in rank order: rank,

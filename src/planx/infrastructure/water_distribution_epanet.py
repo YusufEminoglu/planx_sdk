@@ -28,6 +28,7 @@ class WaterNetworkResult:
     pipe_diagnostics: list[dict[str, Any]]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "network_length_m": round(self.total_network_length_m, 1),
             "max_velocity_ms": round(self.max_flow_velocity_ms, 2),
@@ -88,12 +89,14 @@ def simulate_water_pipe_network(
         if current_head < min_allowable_pressure_head_m:
             low_press_count += 1
 
-        diagnostics.append({
-            "pipe_id": pipe.pipe_id,
-            "velocity_ms": round(vel, 2),
-            "head_loss_m": round(h_loss, 3),
-            "residual_head_m": round(current_head, 2),
-        })
+        diagnostics.append(
+            {
+                "pipe_id": pipe.pipe_id,
+                "velocity_ms": round(vel, 2),
+                "head_loss_m": round(h_loss, 3),
+                "residual_head_m": round(current_head, 2),
+            }
+        )
 
     return WaterNetworkResult(
         total_network_length_m=tot_len,

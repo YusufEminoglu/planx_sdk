@@ -9,11 +9,13 @@ rings are both accepted (closure is normalized internally).
 from __future__ import annotations
 
 import math
+from typing import Iterable
 
 import numpy as np
 
 
 def _closed(ring: np.ndarray) -> np.ndarray:
+    """Return the ring with its first vertex repeated at the end."""
     ring = np.asarray(ring, dtype=np.float64)
     if not np.array_equal(ring[0], ring[-1]):
         ring = np.vstack([ring, ring[0]])
@@ -28,6 +30,7 @@ def ring_area(ring: np.ndarray) -> float:
 
 
 def ring_perimeter(ring: np.ndarray) -> float:
+    """Perimeter of a closed or open ring."""
     r = _closed(ring)
     d = np.diff(r, axis=0)
     return float(np.hypot(d[:, 0], d[:, 1]).sum())
@@ -40,7 +43,8 @@ def convex_hull(points: np.ndarray) -> np.ndarray:
         return pts
     pts = pts[np.lexsort((pts[:, 1], pts[:, 0]))]
 
-    def cross(o, a, b):
+    def cross(o: np.ndarray, a: np.ndarray, b: np.ndarray) -> float:
+        """Signed 2-D cross product of ``a - o`` and ``b - o``."""
         return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
 
     lower: list[tuple[float, float]] = []
@@ -56,7 +60,9 @@ def convex_hull(points: np.ndarray) -> np.ndarray:
     return np.asarray(lower[:-1] + upper[:-1], dtype=np.float64)
 
 
-def min_rotated_rect(points: np.ndarray):
+def min_rotated_rect(
+    points: np.ndarray,
+) -> tuple[float, float, float]:
     """Minimum-area rotated rectangle via rotating calipers on the hull.
 
     Returns (length, width, orientation_deg) with length >= width and
@@ -91,7 +97,9 @@ def min_rotated_rect(points: np.ndarray):
     return best[1], best[2], best[3]
 
 
-def shape_metrics(exterior: np.ndarray, interiors=()) -> dict:
+def shape_metrics(
+    exterior: np.ndarray, interiors: Iterable[np.ndarray] = ()
+) -> dict[str, float | int]:
     """Standard building-form metrics for one polygon.
 
     ``exterior``: outer ring; ``interiors``: iterable of inner rings.
@@ -156,7 +164,9 @@ def corner_count(ring: np.ndarray, min_deflection_deg: float = 10.0) -> int:
 # --------------------------------------------------------------------------- #
 # Street-network morphology (Boeing 2019)
 # --------------------------------------------------------------------------- #
-def orientation_entropy(bearings_deg, lengths=None, bins: int = 36):
+def orientation_entropy(
+    bearings_deg: np.ndarray, lengths: np.ndarray | None = None, bins: int = 36
+) -> tuple[float, float]:
     """Length-weighted street-orientation entropy and orientation order.
 
     Bearings are made bidirectional (theta and theta+180). Returns

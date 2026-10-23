@@ -25,6 +25,7 @@ class FloodInundationResult:
     critical_risk_flag: bool
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "peak_depth_m": round(self.peak_inundation_depth_m, 2),
             "flooded_area_m2": round(self.total_flooded_area_m2, 1),

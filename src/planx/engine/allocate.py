@@ -27,10 +27,15 @@ non-negative good (negatives are clipped to zero).
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
+from typing import Any
+
 import numpy as np
 
+Adjacency = list[list[tuple[int, float]]]
 
-def parse_targets(text):
+
+def parse_targets(text: str) -> list[tuple[str, float]]:
     """``"residential=50000, green=30000"`` -> [("residential", 50000.0), ...].
 
     Separators: comma or semicolon; keys are lower-cased. Raises ValueError
@@ -57,7 +62,9 @@ def parse_targets(text):
     return targets
 
 
-def _spatial_sum(p, u, assign, adj, compat):
+def _spatial_sum(
+    p: int, u: int, assign: np.ndarray, adj: Adjacency, compat: np.ndarray | None
+) -> float:
     """Sum over p's neighbours of ``L * compat[u, use(neighbour)]``."""
     if compat is None or u < 0:
         return 0.0
@@ -69,7 +76,15 @@ def _spatial_sum(p, u, assign, adj, compat):
     return total
 
 
-def _swap_spatial_delta(p, q, up, uq, assign, adj, compat):
+def _swap_spatial_delta(
+    p: int,
+    q: int,
+    up: int,
+    uq: int,
+    assign: np.ndarray,
+    adj: Adjacency,
+    compat: np.ndarray | None,
+) -> float:
     """Change in the spatial term when p (use up) and q (use uq) swap uses.
 
     For a symmetric ``compat`` the mutual p-q edge is unchanged, so it is
@@ -93,7 +108,26 @@ def _swap_spatial_delta(p, q, up, uq, assign, adj, compat):
     return delta
 
 
-def _allocate_core(suit, area, targets, locked, w_suit, adj, compat, max_iter, swap_limit):
+def _allocate_core(
+    suit: np.ndarray,
+    area: np.ndarray,
+    targets: np.ndarray,
+    locked: np.ndarray | None,
+    w_suit: float,
+    adj: Adjacency | None,
+    compat: np.ndarray | None,
+    max_iter: int,
+    swap_limit: int,
+) -> dict[str, Any]:
+    """Run greedy construction plus local search on the full objective.
+
+    Shared implementation behind :func:`allocate_land_use` and
+    :func:`allocate_multi`. ``adj`` maps each parcel to ``(neighbour,
+    shared_boundary_length)`` pairs; ``compat`` is the use-by-use interaction
+    matrix (``None`` disables the spatial term). Returns the assignment, the
+    objective components, per-use allocated area and counts, and the number of
+    swaps and reassignments performed.
+    """
     suit = np.clip(np.asarray(suit, dtype=float), 0.0, None)
     area = np.asarray(area, dtype=float)
     targets = np.asarray(targets, dtype=float)
@@ -232,7 +266,14 @@ def _allocate_core(suit, area, targets, locked, w_suit, adj, compat, max_iter, s
     }
 
 
-def allocate_land_use(suit, area, targets, locked=None, max_iter=50, swap_limit=1200):
+def allocate_land_use(
+    suit: np.ndarray,
+    area: np.ndarray,
+    targets: np.ndarray,
+    locked: np.ndarray | None = None,
+    max_iter: int = 50,
+    swap_limit: int = 1200,
+) -> dict[str, Any]:
     """Assign parcels to uses to maximise area-weighted suitability only.
 
     The single-objective case (no spatial term). See module docstring and
@@ -245,8 +286,16 @@ def allocate_land_use(suit, area, targets, locked=None, max_iter=50, swap_limit=
 
 
 def allocate_multi(
-    suit, area, targets, edges, compat, locked=None, w_suit=1.0, max_iter=50, swap_limit=1200
-):
+    suit: np.ndarray,
+    area: np.ndarray,
+    targets: np.ndarray,
+    edges: Iterable[tuple[int, int, float]],
+    compat: np.ndarray | None,
+    locked: np.ndarray | None = None,
+    w_suit: float = 1.0,
+    max_iter: int = 50,
+    swap_limit: int = 1200,
+) -> dict[str, Any]:
     """Multi-objective allocation: suitability + a spatial interaction term.
 
     Adds to the area-weighted suitability the term
@@ -276,7 +325,7 @@ def allocate_multi(
 # --------------------------------------------------------------------------- #
 # Pareto front: suitability vs compactness trade-off over a weight sweep
 # --------------------------------------------------------------------------- #
-def _same_use_boundary(assign, edges):
+def _same_use_boundary(assign: np.ndarray, edges: Iterable[tuple[int, int, float]]) -> float:
     """Total shared-boundary length between adjacent parcels of the SAME use.
 
     This is the **compactness** metric, computed directly from an assignment
@@ -290,7 +339,7 @@ def _same_use_boundary(assign, edges):
     return total
 
 
-def pareto_mask(obj1, obj2, tol=1e-9):
+def pareto_mask(obj1: np.ndarray, obj2: np.ndarray, tol: float = 1e-9) -> np.ndarray:
     """Boolean mask of the non-dominated points when MAXIMISING both objectives.
 
     Point ``i`` is dominated when some ``j`` is at least as good on both
@@ -314,7 +363,7 @@ def pareto_mask(obj1, obj2, tol=1e-9):
     return nd
 
 
-def _knee_index(obj1, obj2, front_mask):
+def _knee_index(obj1: np.ndarray, obj2: np.ndarray, front_mask: np.ndarray) -> int:
     """Index (into the full arrays) of the knee of the Pareto front.
 
     The knee is the front point furthest from the chord joining the two
@@ -327,7 +376,8 @@ def _knee_index(obj1, obj2, front_mask):
     a = np.asarray(obj1, dtype=float)[idx]
     b = np.asarray(obj2, dtype=float)[idx]
 
-    def _norm(x):
+    def _norm(x: np.ndarray) -> np.ndarray:
+        """Scale ``x`` to [0, 1], or zeros when it is constant."""
         lo, hi = float(x.min()), float(x.max())
         return (x - lo) / (hi - lo) if hi > lo else np.zeros_like(x)
 
@@ -343,8 +393,16 @@ def _knee_index(obj1, obj2, front_mask):
 
 
 def pareto_front(
-    suit, area, targets, edges, weights, locked=None, w_suit=1.0, max_iter=50, swap_limit=1200
-):
+    suit: np.ndarray,
+    area: np.ndarray,
+    targets: np.ndarray,
+    edges: Iterable[tuple[int, int, float]],
+    weights: Iterable[float],
+    locked: np.ndarray | None = None,
+    w_suit: float = 1.0,
+    max_iter: int = 50,
+    swap_limit: int = 1200,
+) -> dict[str, Any]:
     """Trace the suitability vs compactness trade-off across compactness weights.
 
     For each ``w`` in ``weights`` the allocation is solved with a pure
@@ -387,7 +445,8 @@ def pareto_front(
     comp_vals = np.asarray(comp_vals, dtype=float)
     front = pareto_mask(suit_vals, comp_vals)
 
-    def _norm(x):
+    def _norm(x: np.ndarray) -> np.ndarray:
+        """Scale ``x`` to [0, 1], or zeros when it is constant."""
         lo, hi = float(x.min()), float(x.max())
         return (x - lo) / (hi - lo) if hi > lo else np.zeros_like(x)
 
@@ -405,7 +464,7 @@ def pareto_front(
     }
 
 
-def check_connectivity(use_id, temp_assign, adj):
+def check_connectivity(use_id: int, temp_assign: np.ndarray, adj: Adjacency) -> bool:
     """Check if the parcels assigned to use_id form a single connected component."""
     nodes = np.where(temp_assign == use_id)[0]
     if len(nodes) <= 1:
@@ -426,17 +485,17 @@ def check_connectivity(use_id, temp_assign, adj):
 
 
 def allocate_contiguous(
-    suit,
-    area,
-    targets,
-    edges,
-    compat=None,
-    locked=None,
-    w_suit=1.0,
-    max_iter=50,
-    swap_limit=1200,
-    log_warning_fn=None,
-):
+    suit: np.ndarray,
+    area: np.ndarray,
+    targets: np.ndarray,
+    edges: Iterable[tuple[int, int, float]],
+    compat: np.ndarray | None = None,
+    locked: np.ndarray | None = None,
+    w_suit: float = 1.0,
+    max_iter: int = 50,
+    swap_limit: int = 1200,
+    log_warning_fn: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
     """Land-use allocation with hard contiguity constraints.
 
     Each use forms a single connected component over the parcel adjacency graph.

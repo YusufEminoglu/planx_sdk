@@ -32,6 +32,7 @@ def recursive_parcel_subdivision(
     parcels: list[dict[str, Any]] = []
 
     def _subdivide(x: float, y: float, w: float, h: float, current_depth: int) -> None:
+        """Recursively split a rectangle until it meets the parcel criteria."""
         area = w * h
         aspect = max(w / max(h, 1e-6), h / max(w, 1e-6))
 

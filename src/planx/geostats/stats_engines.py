@@ -938,6 +938,7 @@ def _spatial_gini_pair_index(
     neighbors: dict[int, list[int]],
     id_order: list[int],
 ) -> tuple[list[tuple[int, int]], list[bool]]:
+    """List every unordered id pair and flag whether it is a neighbour pair."""
     id_to_idx = {fid: idx for idx, fid in enumerate(id_order)}
     neighbor_pairs = set()
     for fid in id_order:
@@ -964,6 +965,7 @@ def _spatial_gini_pair_sums(
     pair_indices: list[tuple[int, int]],
     neighbor_flags: list[bool],
 ) -> tuple[float, float, float]:
+    """Sum absolute pairwise differences overall, for neighbours, and the rest."""
     total_sum = 0.0
     neighbor_sum = 0.0
     non_neighbor_sum = 0.0
@@ -1262,7 +1264,10 @@ def calculate_median_center(
 
 
 def calculate_general_g(
-    values, neighbors: dict[int, list[int]], weights: dict[int, list[float]], id_order: list[int]
+    values: np.ndarray,
+    neighbors: dict[int, list[int]],
+    weights: dict[int, list[float]],
+    id_order: list[int],
 ) -> tuple[float, float, float, float, float]:
     """Calculates Getis-Ord General G statistics under randomization.
 
@@ -2744,6 +2749,7 @@ def skater_spatial_clustering(
     parent = list(range(n))
 
     def find(i: int) -> int:
+        """Find the DSU root of ``i`` with path compression."""
         path = []
         curr = i
         while parent[curr] != curr:
@@ -3122,6 +3128,7 @@ def emerging_hotspot_analysis(
 
         # Run lengths at end
         def get_run_length(series: np.ndarray) -> int:
+            """Length of the trailing run of truthy values."""
             run = 0
             for val in reversed(series):
                 if val:
@@ -3624,8 +3631,14 @@ def fit_spatial_sarma_panel(
     independent_vars: np.ndarray,
     weights_matrix: np.ndarray,
     time_periods: int,
-):
+) -> dict[str, Any]:
+    """Fit a spatial panel SAR/SARMA model by two-stage least squares.
 
+    ``dependent_var`` is ``(N, T)`` or flattened ``N * T``; ``independent_vars``
+    is ``(N, T, K)`` or ``(N * T, K)``; ``weights_matrix`` is the ``(N, N)``
+    spatial weights matrix. Returns coefficients, spatial ``rho`` and
+    ``lambda``, standard errors, t-statistics, p-values and ``r_squared``.
+    """
     y = np.asarray(dependent_var, dtype=np.float64)
 
     X = np.asarray(independent_vars, dtype=np.float64)
@@ -5088,6 +5101,7 @@ def classify_ehsa_pattern(
 
 
 def _max_consecutive(bin_series: list[int], target: int) -> int:
+    """Longest run of ``target`` in ``bin_series``."""
     max_run = 0
     current = 0
     for v in bin_series:
@@ -5100,6 +5114,7 @@ def _max_consecutive(bin_series: list[int], target: int) -> int:
 
 
 def _has_oscillation(bin_series: list[int]) -> bool:
+    """Whether non-zero states switch at least three times."""
     switches = 0
     prev = 0
     for v in bin_series:

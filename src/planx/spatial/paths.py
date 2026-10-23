@@ -9,6 +9,7 @@ take raw CSR arrays.
 from __future__ import annotations
 
 import heapq
+from typing import Any, Callable
 
 import numpy as np
 
@@ -22,14 +23,23 @@ except ImportError:
 INF = float("inf")
 
 
-def _to_scipy(indptr, adj, weights, n):
+def _to_scipy(indptr: np.ndarray, adj: np.ndarray, weights: np.ndarray, n: int) -> Any:
+    """Build a SciPy CSR matrix from raw CSA (indptr, adj, weights) arrays."""
     from scipy.sparse import csr_matrix
 
     return csr_matrix((weights, adj, indptr), shape=(n, n))
 
 
 # --------------------------------------------------------------------------- #
-def _heap_dijkstra(indptr, adj, weights, n, source, cutoff=None):
+def _heap_dijkstra(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    source: int,
+    cutoff: float | None = None,
+) -> np.ndarray:
+    """Pure-Python binary-heap Dijkstra used when SciPy is unavailable."""
     dist = np.full(n, INF)
     dist[source] = 0.0
     heap = [(0.0, source)]
@@ -48,7 +58,15 @@ def _heap_dijkstra(indptr, adj, weights, n, source, cutoff=None):
     return dist
 
 
-def many_to_many(indptr, adj, weights, n, sources, cutoff=None, cancel=None):
+def many_to_many(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    sources: np.ndarray,
+    cutoff: float | None = None,
+    cancel: Callable[[], bool] | None = None,
+) -> np.ndarray:
     """Distances from each source to every node: (len(sources), n) array."""
     sources = np.asarray(sources, dtype=np.int64)
     if HAS_SCIPY:
@@ -68,7 +86,14 @@ def many_to_many(indptr, adj, weights, n, sources, cutoff=None, cancel=None):
     return out
 
 
-def multi_source(indptr, adj, weights, n, sources, cutoff=None):
+def multi_source(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    sources: np.ndarray,
+    cutoff: float | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Min cost from *any* source: returns (dist[n], nearest_source_pos[n]).
 
     ``nearest_source_pos`` holds the position in ``sources`` of the winning

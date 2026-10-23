@@ -29,6 +29,7 @@ class EVChargingQueueResult:
     grid_peak_power_demand_kw: float
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "chargers": self.num_chargers,
             "utilization_rho": round(self.charger_utilization_factor_rho, 3),
@@ -59,21 +60,21 @@ def simulate_ev_charging_station_queues(
     # Compute p0 (idle probability) for M/M/c/K
     sum_terms = 0.0
     for n in range(c):
-        sum_terms += (r ** n) / math.factorial(n)
+        sum_terms += (r**n) / math.factorial(n)
 
     sum_queue_terms = 0.0
     for n in range(c, k + 1):
-        sum_queue_terms += ((r ** n) / (math.factorial(c) * (c ** (n - c))))
+        sum_queue_terms += (r**n) / (math.factorial(c) * (c ** (n - c)))
 
     p0 = 1.0 / (sum_terms + sum_queue_terms)
 
     # State probability p_n
-    p_k = (r ** k) / (math.factorial(c) * (c ** (k - c))) * p0
+    p_k = (r**k) / (math.factorial(c) * (c ** (k - c))) * p0
 
     # Average queue length Lq
     lq = 0.0
     for n in range(c + 1, k + 1):
-        pn = (r ** n) / (math.factorial(c) * (c ** (n - c))) * p0
+        pn = (r**n) / (math.factorial(c) * (c ** (n - c))) * p0
         lq += (n - c) * pn
 
     # Effective arrival rate lambda_eff = lambda * (1 - p_K)

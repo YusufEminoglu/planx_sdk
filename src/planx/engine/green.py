@@ -19,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 
 
-def parse_hierarchy(text):
+def parse_hierarchy(text: str) -> list[tuple[float, float]]:
     """Parse "min_ha=max_dist, ..." into a sorted list of (ha, dist).
 
     Returns classes sorted by size ascending; raises ValueError on
@@ -40,7 +40,7 @@ def parse_hierarchy(text):
     return sorted(classes)
 
 
-def components(n, edges):
+def components(n: int, edges: list[tuple[int, int]]) -> tuple[np.ndarray, int]:
     """Connected components over ``n`` nodes: returns (labels, count)."""
     adj = [[] for _ in range(n)]
     for i, j in edges:
@@ -63,7 +63,7 @@ def components(n, edges):
     return labels, comp
 
 
-def pc_index(areas, labels, total_area=None):
+def pc_index(areas: np.ndarray, labels: np.ndarray, total_area: float | None = None) -> float:
     """Binary Probability-of-Connectivity index for given components.
 
     ``PC = sum_c (sum of areas in c)^2 / A^2`` - every pair inside one
@@ -82,7 +82,11 @@ def pc_index(areas, labels, total_area=None):
     return pc / (a_total**2)
 
 
-def connectivity(areas, edges, total_area=None):
+def connectivity(
+    areas: np.ndarray,
+    edges: list[tuple[int, int]],
+    total_area: float | None = None,
+) -> dict[str, object]:
     """Connectivity summary of a patch system.
 
     ``areas`` per patch, ``edges`` = (i, j) pairs closer than the gap.

@@ -28,6 +28,7 @@ class AgingMobilityResult:
     key_deficiencies: list[dict[str, Any]]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "overall_silver_index": round(self.overall_silver_index, 1),
             "zone_grades": self.zone_grades,
@@ -84,23 +85,19 @@ def calculate_silver_mobility_score(
         else:
             s_slope = max(10.0, 100.0 - (z.max_walking_slope_pct - 3.0) * 15.0)
             steep_cnt += 1
-            deficiencies.append({
-                "zone_id": z.zone_id,
-                "type": "STEEP_GRADIENT_BARRIER",
-                "slope_pct": z.max_walking_slope_pct,
-            })
+            deficiencies.append(
+                {
+                    "zone_id": z.zone_id,
+                    "type": "STEEP_GRADIENT_BARRIER",
+                    "slope_pct": z.max_walking_slope_pct,
+                }
+            )
 
         # Dimension 5: Shade Coverage
         s_shade = min(100.0, (z.shade_coverage_pct / 40.0) * 100.0)
 
         # Weighted aggregate score
-        z_score = (
-            s_width * 0.20
-            + s_ramp * 0.25
-            + s_bench * 0.25
-            + s_slope * 0.20
-            + s_shade * 0.10
-        )
+        z_score = s_width * 0.20 + s_ramp * 0.25 + s_bench * 0.25 + s_slope * 0.20 + s_shade * 0.10
         scores.append(z_score)
 
         if z_score >= 85.0:

@@ -39,7 +39,15 @@ class NodeGraph:
         "adj_cost",
     )
 
-    def __init__(self, node_xy, edge_from, edge_to, edge_cost, edge_len):
+    def __init__(
+        self,
+        node_xy: np.ndarray,
+        edge_from: np.ndarray,
+        edge_to: np.ndarray,
+        edge_cost: np.ndarray,
+        edge_len: np.ndarray,
+    ) -> None:
+        """Store graph arrays and build the symmetric CSR adjacency."""
         self.node_xy = node_xy  # (N, 2) float64
         self.edge_from = edge_from  # (E,) int32 - aligned with input polylines
         self.edge_to = edge_to  # (E,) int32
@@ -49,13 +57,16 @@ class NodeGraph:
 
     @property
     def num_nodes(self) -> int:
+        """Number of distinct (snapped) nodes."""
         return len(self.node_xy)
 
     @property
     def num_edges(self) -> int:
+        """Number of input polylines (edges)."""
         return len(self.edge_from)
 
-    def _build_csr(self):
+    def _build_csr(self) -> None:
+        """Construct the symmetric CSR adjacency from the edge arrays."""
         n = self.num_nodes
         src = np.concatenate([self.edge_from, self.edge_to])
         dst = np.concatenate([self.edge_to, self.edge_from])
@@ -70,15 +81,21 @@ class NodeGraph:
         self.adj_cost = cost.astype(np.float64)
 
     def degrees(self) -> np.ndarray:
+        """Node degrees derived from the CSR pointer array."""
         return np.diff(self.indptr).astype(np.int32)
 
 
 def polyline_length(coords: np.ndarray) -> float:
+    """Planar length of a (k, 2) polyline (sum of segment lengths)."""
     d = np.diff(coords, axis=0)
     return float(np.hypot(d[:, 0], d[:, 1]).sum())
 
 
-def build_node_graph(polylines, tolerance: float = 0.01, costs=None) -> NodeGraph:
+def build_node_graph(
+    polylines: list[np.ndarray],
+    tolerance: float = 0.01,
+    costs: np.ndarray | None = None,
+) -> NodeGraph:
     """Build the primal graph from a list of (k_i, 2) coordinate arrays.
 
     Endpoints are snapped together when within ``tolerance`` (grid
@@ -97,7 +114,8 @@ def build_node_graph(polylines, tolerance: float = 0.01, costs=None) -> NodeGrap
     node_index: dict[tuple[int, int], int] = {}
     node_pts: list[tuple[float, float]] = []
 
-    def node_id(pt):
+    def node_id(pt: np.ndarray | tuple[float, float]) -> int:
+        """Return the snapped node index for ``pt``, creating it if needed."""
         key = (round(pt[0] / tolerance), round(pt[1] / tolerance))
         idx = node_index.get(key)
         if idx is None:
@@ -176,7 +194,17 @@ class SegmentGraph:
         "adj_metric",
     )
 
-    def __init__(self, n, seg_len, seg_curve, indptr, adj_seg, adj_ang, adj_metric):
+    def __init__(
+        self,
+        n: int,
+        seg_len: np.ndarray,
+        seg_curve: np.ndarray,
+        indptr: np.ndarray,
+        adj_seg: np.ndarray,
+        adj_ang: np.ndarray,
+        adj_metric: np.ndarray,
+    ) -> None:
+        """Store dual-graph arrays and derive per-segment connectivity."""
         self.n = n
         self.seg_len = seg_len
         self.seg_curve = seg_curve
@@ -191,7 +219,8 @@ class SegmentGraph:
         self.connectivity = counts
 
 
-def _bearing(p0, p1) -> float:
+def _bearing(p0: np.ndarray, p1: np.ndarray) -> float:
+    """Bearing from ``p0`` to ``p1`` in degrees clockwise from +x."""
     return math.degrees(math.atan2(p1[1] - p0[1], p1[0] - p0[0]))
 
 
@@ -214,7 +243,7 @@ def internal_curvature_deg(coords: np.ndarray) -> float:
     return total
 
 
-def build_segment_graph(polylines, tolerance: float = 0.01) -> SegmentGraph:
+def build_segment_graph(polylines: list[np.ndarray], tolerance: float = 0.01) -> SegmentGraph:
     """Build the angular dual graph from a list of (k_i, 2) coordinate arrays."""
 
     tolerance = float(tolerance)
@@ -226,7 +255,8 @@ def build_segment_graph(polylines, tolerance: float = 0.01) -> SegmentGraph:
     if any(not np.all(np.isfinite(coords)) for coords in polylines):
         raise ValueError("polyline coordinates must contain only finite values")
 
-    def node_key(pt):
+    def node_key(pt: np.ndarray | tuple[float, float]) -> tuple[int, int]:
+        """Quantised key used to snap coincident polyline endpoints."""
         return (round(pt[0] / tolerance), round(pt[1] / tolerance))
 
     # ends[node] -> list of (segment id, outward bearing)

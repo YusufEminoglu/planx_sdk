@@ -32,7 +32,7 @@ DEFAULT_LTS_RULES_TEXT = (
 )
 
 
-def parse_lts_rules(text):
+def parse_lts_rules(text: str | None) -> dict[str, float]:
     """Parse a free-text ``key=value`` threshold table.
 
     Unknown keys raise ``ValueError`` so typos do not silently change the
@@ -56,14 +56,16 @@ def parse_lts_rules(text):
     return rules
 
 
-def _text_array(values):
+def _text_array(values: object) -> np.ndarray:
+    """Coerce a string or sequence into a flat 1-D object array."""
     if isinstance(values, str):
         return np.asarray([values], dtype=object)
     arr = np.asarray(values, dtype=object)
     return arr.reshape(-1)
 
 
-def _numeric_array(values, n, default):
+def _numeric_array(values: object, n: int, default: float) -> np.ndarray:
+    """Broadcast ``values`` to a float array of length ``n``, filling ``default``."""
     if values is None:
         return np.full(n, float(default), dtype=float)
     arr = np.asarray(values, dtype=float)
@@ -75,7 +77,13 @@ def _numeric_array(values, n, default):
     return arr
 
 
-def lts_classify(speed, lanes, aadt, infra, rules=None):
+def lts_classify(
+    speed: object,
+    lanes: object,
+    aadt: object,
+    infra: object,
+    rules: dict[str, float] | None = None,
+) -> np.ndarray:
     """Classify Level of Traffic Stress (1 low stress, 4 high stress).
 
     Rules:
@@ -126,7 +134,13 @@ def lts_classify(speed, lanes, aadt, infra, rules=None):
     return np.clip(out, 1, 4)
 
 
-def low_stress_islands(edge_from, edge_to, edge_len, lts, threshold=2):
+def low_stress_islands(
+    edge_from: np.ndarray,
+    edge_to: np.ndarray,
+    edge_len: np.ndarray,
+    lts: np.ndarray,
+    threshold: float = 2,
+) -> dict[str, object]:
     """Connected components of the subnetwork with ``LTS <= threshold``.
 
     Returns node component labels, edge component labels, component lengths

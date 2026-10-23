@@ -416,6 +416,7 @@ def fuzzy_ahp_weights(fuzzy_matrix: np.ndarray) -> tuple[np.ndarray, float]:
 
     # Degree of possibility V(M2 >= M1)
     def possibility(m2: np.ndarray, m1: np.ndarray) -> float:
+        """Degree of possibility that fuzzy number ``m2`` exceeds ``m1``."""
         l1, m1_val, u1 = m1
         l2, m2_val, u2 = m2
         if m2_val >= m1_val:

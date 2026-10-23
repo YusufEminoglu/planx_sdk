@@ -21,6 +21,7 @@ class UHIMitigationResult:
     annual_energy_savings_kwh: float
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "baseline_surface_temp_c": round(self.baseline_surface_temp_c, 2),
             "mitigated_surface_temp_c": round(self.mitigated_surface_temp_c, 2),

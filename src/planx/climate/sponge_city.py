@@ -30,6 +30,7 @@ class SpongeCityResult:
     facilities: list[LIDFacilityAssessment]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "total_catchment_area_m2": round(self.total_catchment_area_m2, 1),
             "design_rainfall_depth_mm": round(self.design_rainfall_depth_mm, 1),

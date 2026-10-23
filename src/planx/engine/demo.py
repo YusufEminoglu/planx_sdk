@@ -8,13 +8,19 @@ land uses, POIs, facilities, demand points, and a DSM.
 from __future__ import annotations
 
 import math
+from typing import Any
 
 import numpy as np
 
 
 def generate_demo_city(
     seed: int, blocks_x: int, blocks_y: int, block_size: float, pixel_size: float = 2.0
-) -> dict:
+) -> dict[str, Any]:
+    """Generate a deterministic synthetic city for demos and tests.
+
+    Returns street polylines, building footprints, land-use polygons, POIs,
+    facilities, demand points and a rasterised DSM.
+    """
     rng = np.random.default_rng(seed)
 
     w = blocks_x * block_size

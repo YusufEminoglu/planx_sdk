@@ -25,6 +25,7 @@ class BiodiversityCorridorResult:
     corridor_links: list[dict[str, Any]]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "patches_count": self.total_habitat_patches,
             "components": self.connected_network_components_count,
@@ -50,7 +51,7 @@ def evaluate_biodiversity_corridor_connectivity(
             coords = p.get("center", p.get("center_coordinates", (0.0, 0.0)))
             patches.append(
                 EcologicalHabitatPatch(
-                    patch_id=str(p.get("id", p.get("patch_id", f"P{len(patches)+1}"))),
+                    patch_id=str(p.get("id", p.get("patch_id", f"P{len(patches) + 1}"))),
                     area_hectares=float(p.get("area_hectares", p.get("area_ha", 5.0))),
                     center_coordinates=(float(coords[0]), float(coords[1])),
                     habitat_quality_score=float(p.get("habitat_quality_score", 0.85)),
@@ -82,13 +83,15 @@ def evaluate_biodiversity_corridor_connectivity(
                 )
 
                 connected_pairs += 1
-                links.append({
-                    "from_patch": p1.patch_id,
-                    "to_patch": p2.patch_id,
-                    "cost_distance_m": round(effective_cost_dist, 1),
-                    "permeability": round(permeability, 3),
-                    "corridor_flux": round(corridor_flux, 2),
-                })
+                links.append(
+                    {
+                        "from_patch": p1.patch_id,
+                        "to_patch": p2.patch_id,
+                        "cost_distance_m": round(effective_cost_dist, 1),
+                        "permeability": round(permeability, 3),
+                        "corridor_flux": round(corridor_flux, 2),
+                    }
+                )
 
     conn_index = connected_pairs / float(total_pairs)
     gaps = total_pairs - connected_pairs

@@ -17,14 +17,19 @@ One Brandes sweep per radius yields *both* integration and choice.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Callable
+
 import numpy as np
 
 from . import centrality
 
+if TYPE_CHECKING:
+    from .graphs import SegmentGraph
+
 RADIUS_GLOBAL = "n"
 
 
-def parse_radii(text: str):
+def parse_radii(text: str) -> list[float | None]:
     """Parse a radii string like ``"400, 800, n"`` -> [400.0, 800.0, None]."""
     radii: list[float | None] = []
     for token in str(text).replace(";", ",").split(","):
@@ -43,11 +48,17 @@ def parse_radii(text: str):
     return radii
 
 
-def radius_label(radius) -> str:
+def radius_label(radius: float | None) -> str:
+    """Render a radius value as a label (global radii become ``"n"``)."""
     return RADIUS_GLOBAL if radius is None else f"{radius:g}"
 
 
-def segment_angular_analysis(seg_graph, radius=None, cancel=None, progress=None):
+def segment_angular_analysis(
+    seg_graph: SegmentGraph,
+    radius: float | None = None,
+    cancel: Callable[[], bool] | None = None,
+    progress: Callable[[float], None] | None = None,
+) -> dict[str, np.ndarray]:
     """Run one radius. Returns dict of per-segment arrays:
     ``nc`` (node count), ``td`` (angular total depth), ``md`` (mean depth),
     ``nain``, ``choice`` (pair-based), ``nach``.

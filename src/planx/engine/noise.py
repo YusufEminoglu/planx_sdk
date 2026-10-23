@@ -21,10 +21,12 @@ hotspots; a licensed engine is needed for legal noise mapping.
 
 from __future__ import annotations
 
+from typing import Sequence
+
 import numpy as np
 
 
-def emission_rls(m_hourly, heavy_share_pct):
+def emission_rls(m_hourly: np.ndarray, heavy_share_pct: np.ndarray) -> np.ndarray:
     """RLS-90-style mean level at 25 m for an hourly volume ``M`` (veh/h)
     and heavy-vehicle share ``p`` (percent). Zero traffic -> -inf."""
     m = np.asarray(m_hourly, dtype=float)
@@ -34,7 +36,7 @@ def emission_rls(m_hourly, heavy_share_pct):
         return np.where(loud > 0, 37.3 + 10.0 * np.log10(loud), -np.inf)
 
 
-def sample_level(lm25, seg_len):
+def sample_level(lm25: np.ndarray, seg_len: np.ndarray) -> np.ndarray:
     """Source term of one point sample representing ``seg_len`` m of road."""
     seg_len = np.asarray(seg_len, dtype=float)
     return np.asarray(lm25, dtype=float) + 10.0 * np.log10(
@@ -43,8 +45,15 @@ def sample_level(lm25, seg_len):
 
 
 def receiver_level(
-    src_xy, src_level, rx, ry, blocked=None, screen_db=10.0, min_dist=1.0, cutoff=None
-):
+    src_xy: np.ndarray,
+    src_level: np.ndarray,
+    rx: float,
+    ry: float,
+    blocked: np.ndarray | None = None,
+    screen_db: float = 10.0,
+    min_dist: float = 1.0,
+    cutoff: float | None = None,
+) -> float:
     """Energetic sum of all samples at one receiver.
 
     ``blocked`` is an optional boolean array (line of sight to that sample
@@ -66,7 +75,11 @@ def receiver_level(
     return float(10.0 * np.log10(np.sum(10.0 ** (contrib / 10.0))))
 
 
-def exposure_bands(levels, weights=None, breaks=(45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0)):
+def exposure_bands(
+    levels: np.ndarray,
+    weights: np.ndarray | None = None,
+    breaks: Sequence[float] = (45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0),
+) -> tuple[list[str], np.ndarray]:
     """Weighted population per noise band. Returns (labels, totals)."""
     levels = np.asarray(levels, dtype=float)
     if weights is None:

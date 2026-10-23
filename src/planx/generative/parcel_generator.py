@@ -25,6 +25,7 @@ class ParcelLayoutResult:
     parcels: list[ParcelPolygon]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "total_block_area_m2": round(self.total_block_area_m2, 1),
             "total_parcels": self.total_parcels,
@@ -77,7 +78,7 @@ def generate_optimized_parcels(
             aspect = block_h / max(1.0, dx)
             parcels.append(
                 ParcelPolygon(
-                    parcel_id=f"P_{i+1:02d}",
+                    parcel_id=f"P_{i + 1:02d}",
                     area_m2=area,
                     frontage_m=dx,
                     aspect_ratio=aspect,
@@ -95,7 +96,7 @@ def generate_optimized_parcels(
             aspect = block_w / max(1.0, dy)
             parcels.append(
                 ParcelPolygon(
-                    parcel_id=f"P_{i+1:02d}",
+                    parcel_id=f"P_{i + 1:02d}",
                     area_m2=area,
                     frontage_m=dy,
                     aspect_ratio=aspect,

@@ -27,6 +27,7 @@ class TSPPerformanceResult:
     corridor_average_speed_kmh: float
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "corridor_length_m": round(self.total_corridor_length_m, 1),
             "baseline_time_s": round(self.baseline_travel_time_seconds, 1),
@@ -85,8 +86,7 @@ def simulate_transit_signal_priority(
         phase_in_cycle = base_time % junc.cycle_time_seconds
         if phase_in_cycle > junc.green_split_seconds:
             # Caught by Red light
-            red_duration = junc.cycle_time_seconds - junc.green_split_seconds
-            wait_time = (junc.cycle_time_seconds - phase_in_cycle)
+            wait_time = junc.cycle_time_seconds - phase_in_cycle
             base_time += wait_time
 
         # Arrival with TSP

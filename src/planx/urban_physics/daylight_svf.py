@@ -19,6 +19,7 @@ class DaylightAutonomyResult:
     grid_svf_matrix: list[list[float]]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "mean_svf": round(self.mean_sky_view_factor, 3),
             "min_svf": round(self.min_sky_view_factor, 3),

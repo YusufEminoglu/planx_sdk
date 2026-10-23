@@ -23,7 +23,7 @@ import csv
 import io
 import zipfile
 from datetime import date as _date
-from typing import Any
+from typing import Any, Iterator
 
 import numpy as np
 
@@ -47,7 +47,7 @@ ROUTE_TYPES = {
 _WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 
 
-def parse_time(text) -> int:
+def parse_time(text: str) -> int:
     """GTFS ``H:MM:SS`` / ``HH:MM:SS`` to seconds since midnight.
 
     Hours may exceed 23 (``25:10:00`` is 1:10 the next morning, kept as
@@ -62,7 +62,8 @@ def parse_time(text) -> int:
     return h * 3600 + m * 60 + s
 
 
-def _read_csv(zf: zipfile.ZipFile, name: str):
+def _read_csv(zf: zipfile.ZipFile, name: str) -> Iterator[dict[str, str]]:
+    """Yield whitespace-stripped rows of one CSV member of the GTFS zip."""
     with zf.open(name) as fh:
         text = io.TextIOWrapper(fh, encoding="utf-8-sig", newline="")
         for row in csv.DictReader(text):
@@ -73,7 +74,7 @@ def _read_csv(zf: zipfile.ZipFile, name: str):
             }
 
 
-def read_gtfs(path):
+def read_gtfs(path: str) -> dict[str, Any]:
     """Parse a GTFS zip. Returns a dict of plain structures:
 
     - ``stop_ids`` list, ``stop_names`` list, ``stop_lat`` / ``stop_lon``
@@ -202,7 +203,7 @@ def read_gtfs(path):
     }
 
 
-def active_services(gtfs, day: str) -> set:
+def active_services(gtfs: dict[str, Any], day: str) -> set[str]:
     """Service ids running on ``day`` ('YYYYMMDD'), honouring exceptions."""
     day = str(day)
     try:
@@ -223,7 +224,7 @@ def active_services(gtfs, day: str) -> set:
     return active
 
 
-def first_service_day(gtfs) -> str:
+def first_service_day(gtfs: dict[str, Any]) -> str:
     """A day the feed actually runs: the earliest calendar start whose
     weekday is served (falling back to the first added exception date)."""
     best = None
@@ -249,7 +250,11 @@ def first_service_day(gtfs) -> str:
     return best
 
 
-def stop_frequencies(gtfs, day: str, window=(6 * 3600, 22 * 3600)):
+def stop_frequencies(
+    gtfs: dict[str, Any],
+    day: str,
+    window: tuple[float, float] = (6 * 3600, 22 * 3600),
+) -> dict[str, Any]:
     """Departures per stop within ``window`` (seconds) on ``day``.
 
     A departure is any stop_time that leaves the stop (the trip's final
@@ -296,7 +301,9 @@ def stop_frequencies(gtfs, day: str, window=(6 * 3600, 22 * 3600)):
     }
 
 
-def compile_day(gtfs, day: str):
+def compile_day(
+    gtfs: dict[str, Any], day: str
+) -> tuple[list[dict[str, Any]], dict[int, list[tuple[int, int]]]]:
     """Compile the timetable of ``day`` into RAPTOR patterns.
 
     Returns ``(patterns, stop_patterns)``: ``patterns`` is a list of dicts
@@ -331,7 +338,13 @@ def compile_day(gtfs, day: str):
     return patterns, stop_patterns
 
 
-def earliest_arrival(patterns, stop_patterns, n_stops, access, max_transfers=2):
+def earliest_arrival(
+    patterns: list[dict[str, Any]],
+    stop_patterns: dict[int, list[tuple[int, int]]],
+    n_stops: int,
+    access: dict[int, float],
+    max_transfers: int = 2,
+) -> np.ndarray:
     """RAPTOR earliest arrival at every stop.
 
     ``access`` maps a stop position to the earliest second one can stand

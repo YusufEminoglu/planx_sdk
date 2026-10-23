@@ -6,10 +6,12 @@ Pure NumPy. SCREENING quality, not compliance modelling.
 
 from __future__ import annotations
 
+from typing import Sequence
+
 import numpy as np
 
 
-def road_emission(aadt, ef_gkm):
+def road_emission(aadt: np.ndarray | float, ef_gkm: np.ndarray | float) -> np.ndarray:
     """Calculates road emission in g/km/day.
 
     aadt: daily vehicle volume (AADT)
@@ -18,7 +20,7 @@ def road_emission(aadt, ef_gkm):
     return np.asarray(aadt, dtype=float) * np.asarray(ef_gkm, dtype=float)
 
 
-def sample_strength(emission, seg_len):
+def sample_strength(emission: np.ndarray, seg_len: np.ndarray) -> np.ndarray:
     """Converts line-source emission (g/km/day) into sample point strength,
     calibrated at 25 m reference.
 
@@ -29,7 +31,16 @@ def sample_strength(emission, seg_len):
     return emission * (25.0 * np.clip(seg_len, 1e-6, None) / np.pi)
 
 
-def concentration(src_xy, strength, rx, ry, wind_speed, alpha=1.0, d0=0.0, cutoff=None):
+def concentration(
+    src_xy: np.ndarray,
+    strength: np.ndarray,
+    rx: float,
+    ry: float,
+    wind_speed: float,
+    alpha: float = 1.0,
+    d0: float = 0.0,
+    cutoff: float | None = None,
+) -> float:
     """Calculates the concentration index at a receiver point (rx, ry).
 
     Index = sum( strength / (wind_speed * (d + d0)**alpha) )
@@ -47,7 +58,7 @@ def concentration(src_xy, strength, rx, ry, wind_speed, alpha=1.0, d0=0.0, cutof
     return float(np.sum(contrib))
 
 
-def canyon_factor(height_mean, width):
+def canyon_factor(height_mean: np.ndarray | float, width: np.ndarray | float) -> np.ndarray:
     """Calculates the canyon accumulation factor: 1 + min(2, H/W)."""
     h = np.asarray(height_mean, dtype=float)
     w = np.clip(np.asarray(width, dtype=float), 1e-6, None)
@@ -55,8 +66,10 @@ def canyon_factor(height_mean, width):
 
 
 def exposure_bands(
-    levels, weights=None, breaks=(10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0)
-):
+    levels: np.ndarray,
+    weights: np.ndarray | None = None,
+    breaks: Sequence[float] = (10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0),
+) -> tuple[list[str], np.ndarray]:
     """Weighted population per pollution index band. Returns (labels, totals)."""
     levels = np.asarray(levels, dtype=float)
     if weights is None:

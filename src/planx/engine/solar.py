@@ -24,6 +24,7 @@ Pure NumPy, no qgis imports:
 from __future__ import annotations
 
 import math
+from typing import Callable
 
 import numpy as np
 
@@ -31,7 +32,8 @@ import numpy as np
 # --------------------------------------------------------------------------- #
 # Sun position (NOAA simplified)
 # --------------------------------------------------------------------------- #
-def _julian_day(year, month, day, hour_utc):
+def _julian_day(year: int, month: int, day: int, hour_utc: float) -> float:
+    """Julian day number for a Gregorian calendar date and UTC hour."""
     if month <= 2:
         year -= 1
         month += 12
@@ -41,7 +43,14 @@ def _julian_day(year, month, day, hour_utc):
     return jd + hour_utc / 24.0
 
 
-def sun_position(year, month, day, hour_utc, lat_deg, lon_deg):
+def sun_position(
+    year: int,
+    month: int,
+    day: int,
+    hour_utc: float,
+    lat_deg: float,
+    lon_deg: float,
+) -> tuple[float, float]:
     """Solar altitude and azimuth (degrees) for a UTC time and WGS84 lonlat.
 
     Azimuth is compass convention: 0 = North, 90 = East, 180 = South.
@@ -106,7 +115,7 @@ def sun_position(year, month, day, hour_utc, lat_deg, lon_deg):
 # --------------------------------------------------------------------------- #
 # Raster helpers
 # --------------------------------------------------------------------------- #
-def _shift(arr, dy, dx, fill):
+def _shift(arr: np.ndarray, dy: int, dx: int, fill: float) -> np.ndarray:
     """Shift a 2D array by integer (dy, dx); exposed edges get ``fill``."""
     out = np.full_like(arr, fill)
     h, w = arr.shape
@@ -120,7 +129,14 @@ def _shift(arr, dy, dx, fill):
     return out
 
 
-def shadow_mask(dsm, sun_altitude_deg, sun_azimuth_deg, pixel_size, max_search=None, progress=None):
+def shadow_mask(
+    dsm: np.ndarray,
+    sun_altitude_deg: float,
+    sun_azimuth_deg: float,
+    pixel_size: float,
+    max_search: float | None = None,
+    progress: Callable[[float], None] | None = None,
+) -> np.ndarray:
     """Boolean array: True where the DSM cell is in cast shadow.
 
     Iteratively shifts the DSM toward the sun, lowering it by
@@ -164,7 +180,13 @@ def shadow_mask(dsm, sun_altitude_deg, sun_azimuth_deg, pixel_size, max_search=N
     return highest > base + 0.01
 
 
-def sky_view_factor(dsm, pixel_size, directions=16, max_radius=100.0, progress=None):
+def sky_view_factor(
+    dsm: np.ndarray,
+    pixel_size: float,
+    directions: int = 16,
+    max_radius: float = 100.0,
+    progress: Callable[[float], None] | None = None,
+) -> np.ndarray:
     """SVF in [0, 1] per cell from ``directions`` horizon scans."""
     dsm = np.asarray(dsm, dtype=np.float64)
     base = np.where(np.isnan(dsm), -np.inf, dsm)
@@ -199,7 +221,8 @@ def sky_view_factor(dsm, pixel_size, directions=16, max_radius=100.0, progress=N
 # --------------------------------------------------------------------------- #
 # Daily sweeps: sun hours and clear-sky irradiation
 # --------------------------------------------------------------------------- #
-def _day_of_year(year, month, day):
+def _day_of_year(year: int, month: int, day: int) -> int:
+    """Ordinal day of the year (1-366), leap-year aware."""
     days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0):
         days[1] = 29
@@ -207,19 +230,19 @@ def _day_of_year(year, month, day):
 
 
 def sun_hours(
-    dsm,
-    pixel_size,
-    year,
-    month,
-    day,
-    utc_offset,
-    lat_deg,
-    lon_deg,
-    interval_min=30.0,
-    max_search=None,
-    progress=None,
-    cancel=None,
-):
+    dsm: np.ndarray,
+    pixel_size: float,
+    year: int,
+    month: int,
+    day: int,
+    utc_offset: float,
+    lat_deg: float,
+    lon_deg: float,
+    interval_min: float = 30.0,
+    max_search: float | None = None,
+    progress: Callable[[float], None] | None = None,
+    cancel: Callable[[], bool] | None = None,
+) -> tuple[np.ndarray, float]:
     """Hours of direct sun per DSM cell over one day.
 
     Sweeps the day in ``interval_min`` steps; for every step with the sun
@@ -248,7 +271,7 @@ def sun_hours(
     return hours, daylight
 
 
-def clear_sky_irradiance(altitude_deg, day_of_year):
+def clear_sky_irradiance(altitude_deg: float, day_of_year: int) -> tuple[float, float]:
     """Clear-sky direct-horizontal and diffuse-horizontal irradiance (W/m2).
 
     ASHRAE-style clear-sky model (Masters 2004): beam ``DNI = A exp(-k/sin h)``
@@ -268,20 +291,20 @@ def clear_sky_irradiance(altitude_deg, day_of_year):
 
 
 def daily_irradiation(
-    dsm,
-    pixel_size,
-    year,
-    month,
-    day,
-    utc_offset,
-    lat_deg,
-    lon_deg,
-    interval_min=30.0,
-    svf=None,
-    max_search=None,
-    progress=None,
-    cancel=None,
-):
+    dsm: np.ndarray,
+    pixel_size: float,
+    year: int,
+    month: int,
+    day: int,
+    utc_offset: float,
+    lat_deg: float,
+    lon_deg: float,
+    interval_min: float = 30.0,
+    svf: np.ndarray | None = None,
+    max_search: float | None = None,
+    progress: Callable[[float], None] | None = None,
+    cancel: Callable[[], bool] | None = None,
+) -> tuple[np.ndarray, float]:
     """Clear-sky global irradiation per cell over one day (kWh/m2).
 
     Per time step: sunlit cells receive the beam (direct-horizontal)
@@ -343,7 +366,8 @@ MONTH_NAMES = (
 _AVG_MONTH_DAY = (17, 16, 16, 15, 15, 11, 17, 16, 15, 15, 14, 10)
 
 
-def _days_in_month(year, month):
+def _days_in_month(year: int, month: int) -> int:
+    """Number of days in ``month`` of ``year`` (leap-year aware)."""
     days = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
     if month == 2 and year % 4 == 0 and (year % 100 != 0 or year % 400 == 0):
         return 29
@@ -351,20 +375,20 @@ def _days_in_month(year, month):
 
 
 def annual_irradiation(
-    dsm,
-    pixel_size,
-    year,
-    utc_offset,
-    lat_deg,
-    lon_deg,
-    interval_min=60.0,
-    svf=None,
-    months=None,
-    max_search=None,
-    keep_monthly=True,
-    progress=None,
-    cancel=None,
-):
+    dsm: np.ndarray,
+    pixel_size: float,
+    year: int,
+    utc_offset: float,
+    lat_deg: float,
+    lon_deg: float,
+    interval_min: float = 60.0,
+    svf: np.ndarray | None = None,
+    months: list[int] | None = None,
+    max_search: float | None = None,
+    keep_monthly: bool = True,
+    progress: Callable[[float], None] | None = None,
+    cancel: Callable[[], bool] | None = None,
+) -> dict[str, object]:
     """Clear-sky global solar irradiation summed over a year (kWh/m2/yr).
 
     For each month one representative "average day" (Klein 1977; Duffie &
@@ -397,7 +421,8 @@ def annual_irradiation(
         rep_day = _AVG_MONTH_DAY[m - 1]
         ndays = _days_in_month(year, m)
 
-        def sub(frac, _i=idx, _n=n):
+        def sub(frac: float, _i: int = idx, _n: int = n) -> None:
+            """Forward this month's fractional progress to the caller."""
             if progress is not None:
                 progress((_i + frac) / _n)
 
@@ -438,16 +463,16 @@ def annual_irradiation(
 # Urban heat island risk (vector grid composite)
 # --------------------------------------------------------------------------- #
 def heat_risk_index(
-    built_frac,
-    green_frac,
-    water_frac,
-    mean_height,
-    h_ref=20.0,
-    w_built=0.4,
-    w_height=0.2,
-    w_green=0.3,
-    w_water=0.1,
-):
+    built_frac: np.ndarray,
+    green_frac: np.ndarray,
+    water_frac: np.ndarray,
+    mean_height: np.ndarray,
+    h_ref: float = 20.0,
+    w_built: float = 0.4,
+    w_height: float = 0.2,
+    w_green: float = 0.3,
+    w_water: float = 0.1,
+) -> np.ndarray:
     """Normalized 0-100 urban heat island risk score (vectorized).
 
     ``raw = w_built*built + w_height*min(h/h_ref, 1) - w_green*green -
@@ -473,7 +498,7 @@ def heat_risk_index(
 # --------------------------------------------------------------------------- #
 # Frontal area (vector, per building)
 # --------------------------------------------------------------------------- #
-def projected_width(ring, wind_azimuth_deg):
+def projected_width(ring: np.ndarray, wind_azimuth_deg: float) -> float:
     """Width of a footprint ring projected perpendicular to the wind.
 
     The frontal area of a building is ``projected_width * height``.

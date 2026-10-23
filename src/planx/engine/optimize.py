@@ -21,7 +21,7 @@ import numpy as np
 INF = float("inf")
 
 
-def coverage_weights(D, w, radius):
+def coverage_weights(D: np.ndarray, w: np.ndarray, radius: float) -> np.ndarray:
     """Standalone weighted demand within ``radius`` of each candidate.
 
     The 'site screening' score: how much demand each site could serve on
@@ -32,7 +32,13 @@ def coverage_weights(D, w, radius):
     return (D <= float(radius)).astype(float) @ w
 
 
-def greedy_max_coverage(D, w, p, radius, fixed=()):
+def greedy_max_coverage(
+    D: np.ndarray,
+    w: np.ndarray,
+    p: int,
+    radius: float,
+    fixed: tuple[int, ...] | list[int] = (),
+) -> dict[str, object]:
     """Pick up to ``p`` candidates maximizing covered weighted demand.
 
     Returns dict with ``selected`` (in pick order), ``gains`` (marginal
@@ -72,11 +78,19 @@ def greedy_max_coverage(D, w, p, radius, fixed=()):
     }
 
 
-def _objective(Dp, w, sel):
+def _objective(Dp: np.ndarray, w: np.ndarray, sel: list[int]) -> float:
+    """Demand-weighted total cost of assigning each point to its nearest site."""
     return float((Dp[list(sel)].min(axis=0) * w).sum())
 
 
-def p_median(D, w, p, fixed=(), penalty=None, max_iter=100):
+def p_median(
+    D: np.ndarray,
+    w: np.ndarray,
+    p: int,
+    fixed: tuple[int, ...] | list[int] = (),
+    penalty: float | None = None,
+    max_iter: int = 100,
+) -> dict[str, object]:
     """Greedy + Teitz-Bart vertex-substitution p-median heuristic.
 
     Unreachable pairs (inf in ``D``) cost ``penalty`` (default: 1.5x the
@@ -139,7 +153,9 @@ def p_median(D, w, p, fixed=(), penalty=None, max_iter=100):
     }
 
 
-def assign_to_nearest(D, solution):
+def assign_to_nearest(
+    D: np.ndarray, solution: list[int] | np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """Assign every demand point to its nearest facility of ``solution``.
 
     Returns (assign, cost): position in ``solution`` (-1 if unreachable)
@@ -160,7 +176,9 @@ def assign_to_nearest(D, solution):
     return assign, cost
 
 
-def capacitated_assign(D, w, cap, max_cost=None):
+def capacitated_assign(
+    D: np.ndarray, w: np.ndarray, cap: np.ndarray, max_cost: float | None = None
+) -> dict[str, object]:
     """Greedy nearest-with-capacity allocation (whole demand points).
 
     Parameters
@@ -241,7 +259,15 @@ def capacitated_assign(D, w, cap, max_cost=None):
     }
 
 
-def capacitated_siting(dist, demand_w, capacities, p, existing_idx=(), max_cost=None, max_iter=100):
+def capacitated_siting(
+    dist: np.ndarray,
+    demand_w: np.ndarray,
+    capacities: np.ndarray,
+    p: int,
+    existing_idx: tuple[int, ...] | list[int] = (),
+    max_cost: float | None = None,
+    max_iter: int = 100,
+) -> dict[str, object]:
     """Capacitated Facility Siting via Greedy Construction + Teitz-Bart swap improvement.
 
     Parameters
@@ -281,7 +307,10 @@ def capacitated_siting(dist, demand_w, capacities, p, existing_idx=(), max_cost=
     free = [i for i in range(n_sites) if i not in fixed_set]
     p = min(int(p), len(free))
 
-    def evaluate(open_sites):
+    def evaluate(
+        open_sites: list[int] | tuple[int, ...],
+    ) -> tuple[float, float, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Evaluate an open-site set: served demand, cost, assign/load arrays."""
         if not open_sites:
             return (
                 0.0,
