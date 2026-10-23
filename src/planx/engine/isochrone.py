@@ -98,7 +98,7 @@ def subtract_intervals(
         return []
     if not b:
         return list(a)
-    out = []
+    out: list[tuple[float, float]] = []
     for lo, hi in a:
         pieces = [(lo, hi)]
         for blo, bhi in b:
@@ -218,11 +218,11 @@ def reach_intervals(
     for e in touched:
         out[int(e)] = edge_intervals(bool(full[e]), float(fa[e]), float(fb[e]))
     if entries:
-        extra = {}
-        for e, t0, snap in entries:
-            piece = entry_interval(t0, snap, edge_cost[e], cutoff)
+        extra: dict[int, list[tuple[float, float]]] = {}
+        for edge_idx, t0, snap in entries:
+            piece = entry_interval(t0, snap, edge_cost[edge_idx], cutoff)
             if piece is not None:
-                extra.setdefault(int(e), []).append(piece)
+                extra.setdefault(int(edge_idx), []).append(piece)
         for e, pieces in extra.items():
             out[e] = merge_intervals(out.get(e, []) + pieces)
     return out

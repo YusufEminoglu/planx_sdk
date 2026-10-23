@@ -382,7 +382,8 @@ def crosstab(
         if wsum <= 0:
             continue
         mean[gi] = (wg * xg).sum() / wsum
-        p10[gi], median[gi], p90[gi] = weighted_quantile(xg, [0.1, 0.5, 0.9], wg)
+        quantiles = np.asarray(weighted_quantile(xg, [0.1, 0.5, 0.9], wg), dtype=float)
+        p10[gi], median[gi], p90[gi] = quantiles
         pos = xg[wg > 0]
         vmin[gi] = pos.min() if pos.size else 0.0
         vmax[gi] = pos.max() if pos.size else 0.0

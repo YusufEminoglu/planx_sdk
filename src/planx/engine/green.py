@@ -42,7 +42,7 @@ def parse_hierarchy(text: str) -> list[tuple[float, float]]:
 
 def components(n: int, edges: list[tuple[int, int]]) -> tuple[np.ndarray, int]:
     """Connected components over ``n`` nodes: returns (labels, count)."""
-    adj = [[] for _ in range(n)]
+    adj: list[list[int]] = [[] for _ in range(n)]
     for i, j in edges:
         adj[int(i)].append(int(j))
         adj[int(j)].append(int(i))
