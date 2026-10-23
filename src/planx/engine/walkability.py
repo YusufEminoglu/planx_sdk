@@ -39,7 +39,7 @@ DEFAULT_BREAKPOINTS = {
 }
 
 
-def linear_score(values, zero, full):
+def linear_score(values: np.ndarray, zero: float, full: float) -> np.ndarray:
     """Linear 0-100 score: ``zero`` maps to 0, ``full`` to 100 (clamped).
 
     Works in either direction: pass ``zero > full`` for
@@ -52,7 +52,7 @@ def linear_score(values, zero, full):
     return np.clip((values - float(zero)) / span, 0.0, 1.0) * 100.0
 
 
-def shannon_mix(areas):
+def shannon_mix(areas: np.ndarray) -> float:
     """Normalised Shannon entropy of a composition (0 = one use, 1 = even).
 
     ``areas`` are non-negative amounts per category (any iterable). A
@@ -68,14 +68,14 @@ def shannon_mix(areas):
 
 
 def walk_scores(
-    inter_density,
-    mix=None,
-    dest_count=None,
-    block_len=None,
-    slope_pct=None,
-    weights=None,
-    breakpoints=None,
-):
+    inter_density: np.ndarray,
+    mix: np.ndarray | None = None,
+    dest_count: np.ndarray | None = None,
+    block_len: np.ndarray | None = None,
+    slope_pct: np.ndarray | None = None,
+    weights: dict[str, float] | None = None,
+    breakpoints: dict[str, float] | None = None,
+) -> dict[str, np.ndarray]:
     """Combine per-segment ingredients into 0-100 walkability scores.
 
     Parameters (all aligned 1-D arrays of the same length; every one but

@@ -75,16 +75,32 @@ def test_pareto_front_supports_mixed_objectives_and_nodata():
 @pytest.mark.parametrize(
     "call",
     [
+        lambda: array_summary([np.nan]),
+        lambda: weighted_quantile([], [0.5]),
+        lambda: weighted_quantile([1.0, 2.0], [0.5], [1.0]),
+        lambda: weighted_quantile([1.0, 2.0], [0.5], [-1.0, 1.0]),
+        lambda: weighted_quantile([1.0, 2.0], [0.5], [0.0, 0.0]),
+        lambda: gini_coefficient([-1.0, 1.0]),
+        lambda: normalize_weights([]),
+        lambda: normalize_weights([1.0, np.nan]),
         lambda: normalize_weights([0.0, 0.0]),
         lambda: weighted_quantile([1.0, 2.0], [1.2]),
         lambda: quantile_breaks([1.0], 1),
         lambda: classify_values([1.0], [2.0, 1.0]),
         lambda: bootstrap_mean_ci([1.0, 2.0], n_boot=10),
+        lambda: bootstrap_mean_ci([1.0, 2.0], confidence=1.5),
         lambda: zscore([np.nan]),
+        lambda: zscore([1.0, 2.0], ddof=2),
         lambda: top_k_indices([1.0], 0),
         lambda: pareto_front(np.array([1.0, 2.0])),
+        lambda: pareto_front(np.ones((2, 2)), maximize=[True]),
     ],
 )
 def test_quality_utilities_reject_invalid_input(call):
     with pytest.raises(ValueError):
         call()
+
+
+def test_quality_utilities_handle_all_missing_input():
+    assert np.array_equal(rank_values([np.nan, np.nan]), [0.0, 0.0])
+    assert top_k_indices([np.nan, np.nan], 2).size == 0

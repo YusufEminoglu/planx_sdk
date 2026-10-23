@@ -28,6 +28,7 @@ class ChargingDepotResult:
     bus_schedules: list[dict[str, Any]]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "energy_delivered_kwh": round(self.total_energy_delivered_kwh, 1),
             "peak_grid_load_kw": round(self.peak_grid_load_kw, 1),
@@ -47,10 +48,30 @@ def optimize_ev_fleet_charging(
     # Default 24h tariff: off-peak (00-06) = $0.08, normal = $0.14, peak (17-22) = $0.24
     if electricity_price_schedule_per_kwh is None:
         tariffs = [
-            0.08, 0.08, 0.08, 0.08, 0.08, 0.08,  # 00:00 - 06:00 (Off-peak night)
-            0.12, 0.14, 0.16, 0.16, 0.14, 0.14,  # 06:00 - 12:00
-            0.14, 0.14, 0.15, 0.16, 0.18, 0.24,  # 12:00 - 18:00
-            0.24, 0.22, 0.18, 0.14, 0.10, 0.08,  # 18:00 - 24:00
+            0.08,
+            0.08,
+            0.08,
+            0.08,
+            0.08,
+            0.08,  # 00:00 - 06:00 (Off-peak night)
+            0.12,
+            0.14,
+            0.16,
+            0.16,
+            0.14,
+            0.14,  # 06:00 - 12:00
+            0.14,
+            0.14,
+            0.15,
+            0.16,
+            0.18,
+            0.24,  # 12:00 - 18:00
+            0.24,
+            0.22,
+            0.18,
+            0.14,
+            0.10,
+            0.08,  # 18:00 - 24:00
         ]
     else:
         tariffs = list(electricity_price_schedule_per_kwh)
@@ -80,9 +101,7 @@ def optimize_ev_fleet_charging(
 
     for bus in bus_list:
         needed_kwh = (
-            (bus.target_departure_soc_pct - bus.arrival_soc_pct)
-            / 100.0
-            * bus.battery_capacity_kwh
+            (bus.target_departure_soc_pct - bus.arrival_soc_pct) / 100.0 * bus.battery_capacity_kwh
         )
         if needed_kwh <= 0:
             continue
@@ -116,12 +135,14 @@ def optimize_ev_fleet_charging(
         if remaining_need > 1.0:
             unmet += 1
 
-        schedules.append({
-            "bus_id": bus.bus_id,
-            "needed_kwh": needed_kwh,
-            "delivered_kwh": needed_kwh - remaining_need,
-            "hourly_kw": charged_by_hour,
-        })
+        schedules.append(
+            {
+                "bus_id": bus.bus_id,
+                "needed_kwh": needed_kwh,
+                "delivered_kwh": needed_kwh - remaining_need,
+                "hourly_kw": charged_by_hour,
+            }
+        )
 
     peak_load = max(hourly_load) if hourly_load else 0.0
 

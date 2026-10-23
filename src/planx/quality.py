@@ -29,6 +29,8 @@ __all__ = [
 
 
 def _finite_values(values: Iterable[float]) -> np.ndarray:
+    """Return a flat array of the finite entries, rejecting empty input."""
+
     array = np.asarray(values, dtype=float).ravel()
     if array.size == 0:
         raise ValueError("values must contain at least one item")
@@ -38,7 +40,15 @@ def _finite_values(values: Iterable[float]) -> np.ndarray:
     return finite
 
 
-def _values_and_weights(values, weights=None) -> tuple[np.ndarray, np.ndarray | None]:
+def _values_and_weights(
+    values: Iterable[float], weights: Iterable[float] | None = None
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """Align values and optional weights, dropping non-finite pairs.
+
+    Returns the cleaned value array paired with either the matching weight
+    array or ``None`` when unweighted statistics were requested.
+    """
+
     array = np.asarray(values, dtype=float).ravel()
     if array.size == 0:
         raise ValueError("values must contain at least one item")
@@ -58,7 +68,9 @@ def _values_and_weights(values, weights=None) -> tuple[np.ndarray, np.ndarray | 
     return array[finite], weight_array[finite]
 
 
-def array_summary(values, weights=None) -> dict[str, float | int]:
+def array_summary(
+    values: Iterable[float], weights: Iterable[float] | None = None
+) -> dict[str, float | int]:
     """Return robust descriptive statistics for a numeric array.
 
     Non-finite values are excluded from statistics and reported as
@@ -91,7 +103,11 @@ def array_summary(values, weights=None) -> dict[str, float | int]:
     return result
 
 
-def weighted_quantile(values, quantiles, weights=None) -> np.ndarray:
+def weighted_quantile(
+    values: Iterable[float],
+    quantiles: float | Sequence[float],
+    weights: Iterable[float] | None = None,
+) -> np.ndarray:
     """Compute weighted quantiles with deterministic linear interpolation."""
 
     clean, clean_weights = _values_and_weights(values, weights)
@@ -112,7 +128,7 @@ def weighted_quantile(values, quantiles, weights=None) -> np.ndarray:
     return np.asarray(result, dtype=float).reshape(q.shape)
 
 
-def gini_coefficient(values, weights=None) -> float:
+def gini_coefficient(values: Iterable[float], weights: Iterable[float] | None = None) -> float:
     """Return the (optionally weighted) Gini inequality coefficient."""
 
     clean, clean_weights = _values_and_weights(values, weights)
@@ -140,7 +156,7 @@ def gini_coefficient(values, weights=None) -> float:
     return float(np.clip(1.0 - 2.0 * area, 0.0, 1.0))
 
 
-def normalize_weights(weights) -> np.ndarray:
+def normalize_weights(weights: Iterable[float]) -> np.ndarray:
     """Validate and normalize a non-negative weight vector to sum to one."""
 
     array = np.asarray(weights, dtype=float).ravel()
@@ -152,7 +168,7 @@ def normalize_weights(weights) -> np.ndarray:
     return array / total
 
 
-def quantile_breaks(values, n_classes: int = 5) -> np.ndarray:
+def quantile_breaks(values: Iterable[float], n_classes: int = 5) -> np.ndarray:
     """Return unique internal quantile thresholds for classification."""
 
     if not isinstance(n_classes, (int, np.integer)) or n_classes < 2:
@@ -162,7 +178,9 @@ def quantile_breaks(values, n_classes: int = 5) -> np.ndarray:
     return np.unique(np.asarray(breaks, dtype=float))
 
 
-def classify_values(values, breaks: Sequence[float], nodata: int = -1) -> np.ndarray:
+def classify_values(
+    values: Iterable[float], breaks: Sequence[float], nodata: int = -1
+) -> np.ndarray:
     """Classify values into one-based bins, preserving non-finite values as nodata."""
 
     array = np.asarray(values, dtype=float)
@@ -175,7 +193,7 @@ def classify_values(values, breaks: Sequence[float], nodata: int = -1) -> np.nda
     return result
 
 
-def rank_values(values, descending: bool = True) -> np.ndarray:
+def rank_values(values: Iterable[float], descending: bool = True) -> np.ndarray:
     """Return stable one-based average ranks; non-finite values receive zero."""
 
     original = np.asarray(values, dtype=float)
@@ -199,7 +217,7 @@ def rank_values(values, descending: bool = True) -> np.ndarray:
 
 
 def bootstrap_mean_ci(
-    values,
+    values: Iterable[float],
     confidence: float = 0.95,
     n_boot: int = 2000,
     seed: int | None = 42,
@@ -222,7 +240,7 @@ def bootstrap_mean_ci(
     return float(np.mean(clean)), float(lower), float(upper)
 
 
-def zscore(values, ddof: int = 0) -> np.ndarray:
+def zscore(values: Iterable[float], ddof: int = 0) -> np.ndarray:
     """Standardize finite values while preserving non-finite entries."""
 
     original = np.asarray(values, dtype=float)
@@ -240,7 +258,7 @@ def zscore(values, ddof: int = 0) -> np.ndarray:
     return result.reshape(original.shape)
 
 
-def top_k_indices(values, k: int, largest: bool = True) -> np.ndarray:
+def top_k_indices(values: Iterable[float], k: int, largest: bool = True) -> np.ndarray:
     """Return stable indices of the ``k`` largest or smallest finite values."""
 
     array = np.asarray(values, dtype=float).ravel()
@@ -254,7 +272,9 @@ def top_k_indices(values, k: int, largest: bool = True) -> np.ndarray:
     return finite[order[: int(k)]]
 
 
-def pareto_front(values, maximize=True) -> np.ndarray:
+def pareto_front(
+    values: Iterable[Iterable[float]] | np.ndarray, maximize: bool | Sequence[bool] = True
+) -> np.ndarray:
     """Return a mask for non-dominated rows in a multi-objective matrix."""
 
     matrix = np.asarray(values, dtype=float)

@@ -5,6 +5,18 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.27.1] - 2026-10-23
+### Changed
+- **Documentation & typing**: Added concise docstrings and complete type annotations to every public and internal function across the package.
+- **README**: Corrected example signatures, added installation extras, module overview, and a public API reference.
+- **Packaging**: Added the optional `ml` extra for scikit-learn / statsmodels forecasting backends.
+
+### Added
+- Regression tests for land-use allocation, Pareto fronts, contiguity fallbacks, path kernels, quality error paths, and social vulnerability indices.
+
+### Fixed
+- Removed an unused variable in the transit signal priority simulator flagged by Ruff.
+
 ## [2.27.0] - 2026-08-30
 ### Added
 - **Multi-Server EV Fast-Charging Station Queue Simulator (`mobility/ev_charging_queue_markov.py`)**: Added `simulate_ev_charging_station_queues` implementing M/M/c/K Markov birth-death queuing models and grid peak load estimators.

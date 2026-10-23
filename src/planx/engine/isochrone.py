@@ -29,7 +29,9 @@ EPS = 1e-9
 # --------------------------------------------------------------------------- #
 # Reach fractions per edge (vectorized)
 # --------------------------------------------------------------------------- #
-def reach_fractions(dist_a, dist_b, edge_cost, cutoff):
+def reach_fractions(
+    dist_a: np.ndarray, dist_b: np.ndarray, edge_cost: np.ndarray, cutoff: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Per-edge reach from both ends within ``cutoff``.
 
     ``dist_a``/``dist_b`` are the network costs of ``edge_from``/``edge_to``
@@ -52,7 +54,7 @@ def reach_fractions(dist_a, dist_b, edge_cost, cutoff):
     return full, fa, fb
 
 
-def edge_intervals(full, fa, fb):
+def edge_intervals(full: bool, fa: float, fb: float) -> list[tuple[float, float]]:
     """Reach intervals of ONE edge from its (full, fa, fb) triple."""
     if full:
         return [(0.0, 1.0)]
@@ -67,7 +69,9 @@ def edge_intervals(full, fa, fb):
 # --------------------------------------------------------------------------- #
 # Interval algebra on [0, 1]
 # --------------------------------------------------------------------------- #
-def merge_intervals(intervals):
+def merge_intervals(
+    intervals: list[tuple[float, float]],
+) -> list[tuple[float, float]]:
     """Union of (lo, hi) pairs, clipped to [0, 1], sorted and merged."""
     clean = []
     for lo, hi in intervals:
@@ -86,7 +90,9 @@ def merge_intervals(intervals):
     return [(lo, hi) for lo, hi in out]
 
 
-def subtract_intervals(a, b):
+def subtract_intervals(
+    a: list[tuple[float, float]], b: list[tuple[float, float]]
+) -> list[tuple[float, float]]:
     """Set difference ``a - b`` of two merged interval lists."""
     if not a:
         return []
@@ -112,7 +118,7 @@ def subtract_intervals(a, b):
     return out
 
 
-def interval_length(intervals):
+def interval_length(intervals: list[tuple[float, float]]) -> float:
     """Total covered fraction of a merged interval list."""
     return float(sum(hi - lo for lo, hi in intervals))
 
@@ -120,12 +126,13 @@ def interval_length(intervals):
 # --------------------------------------------------------------------------- #
 # Polyline cutting
 # --------------------------------------------------------------------------- #
-def _cumlen(coords):
+def _cumlen(coords: np.ndarray) -> np.ndarray:
+    """Cumulative arc length along a (k, 2) polyline, starting at zero."""
     seg = np.diff(coords, axis=0)
     return np.concatenate([[0.0], np.cumsum(np.hypot(seg[:, 0], seg[:, 1]))])
 
 
-def point_at(coords, t):
+def point_at(coords: np.ndarray, t: float) -> np.ndarray:
     """Point at arc-length fraction ``t`` of a (k, 2) polyline."""
     coords = np.asarray(coords, dtype=np.float64)
     cum = _cumlen(coords)
@@ -140,7 +147,7 @@ def point_at(coords, t):
     return coords[i] + u * (coords[i + 1] - coords[i])
 
 
-def cut_polyline(coords, t0, t1):
+def cut_polyline(coords: np.ndarray, t0: float, t1: float) -> np.ndarray | None:
     """Sub-polyline between arc-length fractions ``t0 < t1``.
 
     Returns a (m, 2) float array, or ``None`` when the piece degenerates
@@ -171,7 +178,9 @@ def cut_polyline(coords, t0, t1):
 # --------------------------------------------------------------------------- #
 # Putting it together: reach of one scope (one facility or all merged)
 # --------------------------------------------------------------------------- #
-def entry_interval(t0, snap_cost, edge_cost, cutoff):
+def entry_interval(
+    t0: float, snap_cost: float, edge_cost: float, cutoff: float
+) -> tuple[float, float] | None:
     """Direct reach piece around a mid-edge entry point.
 
     ``t0`` = entry fraction along the edge, ``snap_cost`` = cost already
@@ -188,7 +197,14 @@ def entry_interval(t0, snap_cost, edge_cost, cutoff):
     return (lo, hi)
 
 
-def reach_intervals(dist, edge_from, edge_to, edge_cost, cutoff, entries=None):
+def reach_intervals(
+    dist: np.ndarray,
+    edge_from: np.ndarray,
+    edge_to: np.ndarray,
+    edge_cost: np.ndarray,
+    cutoff: float,
+    entries: list[tuple[int, float, float]] | None = None,
+) -> dict[int, list[tuple[float, float]]]:
     """Reached intervals for every edge at one cutoff.
 
     ``dist``: per-node costs; ``entries``: optional list of

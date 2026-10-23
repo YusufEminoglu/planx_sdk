@@ -133,7 +133,8 @@ def multi_hazard_composite(
     diversity = diversity_flat.reshape(shape)
 
     # Reshape list results
-    def reshape_list(flat_list):
+    def reshape_list(flat_list: list[Any]) -> list[Any]:
+        """Reshape a flat list to the input grid shape (2-D nests rows)."""
         if len(shape) == 1:
             return flat_list
         elif len(shape) == 2:

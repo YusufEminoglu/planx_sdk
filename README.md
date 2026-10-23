@@ -31,7 +31,7 @@
 * 🚀 **Headless & Scalable:** Run large-scale geospatial routines inside Jupyter notebooks, FastAPI/Flask backends, Docker containers, Celery workers, or AWS Lambda/Cloud Run.
 * ⚡ **Vectorized Performance:** Heavy mathematical models (e.g., Getis-Ord $G_i^*$, E2SFCA, KDTree IDW, Brandes betweenness, CSR Dijkstra) leverage fast contiguous NumPy arrays and SciPy sparse graph matrices.
 * 🔬 **Scientific Rigor:** Implements validated academic algorithms across spatial statistics, urban physics, Space Syntax, and multi-hazard climate adaptation.
-* 🧪 **Deterministic & Tested:** Over 480+ automated unit tests ensuring high mathematical stability and precision across Python 3.9 through 3.13.
+* 🧪 **Deterministic & Tested:** Over 500 automated unit tests ensuring high mathematical stability and precision across Python 3.9 through 3.13.
 
 ---
 
@@ -55,6 +55,9 @@ pip install planx-sdk
 
 # With development and test suite dependencies
 pip install "planx-sdk[dev]"
+
+# With optional machine-learning forecasting backends (scikit-learn, statsmodels)
+pip install "planx-sdk[ml]"
 ```
 
 ---
@@ -74,8 +77,35 @@ planx/
 ├── mobility/             # BPR link impedance, Frank-Wolfe traffic assignment, Furness balancing
 ├── realestate/           # Spatial hedonic price models (OLS/SAR), TOD infrastructure uplift
 ├── generative/           # Recursive parcel subdivision, solar envelope volumes
-└── engine/               # 28 headless embedded computation engines (air, hydro, syntax, transit, etc.)
+├── energy/               # Community solar microgrid and battery-storage simulation
+├── infrastructure/       # Water distribution, district heating/cooling, waste collection routing
+├── economics/            # TIF cashflows and land-value capture / betterment levies
+├── demographics/         # Aging and silver-mobility accessibility indices
+├── environment/          # Urban biodiversity corridor connectivity
+├── quality/              # Weighted statistics, classification, bootstrap CI, Pareto screening
+└── engine/               # 27 headless embedded computation engines (air, hydro, syntax, transit, etc.)
 ```
+
+---
+
+## 🔌 Public API Reference
+
+All public functions are importable directly from their package, e.g.
+`from planx.spatial import enhanced_2sfca`. The table below lists the main entry
+points; the full signatures and docstrings are available via `help()` or the
+[interactive manual](https://geophilo.com/planx_sdk/).
+
+| Module | Purpose | Representative public API |
+| :--- | :--- | :--- |
+| `planx.spatial` | Accessibility, network centrality, 15-minute city, street morphology | `enhanced_2sfca`, `gravity_accessibility`, `spatial_equity_gini`, `brandes_betweenness`, `calculate_15m_city_score`, `optimize_school_catchments` |
+| `planx.geostats` | Spatial autocorrelation, hotspot analysis, interpolation, spatial regression | `calculate_global_moran`, `calculate_getis_ord`, `calculate_local_moran`, `create_knn_weights`, `idw_to_grid`, `kriging_to_grid`, `fit_spatial_lag_model` |
+| `planx.suitability` | Multi-criteria decision analysis and facility location | `ahp_weights`, `entropy_weights`, `critic_weights`, `topsis_method`, `greedy_mclp`, `greedy_p_median`, `greedy_lscp` |
+| `planx.resilience` | Multi-hazard risk, seismic/flood/heat models, social vulnerability | `simulate_seismic_debris`, `multi_hazard_composite`, `equity_adjusted_priority`, `social_vulnerability_index`, `urban_heat_island_intensity`, `pluvial_flood_susceptibility` |
+| `planx.urban_morphology` | Density typologies and urban form metrics | `spacemate_density_matrix`, `fractal_dimension_box_counting`, `block_porosity_and_grain_index` |
+| `planx.urban_physics` | Wind, daylight and urban heat mitigation physics | `frontal_area_index_canopy`, `compute_3d_sky_view_factor`, `simulate_wind_corridors`, `simulate_uhi_temperature_reduction` |
+| `planx.mobility` | Traffic assignment, OD estimation, EV fleet and transit operations | `bpr_link_performance_function`, `frank_wolfe_user_equilibrium`, `gravity_model_od_estimation`, `furness_matrix_balancing`, `optimize_ev_fleet_charging` |
+| `planx.quality` | Dependency-light summaries and decision utilities | `array_summary`, `weighted_quantile`, `gini_coefficient`, `classify_values`, `bootstrap_mean_ci`, `pareto_front` |
+| `planx.engine` | Low-level NumPy/SciPy kernels shared by the engines | `engine.paths.many_to_many`, `engine.centrality.brandes_betweenness`, `engine.allocate.allocate_land_use`, `engine.optimize.greedy_mclp` |
 
 ---
 
@@ -99,7 +129,7 @@ neighborhood_pop = np.array([1200.0, 3400.0, 1800.0])
 
 # Compute E2SFCA Accessibility scores (1500m cutoff)
 e2sfca_scores = enhanced_2sfca(
-    d_matrix=distances,
+    dists=distances,
     supply=hospital_beds,
     demand=neighborhood_pop,
     cutoff=1500.0,
@@ -107,6 +137,15 @@ e2sfca_scores = enhanced_2sfca(
     beta=0.0015
 )
 print("E2SFCA Scores:", e2sfca_scores)
+
+# Gravity-model accessibility with the same decay parameters
+gravity_scores = gravity_accessibility(
+    dists=distances,
+    destinations_weight=hospital_beds,
+    decay_method="exponential",
+    beta=0.0015
+)
+print("Gravity Accessibility:", gravity_scores)
 
 # Assess distribution equity via Gini Coefficient
 gini = spatial_equity_gini(e2sfca_scores, neighborhood_pop)
@@ -120,7 +159,7 @@ Generate spatial weights and compute **Getis-Ord $G_i^*$** hotspot statistics:
 
 ```python
 import numpy as np
-from planx.geostats import create_knn_weights, calculate_getis_ord_gi, idw_to_grid
+from planx.geostats import create_knn_weights, calculate_getis_ord, idw_to_grid
 
 # Spatial observations (e.g. air pollution levels)
 coords = np.array([[10.0, 10.0], [12.0, 10.5], [11.0, 12.0], [50.0, 50.0]])
@@ -130,12 +169,17 @@ ids = [1, 2, 3, 4]
 # Create k-Nearest Neighbor spatial weights
 neighbors, weights = create_knn_weights(coords, ids, k=2)
 
-# Calculate Hotspot Z-scores
-gi_z, gi_p = calculate_getis_ord_gi(values, neighbors, weights, ids)
+# Calculate hotspot Z-scores, p-values and confidence bins
+gi_z, gi_p, gi_bins = calculate_getis_ord(values, neighbors, weights, ids)
 print("Getis-Ord Gi* Z-Scores:", gi_z)
 
 # Interpolate to 2D raster grid via KDTree IDW
-grid, x_coords, y_coords = idw_to_grid(coords, values, bbox=(0, 0, 60, 60), cell_size=2.0)
+grid, x_coords, y_coords = idw_to_grid(
+    source_coords=coords,
+    source_values=values,
+    grid_bounds=(0.0, 0.0, 60.0, 60.0),
+    cell_size=2.0,
+)
 print("Interpolated Grid Shape:", grid.shape)
 ```
 
@@ -162,7 +206,13 @@ candidates = np.array([[100.0, 100.0], [500.0, 500.0], [900.0, 900.0]])
 demands = np.array([[120.0, 130.0], [480.0, 520.0], [890.0, 910.0], [200.0, 300.0]])
 pop = np.array([250.0, 600.0, 450.0, 180.0])
 
-selected, step_pop, cum_pop = greedy_mclp(candidates, demands, pop, max_distance=500.0, k=2)
+selected, step_pop, cum_pop = greedy_mclp(
+    candidate_coords=candidates,
+    demand_coords=demands,
+    demand_pop=pop,
+    max_distance=500.0,
+    k=2,
+)
 print("Selected Shelter Indices:", selected)
 ```
 
@@ -186,7 +236,11 @@ years = np.array([1988, 1975, 2018, 1994])      # Construction year
 
 # Monte Carlo Seismic Damage Simulation (Mw 7.4)
 probs, collapsed, radii, volumes = simulate_seismic_debris(
-    areas, floors, years, magnitude=7.4, seed=42
+    building_areas=areas,
+    building_floors=floors,
+    building_years=years,
+    magnitude=7.4,
+    seed=42,
 )
 print("Collapse State:", collapsed)
 print("Debris Impact Radii (m):", radii)
@@ -210,9 +264,9 @@ from planx.urban_morphology import spacemate_density_matrix
 
 # Calculate Spacemate density matrix
 result = spacemate_density_matrix(fsi=2.4, gsi=0.4)
-print("Typology:", result["typology"])
+print("Typology:", result["typology_class"])
 print("Open Space Ratio (OSR):", result["osr"])
-print("Average Number of Layers:", result["layers"])
+print("Average Number of Layers:", result["layers_l"])
 ```
 
 ---
@@ -229,7 +283,13 @@ capacities = np.array([1500.0, 1500.0])
 free_time = np.array([3.0, 3.0])
 
 # Congested link travel times
-travel_times = bpr_link_performance_function(flows, capacities, free_time, alpha=0.15, beta=4.0)
+travel_times = bpr_link_performance_function(
+    flow=flows,
+    capacity=capacities,
+    free_flow_time=free_time,
+    alpha=0.15,
+    beta=4.0,
+)
 print("Link Travel Times (minutes):", travel_times)
 ```
 
@@ -250,7 +310,7 @@ from planx.quality import (
 values = np.array([12.0, 18.0, 25.0, np.nan])
 summary = array_summary(values)
 classes = classify_values(values, breaks=[15.0, 22.0])
-mean, low, high = bootstrap_mean_ci(values, random_state=7)
+mean, low, high = bootstrap_mean_ci(values, seed=7)
 front = pareto_front([[0.8, 12.0], [0.6, 9.0], [0.9, 15.0]], maximize=[True, False])
 ```
 
@@ -328,7 +388,7 @@ If you use PlanX SDK in scientific research, academic publications, or urban res
   title        = {{PlanX SDK: Headless Spatial Analytics, Spatial Statistics, and Urban Resilience Engine}},
   year         = {2026},
   publisher    = {PyPI - Python Package Index},
-  version      = {2.16.0},
+  version      = {2.27.1},
   url          = {https://gitlab.com/geospacephilo/planx_sdk}
 }
 ```

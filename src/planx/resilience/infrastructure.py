@@ -296,6 +296,7 @@ def network_criticality_index(
 
     # Helper function to compute network efficiency
     def compute_efficiency(w_curr: np.ndarray) -> float:
+        """Total inverse shortest-path distance under edge weights ``w_curr``."""
         dists = many_to_many(indptr, adj, w_curr, n, sources=origs)
         dists = dists[:, dests]
         with np.errstate(divide="ignore", invalid="ignore"):

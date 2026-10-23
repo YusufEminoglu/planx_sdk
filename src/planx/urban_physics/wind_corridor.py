@@ -42,6 +42,7 @@ class WindCorridorResult:
     cells: list[VentilationGridCell]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "wind_direction_degrees": self.wind_direction_degrees,
             "reference_wind_speed_ms": self.reference_wind_speed_ms,
@@ -109,7 +110,7 @@ def simulate_wind_corridors(
 
     wind_rad = math.radians(wind_direction_degrees)
     kappa = 0.40  # von Karman constant
-    c_d = 1.20   # Building drag coefficient
+    c_d = 1.20  # Building drag coefficient
     alpha_const = 4.43
     beta_const = 1.0
 
@@ -157,7 +158,7 @@ def simulate_wind_corridors(
                 zd = mean_h * (1.0 + (alpha_const ** (-lambda_p)) * (lambda_p - 1.0))
                 zd = max(0.0, min(mean_h * 0.90, zd))
 
-                term = (0.5 * beta_const * c_d / (kappa ** 2)) * (1.0 - zd / mean_h) * lambda_f
+                term = (0.5 * beta_const * c_d / (kappa**2)) * (1.0 - zd / mean_h) * lambda_f
                 if term > 0:
                     z0 = mean_h * (1.0 - zd / mean_h) * math.exp(-(term ** (-0.5)))
                 else:

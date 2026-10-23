@@ -21,7 +21,7 @@ from __future__ import annotations
 import numpy as np
 
 
-def leslie_matrix(survival, fertility):
+def leslie_matrix(survival: np.ndarray, fertility: np.ndarray) -> np.ndarray:
     """Build the (k, k) Leslie matrix.
 
     ``survival[a]`` is the share of group ``a`` surviving into group
@@ -42,7 +42,13 @@ def leslie_matrix(survival, fertility):
     return m
 
 
-def cohort_projection(pop, survival, fertility, migration=None, steps=1):
+def cohort_projection(
+    pop: np.ndarray,
+    survival: np.ndarray,
+    fertility: np.ndarray,
+    migration: np.ndarray | None = None,
+    steps: int = 1,
+) -> np.ndarray:
     """Project ``pop`` forward ``steps`` steps. Returns (steps+1, k).
 
     Row 0 is the start population; each further row is one step (of the
@@ -71,13 +77,13 @@ def cohort_projection(pop, survival, fertility, migration=None, steps=1):
 
 
 def housing_needs(
-    pop_future,
-    household_size,
-    existing_dwellings,
-    vacancy_target=0.05,
-    replacement_units=0.0,
-    backlog_units=0.0,
-):
+    pop_future: float,
+    household_size: float,
+    existing_dwellings: float,
+    vacancy_target: float = 0.05,
+    replacement_units: float = 0.0,
+    backlog_units: float = 0.0,
+) -> dict[str, float]:
     """Dwelling units to add by the horizon (negative = surplus).
 
     ``target stock = households x (1 + vacancy)``; the need is the target
@@ -105,7 +111,13 @@ def housing_needs(
     }
 
 
-def residential_capacity(area, far, existing_floor=None, unit_size=90.0, efficiency=0.85):
+def residential_capacity(
+    area: np.ndarray,
+    far: np.ndarray,
+    existing_floor: np.ndarray | None = None,
+    unit_size: float = 90.0,
+    efficiency: float = 0.85,
+) -> tuple[np.ndarray, np.ndarray]:
     """Per-parcel dwelling capacity from zoning.
 
     ``buildable = max(0, area x FAR - existing floorspace)``;

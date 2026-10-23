@@ -27,6 +27,7 @@ class WasteRouteResult:
     collection_coverage_pct: float
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "waste_m3": round(self.total_waste_collected_m3, 1),
             "distance_km": round(self.total_travel_distance_km, 1),

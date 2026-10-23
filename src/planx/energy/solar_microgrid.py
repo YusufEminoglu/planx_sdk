@@ -29,6 +29,7 @@ class SolarMicrogridResult:
     hourly_state_of_charge: list[float]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "pv_generation_kwh": round(self.total_pv_generation_kwh, 1),
             "demand_kwh": round(self.total_building_demand_kwh, 1),
@@ -101,7 +102,7 @@ def simulate_community_solar_microgrid(
             space_in_battery = battery.capacity_kwh - soc
             actual_charge = min(charge_possible, space_in_battery / battery.roundtrip_efficiency)
             soc += actual_charge * battery.roundtrip_efficiency
-            grid_export += (surplus - actual_charge)
+            grid_export += surplus - actual_charge
         else:
             direct_self_consumed += gen
             deficit = dem - gen
@@ -110,7 +111,7 @@ def simulate_community_solar_microgrid(
             discharge_possible = min(deficit, battery.max_discharge_rate_kw)
             actual_discharge = min(discharge_possible, soc)
             soc -= actual_discharge
-            grid_import += (deficit - actual_discharge)
+            grid_import += deficit - actual_discharge
 
         soc_history.append(round(soc, 2))
 

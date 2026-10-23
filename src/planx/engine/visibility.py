@@ -19,26 +19,28 @@ Pure NumPy. Two families:
 from __future__ import annotations
 
 import math
+from typing import Callable
 
 import numpy as np
 
 
-def _ray_steps(pixel: float, max_dist: float):
+def _ray_steps(pixel: float, max_dist: float) -> np.ndarray:
+    """Half-pixel ray sampling distances from 0 up to ``max_dist``."""
     step = pixel / 2.0
     return np.arange(step, max_dist + step, step)
 
 
 def viewshed(
-    dsm,
-    pixel,
-    observer_rc,
-    observer_h=1.6,
-    target_h=0.0,
-    radius=None,
-    n_dirs=720,
-    out=None,
-    cancel=None,
-):
+    dsm: np.ndarray,
+    pixel: float,
+    observer_rc: tuple[int, int],
+    observer_h: float = 1.6,
+    target_h: float = 0.0,
+    radius: float | None = None,
+    n_dirs: int = 720,
+    out: np.ndarray | None = None,
+    cancel: Callable[[], bool] | None = None,
+) -> np.ndarray:
     """Boolean visibility grid from one observer over a DSM.
 
     ``observer_rc`` is the (row, col) cell; the eye sits at the DSM surface
@@ -88,7 +90,13 @@ def viewshed(
     return vis
 
 
-def isovist(mask, origin_rc, pixel=1.0, n_rays=360, max_dist=None):
+def isovist(
+    mask: np.ndarray,
+    origin_rc: tuple[int, int],
+    pixel: float = 1.0,
+    n_rays: int = 360,
+    max_dist: float | None = None,
+) -> dict[str, object]:
     """Isovist measures at one point of a 2-D obstacle mask.
 
     ``mask`` is boolean (True = blocked). Rays march from the origin cell
@@ -161,7 +169,14 @@ def isovist(mask, origin_rc, pixel=1.0, n_rays=360, max_dist=None):
     }
 
 
-def isovist_field(mask, points_rc, pixel=1.0, n_rays=180, max_dist=None, cancel=None):
+def isovist_field(
+    mask: np.ndarray,
+    points_rc: np.ndarray,
+    pixel: float = 1.0,
+    n_rays: int = 180,
+    max_dist: float | None = None,
+    cancel: Callable[[], bool] | None = None,
+) -> dict[str, np.ndarray]:
     """Isovist measures sampled at many points; returns arrays per metric.
 
     Optimized by precomputing direction offsets and ray steps.

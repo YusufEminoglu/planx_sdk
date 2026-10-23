@@ -25,6 +25,7 @@ class DHCNetworkResult:
     overall_system_cop: float
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "thermal_delivered_mwh_yr": round(self.total_thermal_delivered_mwh_yr, 1),
             "distribution_loss_pct": round(self.network_distribution_heat_loss_pct, 1),
@@ -77,7 +78,7 @@ def simulate_dhc_thermal_network(
 
     # Pumping power: P_pump = (Q * rho * g * H) / eta
     delta_t_supply_return = max(5.0, supply_water_temp_c - return_water_temp_c)
-    mass_flow_kg_s = (tot_heat_kw / (4.184 * delta_t_supply_return))
+    mass_flow_kg_s = tot_heat_kw / (4.184 * delta_t_supply_return)
     pumping_kwh = mass_flow_kg_s * 0.08 * 3000.0  # Empirical pumping power
 
     # Decarbonization vs distributed gas boilers (emission factor difference ~0.18 kg CO2/kWh)

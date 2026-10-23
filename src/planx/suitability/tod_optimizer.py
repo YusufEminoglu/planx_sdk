@@ -27,6 +27,7 @@ class TODTypologyResult:
     station_scores: list[TODStationScore]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "total_stations": self.total_stations_evaluated,
             "mean_tod_index": round(self.mean_tod_index, 2),

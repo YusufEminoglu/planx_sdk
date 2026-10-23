@@ -25,6 +25,7 @@ class TIFDistrictResult:
     annual_cashflows: list[dict[str, float]]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "base_revenue_usd": round(self.total_base_tax_revenue_usd, 2),
             "incremental_captured_usd": round(self.total_incremental_tax_captured_usd, 2),
@@ -70,8 +71,7 @@ def simulate_tif_district_cashflows(
     for yr in range(1, lifespan_years + 1):
         # Escalate assessed value
         yr_val = sum(
-            pr.current_assessed_value_usd
-            * ((1.0 + pr.annual_appreciation_rate_pct / 100.0) ** yr)
+            pr.current_assessed_value_usd * ((1.0 + pr.annual_appreciation_rate_pct / 100.0) ** yr)
             for pr in props
         )
         base_rev = tot_base_val * avg_tax_rate
@@ -88,13 +88,15 @@ def simulate_tif_district_cashflows(
         dscr_yr = inc_rev / max(1.0, annual_bond_debt_service_usd)
         cum_dscr_sum += dscr_yr
 
-        cashflows.append({
-            "year": yr,
-            "assessed_value": round(yr_val, 2),
-            "base_tax": round(base_rev, 2),
-            "incremental_tax": round(inc_rev, 2),
-            "dscr": round(dscr_yr, 2),
-        })
+        cashflows.append(
+            {
+                "year": yr,
+                "assessed_value": round(yr_val, 2),
+                "base_tax": round(base_rev, 2),
+                "incremental_tax": round(inc_rev, 2),
+                "dscr": round(dscr_yr, 2),
+            }
+        )
 
     avg_dscr = cum_dscr_sum / lifespan_years if lifespan_years > 0 else 0.0
 

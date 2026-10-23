@@ -20,11 +20,12 @@ Pure NumPy. Three views of urban expansion:
 from __future__ import annotations
 
 import math
+from typing import Callable
 
 import numpy as np
 
 
-def change_matrix(lc1, lc2, nodata=None):
+def change_matrix(lc1: np.ndarray, lc2: np.ndarray, nodata: int | None = None) -> dict[str, object]:
     """Transition cross-tab of two equally shaped integer rasters.
 
     Cells equal to ``nodata`` in either raster are ignored. Returns dict:
@@ -60,7 +61,7 @@ def change_matrix(lc1, lc2, nodata=None):
     }
 
 
-def _neigh_share(mask):
+def _neigh_share(mask: np.ndarray) -> np.ndarray:
     """Share of the 8 neighbours that are urban (edges count absentees)."""
     m = np.pad(mask.astype(np.float64), 1)
     total = np.zeros_like(mask, dtype=np.float64)
@@ -73,16 +74,16 @@ def _neigh_share(mask):
 
 
 def ca_simulate(
-    seed_urban,
-    suitability,
-    demand_cells,
-    iterations=5,
-    constraints=None,
-    neigh_weight=1.0,
-    base=0.1,
-    rng_seed=0,
-    cancel=None,
-):
+    seed_urban: np.ndarray,
+    suitability: np.ndarray,
+    demand_cells: int,
+    iterations: int = 5,
+    constraints: np.ndarray | None = None,
+    neigh_weight: float = 1.0,
+    base: float = 0.1,
+    rng_seed: int = 0,
+    cancel: Callable[[], bool] | None = None,
+) -> dict[str, object]:
     """Constrained CA growth. Returns dict with the conversion history.
 
     - ``seed_urban``: boolean start mask.
@@ -143,7 +144,7 @@ def ca_simulate(
     return {"masks": masks, "converted": converted, "year_of": year_of}
 
 
-def _patches(mask):
+def _patches(mask: np.ndarray) -> tuple[np.ndarray, int, list[int]]:
     """4-neighbour connected components of a boolean mask.
 
     Returns (labels int grid with -1 outside, n_components, sizes list).
@@ -172,7 +173,7 @@ def _patches(mask):
     return labels, len(sizes), sizes
 
 
-def edge_length(mask, pixel=1.0):
+def edge_length(mask: np.ndarray, pixel: float = 1.0) -> float:
     """Total urban / non-urban boundary length (map units), raster edges
     counted as boundary."""
     m = np.pad(np.asarray(mask, dtype=bool), 1)
@@ -184,7 +185,13 @@ def edge_length(mask, pixel=1.0):
     return edges * float(pixel)
 
 
-def sprawl_metrics(urban_t1, urban_t2, pop_t1, pop_t2, pixel=1.0):
+def sprawl_metrics(
+    urban_t1: np.ndarray,
+    urban_t2: np.ndarray,
+    pop_t1: float,
+    pop_t2: float,
+    pixel: float = 1.0,
+) -> dict[str, float | int]:
     """Expansion vs population growth + patch structure of the t2 mask.
 
     LCRPGR (SDG 11.3.1) = ln(Urb2/Urb1) / ln(Pop2/Pop1) - above 1 the

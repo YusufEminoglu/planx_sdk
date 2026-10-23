@@ -143,6 +143,7 @@ def thermal_comfort_routing(
 
     # Helper function to run Dijkstra and reconstruct path
     def get_path(edge_costs: np.ndarray) -> Tuple[List[int], float]:
+        """Dijkstra on ``edge_costs`` returning (path nodes, total cost)."""
         dist = np.full(n, np.inf)
         dist[s] = 0.0
         pred = {}
@@ -386,6 +387,7 @@ def choice_centrality_una(
 
     # Helper function to compute decay factor
     def get_decay(dist_val: float) -> float:
+        """Decay factor for ``dist_val`` under the configured method."""
         if dist_val > cutoff:
             return 0.0
         if method_lower == "none":

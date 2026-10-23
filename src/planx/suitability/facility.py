@@ -955,6 +955,7 @@ def area_weighted_kmeans(
     chosen = {first_idx}
 
     def _d2(p1: tuple[float, float], p2: tuple[float, float]) -> float:
+        """Squared Euclidean distance between two 2-D points."""
         return (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
 
     np.random.seed(seed)

@@ -13,6 +13,7 @@ distance-matrix part.
 from __future__ import annotations
 
 import heapq
+from typing import Callable
 
 import numpy as np
 
@@ -23,8 +24,16 @@ _EPS = 1e-9
 
 
 def closeness_straightness(
-    indptr, adj, weights, n, node_xy=None, radius=None, chunk=128, cancel=None, progress=None
-):
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    node_xy: np.ndarray | None = None,
+    radius: float | None = None,
+    chunk: int = 128,
+    cancel: Callable[[], bool] | None = None,
+    progress: Callable[[float], None] | None = None,
+) -> dict[str, np.ndarray]:
     """Per-node reach, farness, closeness (Wasserman-Faust), harmonic
     closeness and (if ``node_xy`` given) straightness centrality.
 
@@ -71,7 +80,13 @@ def closeness_straightness(
     return out
 
 
-def eigenvector(indptr, adj, n, max_iter=200, tol=1e-10):
+def eigenvector(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    n: int,
+    max_iter: int = 200,
+    tol: float = 1e-10,
+) -> np.ndarray:
     """Eigenvector centrality by power iteration on the binary adjacency.
 
     Influence of a junction given the influence of its neighbours
@@ -104,19 +119,19 @@ def eigenvector(indptr, adj, n, max_iter=200, tol=1e-10):
 
 
 def brandes_betweenness(
-    indptr,
-    adj,
-    weights,
-    n,
-    adj_edge=None,
-    num_edges=0,
-    w_prune=None,
-    radius=None,
-    sources=None,
-    cancel=None,
-    progress=None,
-    collect_depth=False,
-):
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    adj_edge: np.ndarray | None = None,
+    num_edges: int = 0,
+    w_prune: np.ndarray | None = None,
+    radius: float | None = None,
+    sources: np.ndarray | None = None,
+    cancel: Callable[[], bool] | None = None,
+    progress: Callable[[float], None] | None = None,
+    collect_depth: bool = False,
+) -> tuple[np.ndarray, np.ndarray | None, dict[str, np.ndarray] | None]:
     """Weighted betweenness (Brandes 2001) with options used across PlanX.
 
     ``w_prune``/``radius``: prune the search once the accumulated prune

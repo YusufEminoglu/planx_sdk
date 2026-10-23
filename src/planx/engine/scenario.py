@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import Any
 
 #: metric key -> (human label, direction) with direction +1 = higher is
 #: better, -1 = lower is better, 0 = neutral / context-dependent.
@@ -45,8 +46,12 @@ _ORDER = list(METRICS.keys())
 
 
 def metrics_from_summaries(
-    access=None, balance=None, adequacy=None, density=None, overall=None
-) -> dict:
+    access: dict[str, Any] | None = None,
+    balance: dict[str, Any] | None = None,
+    adequacy: dict[str, Any] | None = None,
+    density: dict[str, Any] | None = None,
+    overall: float | None = None,
+) -> dict[str, float]:
     """Flatten the report summary dicts into one {metric_key: float} dict.
 
     Accepts the dicts produced by ``report.access_summary`` /
@@ -84,7 +89,7 @@ def metrics_from_summaries(
     return out
 
 
-def snapshot(name, metrics, generated=None) -> dict:
+def snapshot(name: str, metrics: dict[str, float], generated: str | None = None) -> dict[str, Any]:
     """Build a scenario snapshot dict from a metric mapping."""
     clean = {}
     for key, val in dict(metrics).items():
@@ -103,11 +108,12 @@ def snapshot(name, metrics, generated=None) -> dict:
     }
 
 
-def to_json(snap) -> str:
+def to_json(snap: dict[str, Any]) -> str:
+    """Serialise a snapshot to deterministic, indented JSON text."""
     return json.dumps(snap, indent=2, sort_keys=True)
 
 
-def from_json(text):
+def from_json(text: str) -> dict[str, Any]:
     """Parse and validate a snapshot; raises ValueError on bad input."""
     try:
         data = json.loads(text)
@@ -131,14 +137,16 @@ def from_json(text):
 
 
 def label_of(key: str) -> str:
+    """Human-readable label for a metric key (title-cased when unknown)."""
     return METRICS.get(key, (key.replace("_", " ").title(), 0))[0]
 
 
 def direction_of(key: str) -> int:
+    """Direction of a known metric (+1 better, -1 worse, 0 neutral/unknown)."""
     return METRICS.get(key, ("", 0))[1]
 
 
-def compare(snap_a, snap_b) -> list:
+def compare(snap_a: dict[str, Any], snap_b: dict[str, Any]) -> list[dict[str, Any]]:
     """Diff two snapshots metric by metric.
 
     Returns a list of row dicts ordered by the metric registry (unknown
@@ -188,7 +196,7 @@ def compare(snap_a, snap_b) -> list:
     return rows
 
 
-def score_line(rows, name_a="A", name_b="B") -> str:
+def score_line(rows: list[dict[str, Any]], name_a: str = "A", name_b: str = "B") -> str:
     """One-sentence verdict: how many decided metrics each scenario wins."""
     wins_a = sum(1 for r in rows if r["better"] == "A")
     wins_b = sum(1 for r in rows if r["better"] == "B")
@@ -203,7 +211,9 @@ def score_line(rows, name_a="A", name_b="B") -> str:
     )
 
 
-def parse_weights(text):
+def parse_weights(
+    text: str | None,
+) -> tuple[dict[str, float], list[str]]:
     """Parse 'key=weight, key=weight' free text into a dict.
 
     Returns (weights: dict[str, float], unknown: list[str]) where ``unknown``
@@ -246,7 +256,10 @@ def parse_weights(text):
     return weights, unknown
 
 
-def rank(snapshots, weights=None):
+def rank(
+    snapshots: list[dict[str, Any]],
+    weights: dict[str, float] | None = None,
+) -> dict[str, Any]:
     """Rank any number of scenario snapshots by a weighted composite score.
 
     ``snapshots``: list of snapshot dicts (from ``snapshot``/``from_json``).

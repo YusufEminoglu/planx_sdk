@@ -3,10 +3,14 @@
 
 from __future__ import annotations
 
+from typing import Sequence
+
 import numpy as np
 
 
-def parse_breaks(text, default=(5.0, 8.0, 12.0)):
+def parse_breaks(
+    text: str | None, default: Sequence[float] = (5.0, 8.0, 12.0)
+) -> tuple[float, ...]:
     """Parse 'a,b,c' into a strictly ascending tuple of floats.
 
     Empty/whitespace -> default. Non-numeric token or a non-ascending
@@ -30,7 +34,7 @@ def parse_breaks(text, default=(5.0, 8.0, 12.0)):
     return tuple(vals)
 
 
-def grade_stats(z, d):
+def grade_stats(z: np.ndarray, d: np.ndarray) -> tuple[float, float, float, float]:
     """Length-weighted grade statistics along a sampled profile.
 
     ``z``: elevations at the samples; ``d``: cumulative distances (same
@@ -73,7 +77,7 @@ def grade_stats(z, d):
     return float(mean_abs), float(max_abs), float(climb), float(descent)
 
 
-def tobler_speed(m):
+def tobler_speed(m: np.ndarray | float) -> np.ndarray | float:
     """Tobler's hiking function: speed = 6 * exp(-3.5 * |m + 0.05|) km/h.
 
     ``m`` is the signed grade (dz/dx fraction) in the direction of travel;
@@ -87,7 +91,7 @@ def tobler_speed(m):
     return res
 
 
-def profile_time_min(grades, lengths):
+def profile_time_min(grades: np.ndarray, lengths: np.ndarray) -> float:
     """Walking time in minutes over per-interval signed grades and lengths
     (metres): sum(len_i / 1000 / tobler_speed(m_i)) * 60. Empty -> 0.0."""
     grades = np.asarray(grades, dtype=np.float64)
@@ -100,7 +104,7 @@ def profile_time_min(grades, lengths):
     return float(np.sum(times))
 
 
-def class_of(value, breaks):
+def class_of(value: np.ndarray | float, breaks: np.ndarray) -> int | np.ndarray:
     """Competition-free class index 1..len(breaks)+1: 1 while
     value <= breaks[0], 2 while <= breaks[1], ..., len+1 above the last.
     Scalar or ndarray."""
@@ -112,7 +116,7 @@ def class_of(value, breaks):
     return res
 
 
-def kernel_weight(dist, bandwidth, kind):
+def kernel_weight(dist: np.ndarray, bandwidth: float, kind: str) -> np.ndarray:
     """Kernel value for distances (ndarray) against one bandwidth h > 0.
 
     u = dist / h, clipped contributions to 0 where dist > h. kinds:
@@ -145,7 +149,13 @@ def kernel_weight(dist, bandwidth, kind):
     return w
 
 
-def segment_density(samples_xy, pts_xy, pt_w, bandwidth, kind):
+def segment_density(
+    samples_xy: np.ndarray,
+    pts_xy: np.ndarray,
+    pt_w: np.ndarray,
+    bandwidth: float,
+    kind: str,
+) -> float:
     """Mean kernel density of weighted points as seen from one segment.
 
     ``samples_xy`` (s,2): the segment's sample points; ``pts_xy`` (p,2) and
@@ -172,7 +182,11 @@ def segment_density(samples_xy, pts_xy, pt_w, bandwidth, kind):
     return float(np.mean(sample_sums))
 
 
-def combine_components(components, directions, weights=None):
+def combine_components(
+    components: dict[str, np.ndarray | None],
+    directions: dict[str, int],
+    weights: dict[str, float] | None = None,
+) -> tuple[np.ndarray, list[str], list[str]]:
     """Weighted 0-100 comfort index over min-max-normalised components.
 
     ``components``: dict name -> ndarray (n,) or None (absent);

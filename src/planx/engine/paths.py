@@ -9,6 +9,7 @@ take raw CSR arrays so they work for both the primal and the dual graph.
 from __future__ import annotations
 
 import heapq
+from typing import Any, Callable
 
 import numpy as np
 
@@ -17,14 +18,23 @@ from . import HAS_SCIPY
 INF = float("inf")
 
 
-def _to_scipy(indptr, adj, weights, n):
+def _to_scipy(indptr: np.ndarray, adj: np.ndarray, weights: np.ndarray, n: int) -> Any:
+    """Build a SciPy CSR matrix from raw CSA (indptr, adj, weights) arrays."""
     from scipy.sparse import csr_matrix
 
     return csr_matrix((weights, adj, indptr), shape=(n, n))
 
 
 # --------------------------------------------------------------------------- #
-def _heap_dijkstra(indptr, adj, weights, n, source, cutoff=None):
+def _heap_dijkstra(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    source: int,
+    cutoff: float | None = None,
+) -> np.ndarray:
+    """Pure-Python binary-heap Dijkstra used when SciPy is unavailable."""
     dist = np.full(n, INF)
     dist[source] = 0.0
     heap = [(0.0, source)]
@@ -43,7 +53,15 @@ def _heap_dijkstra(indptr, adj, weights, n, source, cutoff=None):
     return dist
 
 
-def many_to_many(indptr, adj, weights, n, sources, cutoff=None, cancel=None):
+def many_to_many(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    sources: np.ndarray,
+    cutoff: float | None = None,
+    cancel: Callable[[], bool] | None = None,
+) -> np.ndarray:
     """Distances from each source to every node: (len(sources), n) array."""
     sources = np.asarray(sources, dtype=np.int64)
     if HAS_SCIPY:
@@ -63,7 +81,14 @@ def many_to_many(indptr, adj, weights, n, sources, cutoff=None, cancel=None):
     return out
 
 
-def multi_source(indptr, adj, weights, n, sources, cutoff=None):
+def multi_source(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    sources: np.ndarray,
+    cutoff: float | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Min cost from *any* source: returns (dist[n], nearest_source_pos[n]).
 
     ``nearest_source_pos`` holds the position in ``sources`` of the winning
@@ -111,7 +136,15 @@ def multi_source(indptr, adj, weights, n, sources, cutoff=None):
     return dist, label
 
 
-def shortest_path_tree(indptr, adj_node, adj_edge, weights, n, source, cutoff=None):
+def shortest_path_tree(
+    indptr: np.ndarray,
+    adj_node: np.ndarray,
+    adj_edge: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    source: int,
+    cutoff: float | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Dijkstra with predecessor tracking for route reconstruction.
 
     Returns ``(dist, pred_node, pred_edge)``: for every node its cost from
@@ -143,7 +176,12 @@ def shortest_path_tree(indptr, adj_node, adj_edge, weights, n, source, cutoff=No
     return dist, pred_node, pred_edge
 
 
-def reconstruct_path(pred_node, pred_edge, source, target):
+def reconstruct_path(
+    pred_node: np.ndarray,
+    pred_edge: np.ndarray,
+    source: int,
+    target: int,
+) -> tuple[list[int], list[int]]:
     """Walk the predecessor arrays back from ``target`` to ``source``.
 
     Returns ``(nodes, edges)`` in travel order (nodes has one more entry
@@ -167,7 +205,15 @@ def reconstruct_path(pred_node, pred_edge, source, target):
     return nodes, edges
 
 
-def multi_source_offset(indptr, adj, weights, n, sources, offsets, cutoff=None):
+def multi_source_offset(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    sources: np.ndarray,
+    offsets: np.ndarray,
+    cutoff: float | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Min over sources of ``offset_s + path cost`` to every node.
 
     Like :func:`multi_source` but each source enters the heap at its own
@@ -206,7 +252,15 @@ def multi_source_offset(indptr, adj, weights, n, sources, offsets, cutoff=None):
     return dist, label
 
 
-def dijkstra_pruned(indptr, adj, w_cost, w_prune, n, source, radius):
+def dijkstra_pruned(
+    indptr: np.ndarray,
+    adj: np.ndarray,
+    w_cost: np.ndarray,
+    w_prune: np.ndarray,
+    n: int,
+    source: int,
+    radius: float,
+) -> tuple[np.ndarray, np.ndarray]:
     """Dijkstra minimizing ``w_cost`` while pruning expansion once the
     accumulated ``w_prune`` of the settled path exceeds ``radius``.
 
@@ -235,7 +289,15 @@ def dijkstra_pruned(indptr, adj, w_cost, w_prune, n, source, radius):
     return cost, prune
 
 
-def multi_source_tree(indptr, adj_node, adj_edge, weights, n, sources, cutoff=None):
+def multi_source_tree(
+    indptr: np.ndarray,
+    adj_node: np.ndarray,
+    adj_edge: np.ndarray,
+    weights: np.ndarray,
+    n: int,
+    sources: np.ndarray,
+    cutoff: float | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Multi-source Dijkstra with predecessor tracking.
 
     Same relaxation and tie behaviour as ``multi_source`` (labels win by
@@ -278,7 +340,9 @@ def multi_source_tree(indptr, adj_node, adj_edge, weights, n, sources, cutoff=No
     return dist, label, pred_node, pred_edge
 
 
-def path_to_root(pred_node, pred_edge, target):
+def path_to_root(
+    pred_node: np.ndarray, pred_edge: np.ndarray, target: int
+) -> tuple[list[int], list[int]]:
     """Walk predecessors from ``target`` back to its source root.
 
     Returns ``(nodes, edges)`` in ROOT->TARGET travel order (nodes has one

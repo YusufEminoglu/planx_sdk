@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 
 
-def _clean(x, w):
+def _clean(x: np.ndarray, w: np.ndarray | None) -> tuple[np.ndarray, np.ndarray]:
     """Coerce values/weights to 1-D float arrays; non-positive weights -> 0."""
     x = np.asarray(x, dtype=float).ravel()
     if w is None:
@@ -36,13 +36,15 @@ def _clean(x, w):
     return x, w
 
 
-def weighted_mean(x, w=None):
+def weighted_mean(x: np.ndarray, w: np.ndarray | None = None) -> float:
+    """Population-weighted arithmetic mean (0.0 when the weight mass is 0)."""
     x, w = _clean(x, w)
     total = w.sum()
     return float((w * x).sum() / total) if total > 0 else 0.0
 
 
-def weighted_std(x, w=None):
+def weighted_std(x: np.ndarray, w: np.ndarray | None = None) -> float:
+    """Population-weighted population standard deviation (0.0 when no mass)."""
     x, w = _clean(x, w)
     total = w.sum()
     if total <= 0:
@@ -52,7 +54,7 @@ def weighted_std(x, w=None):
     return float(np.sqrt(max(var, 0.0)))
 
 
-def coefficient_of_variation(x, w=None):
+def coefficient_of_variation(x: np.ndarray, w: np.ndarray | None = None) -> float:
     """Population-weighted CV = std / |mean| (0 = perfect equality)."""
     mu = weighted_mean(x, w)
     if mu == 0:
@@ -60,7 +62,9 @@ def coefficient_of_variation(x, w=None):
     return float(weighted_std(x, w) / abs(mu))
 
 
-def weighted_quantile(x, q, w=None):
+def weighted_quantile(
+    x: np.ndarray, q: np.ndarray | float, w: np.ndarray | None = None
+) -> float | np.ndarray:
     """Population-weighted quantile(s) ``q`` in [0, 1].
 
     Linear interpolation on the cumulative population share evaluated at
@@ -78,14 +82,16 @@ def weighted_quantile(x, q, w=None):
     return float(out[0]) if scalar else out
 
 
-def percentile_ratio(x, w=None, hi=0.9, lo=0.1):
+def percentile_ratio(
+    x: np.ndarray, w: np.ndarray | None = None, hi: float = 0.9, lo: float = 0.1
+) -> float:
     """Weighted P(hi)/P(lo) ratio (e.g. P90/P10). 0.0 if P(lo) is 0."""
     phi = weighted_quantile(x, hi, w)
     plo = weighted_quantile(x, lo, w)
     return float(phi / plo) if plo > 0 else 0.0
 
 
-def percentile_rank(x, w=None):
+def percentile_rank(x: np.ndarray, w: np.ndarray | None = None) -> np.ndarray:
     """Per-unit weighted percentile rank in [0, 1] (mid-rank for ties).
 
     rank_i = (population strictly below x_i + half of the equal mass) / W,
@@ -112,7 +118,7 @@ def percentile_rank(x, w=None):
     return rank[inv]
 
 
-def gini(x, w=None):
+def gini(x: np.ndarray, w: np.ndarray | None = None) -> float:
     """Population-weighted Gini coefficient (0 = equality, ->1 = maximal
     inequality) via the mean-difference form, computed in O(n log n)."""
     x, w = _clean(x, w)
@@ -129,7 +135,7 @@ def gini(x, w=None):
     return float(num / (total * sw_x))
 
 
-def theil_t(x, w=None):
+def theil_t(x: np.ndarray, w: np.ndarray | None = None) -> float:
     """Population-weighted Theil's T index (0 = equality). Zeros contribute
     0 (limit x*ln x -> 0); negatives are clipped to 0."""
     x, w = _clean(x, w)
@@ -150,7 +156,9 @@ def theil_t(x, w=None):
     return float((w * term).sum() / total)
 
 
-def theil_decomposition(x, w, groups):
+def theil_decomposition(
+    x: np.ndarray, w: np.ndarray, groups: np.ndarray
+) -> tuple[float, float, float, dict[object, dict[str, float]]]:
     """Additive decomposition of Theil's T: T = T_between + T_within.
 
     ``groups`` is an array of group labels (any hashable). The between
@@ -192,7 +200,7 @@ def theil_decomposition(x, w, groups):
     return float(t_total), float(t_between), float(t_within), per_group
 
 
-def atkinson_index(x, w=None, epsilon=1.0):
+def atkinson_index(x: np.ndarray, w: np.ndarray | None = None, epsilon: float = 1.0) -> float:
     """Population-weighted Atkinson inequality index (0 = equality, ->1).
 
     ``epsilon`` >= 0 is the inequality-aversion parameter: 0 gives no
@@ -228,7 +236,9 @@ def atkinson_index(x, w=None, epsilon=1.0):
     return float(min(1.0, max(0.0, 1.0 - ede / mu)))
 
 
-def lorenz_points(x, w=None, rank=None):
+def lorenz_points(
+    x: np.ndarray, w: np.ndarray | None = None, rank: np.ndarray | None = None
+) -> tuple[np.ndarray, np.ndarray]:
     """Cumulative population/value shares of the Lorenz (or concentration) curve.
 
     Units are ordered ascending by their value (the Lorenz curve) or, when
@@ -257,7 +267,7 @@ def lorenz_points(x, w=None, rank=None):
     return pop, val
 
 
-def gini_from_lorenz(pop_share, value_share):
+def gini_from_lorenz(pop_share: np.ndarray, value_share: np.ndarray) -> float:
     """Gini (or concentration) index as twice the area between the curve and
     the line of equality, via the trapezoidal rule on the cumulative shares.
 
@@ -270,7 +280,7 @@ def gini_from_lorenz(pop_share, value_share):
     return float(1.0 - np.sum((p[1:] - p[:-1]) * (lz[1:] + lz[:-1])))
 
 
-def concentration_index(x, rank, w=None):
+def concentration_index(x: np.ndarray, rank: np.ndarray, w: np.ndarray | None = None) -> float:
     """Concentration index of ``x`` when units are ordered by ``rank``.
 
     Like the Gini but the ordering is external: e.g. how concentrated an
@@ -281,7 +291,12 @@ def concentration_index(x, rank, w=None):
     return gini_from_lorenz(pop, val)
 
 
-def value_classes(x, w=None, n_classes=5, breaks=None):
+def value_classes(
+    x: np.ndarray,
+    w: np.ndarray | None = None,
+    n_classes: int = 5,
+    breaks: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Assign each unit to a value class (0 = lowest ... Q-1 = highest).
 
     By default the classes are population-weighted quantile bins (equal
@@ -305,7 +320,13 @@ def value_classes(x, w=None, n_classes=5, breaks=None):
     return class_of.astype(np.int64), edges
 
 
-def crosstab(x, g, w=None, n_classes=5, breaks=None):
+def crosstab(
+    x: np.ndarray,
+    g: np.ndarray,
+    w: np.ndarray | None = None,
+    n_classes: int = 5,
+    breaks: np.ndarray | None = None,
+) -> dict[str, object]:
     """Weighted cross-tabulation of a per-unit value by population group.
 
     ``x`` is the per-unit value (treated as-is, no clipping except inside
@@ -399,7 +420,12 @@ def crosstab(x, g, w=None, n_classes=5, breaks=None):
     }
 
 
-def share_below(x, threshold, w=None, strict=True):
+def share_below(
+    x: np.ndarray,
+    threshold: float,
+    w: np.ndarray | None = None,
+    strict: bool = True,
+) -> float:
     """Population share with value below (``strict``) or at/below ``threshold``."""
     x, w = _clean(x, w)
     total = w.sum()
@@ -409,7 +435,12 @@ def share_below(x, threshold, w=None, strict=True):
     return float(w[mask].sum() / total)
 
 
-def share_above(x, threshold, w=None, strict=True):
+def share_above(
+    x: np.ndarray,
+    threshold: float,
+    w: np.ndarray | None = None,
+    strict: bool = True,
+) -> float:
     """Population share with value above (``strict``) or at/above ``threshold``."""
     x, w = _clean(x, w)
     total = w.sum()

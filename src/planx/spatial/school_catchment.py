@@ -37,6 +37,7 @@ class SchoolCatchmentResult:
     schools: list[SchoolCapacityRecord]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the result to a JSON-ready dictionary."""
         return {
             "total_schools": self.total_schools,
             "total_students": self.total_students,

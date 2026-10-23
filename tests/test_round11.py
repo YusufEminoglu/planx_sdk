@@ -40,9 +40,7 @@ class TestPlanXRound11(unittest.TestCase):
         self.assertIn("waiting_time_min", d)
 
     def test_seismic_building_damage_hazus(self) -> None:
-        curve = BuildingFragilityCurve(
-            building_class="C2M", median_spectral_accel_moderate_g=0.40
-        )
+        curve = BuildingFragilityCurve(building_class="C2M", median_spectral_accel_moderate_g=0.40)
         res = evaluate_seismic_building_damage_hazus(
             peak_ground_spectral_accel_sa_g=0.60, building_occupants_count=300, fragility=curve
         )
