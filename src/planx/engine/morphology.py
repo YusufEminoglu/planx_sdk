@@ -9,7 +9,7 @@ rings are both accepted (closure is normalized internally).
 from __future__ import annotations
 
 import math
-from typing import Iterable
+from typing import Iterable, Sequence
 
 import numpy as np
 
@@ -43,7 +43,7 @@ def convex_hull(points: np.ndarray) -> np.ndarray:
         return pts
     pts = pts[np.lexsort((pts[:, 1], pts[:, 0]))]
 
-    def cross(o: np.ndarray, a: np.ndarray, b: np.ndarray) -> float:
+    def cross(o: Sequence[float], a: Sequence[float], b: Sequence[float]) -> float:
         """Signed 2-D cross product of ``a - o`` and ``b - o``."""
         return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
 

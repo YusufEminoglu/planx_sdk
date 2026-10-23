@@ -139,7 +139,7 @@ def _allocate_core(
     if targets.shape[0] != n_use:
         raise ValueError("len(targets) must match the use columns of suit.")
     if adj is None:
-        adj = [()] * n_parc
+        adj = [[] for _ in range(n_parc)]
     if compat is not None:
         compat = np.asarray(compat, dtype=float)
 
@@ -310,7 +310,7 @@ def allocate_multi(
     """
     suit = np.asarray(suit, dtype=float)
     n_parc, n_use = suit.shape
-    adj = [[] for _ in range(n_parc)]
+    adj: Adjacency = [[] for _ in range(n_parc)]
     for i, j, length in edges:
         i, j, length = int(i), int(j), float(length)
         adj[i].append((j, length))
@@ -422,7 +422,11 @@ def pareto_front(
     n_use = suit_arr.shape[1]
     edges = [(int(i), int(j), float(length)) for i, j, length in edges]
     weights = [float(w) for w in weights]
-    suit_vals, comp_vals, swaps, reass, assigns = [], [], [], [], []
+    suit_vals: list[float] = []
+    comp_vals: list[float] = []
+    swaps: list[int] = []
+    reass: list[int] = []
+    assigns: list[np.ndarray] = []
     for w in weights:
         compat = np.eye(n_use) * w
         res = allocate_multi(
@@ -441,9 +445,9 @@ def pareto_front(
         comp_vals.append(_same_use_boundary(res["assign"], edges))
         swaps.append(res["swaps"])
         reass.append(res["reassigned"])
-    suit_vals = np.asarray(suit_vals, dtype=float)
-    comp_vals = np.asarray(comp_vals, dtype=float)
-    front = pareto_mask(suit_vals, comp_vals)
+    suit_arr_vals = np.asarray(suit_vals, dtype=float)
+    comp_arr_vals = np.asarray(comp_vals, dtype=float)
+    front = pareto_mask(suit_arr_vals, comp_arr_vals)
 
     def _norm(x: np.ndarray) -> np.ndarray:
         """Scale ``x`` to [0, 1], or zeros when it is constant."""
@@ -452,14 +456,14 @@ def pareto_front(
 
     return {
         "weights": np.asarray(weights, dtype=float),
-        "suit": suit_vals,
-        "compact": comp_vals,
-        "suit_norm": _norm(suit_vals),
-        "compact_norm": _norm(comp_vals),
+        "suit": suit_arr_vals,
+        "compact": comp_arr_vals,
+        "suit_norm": _norm(suit_arr_vals),
+        "compact_norm": _norm(comp_arr_vals),
         "swaps": np.asarray(swaps, dtype=np.int64),
         "reassigned": np.asarray(reass, dtype=np.int64),
         "on_front": front,
-        "knee": _knee_index(suit_vals, comp_vals, front),
+        "knee": _knee_index(suit_arr_vals, comp_arr_vals, front),
         "assign": assigns,
     }
 
@@ -512,7 +516,7 @@ def allocate_contiguous(
     if targets.shape[0] != n_use:
         raise ValueError("len(targets) must match the use columns of suit.")
 
-    adj = [[] for _ in range(n_parc)]
+    adj: Adjacency = [[] for _ in range(n_parc)]
     for i, j, length in edges:
         i, j, length = int(i), int(j), float(length)
         adj[i].append((j, length))

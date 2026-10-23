@@ -151,7 +151,7 @@ def _patches(mask: np.ndarray) -> tuple[np.ndarray, int, list[int]]:
     """
     mask = np.asarray(mask, dtype=bool)
     labels = np.full(mask.shape, -1, dtype=np.int64)
-    sizes = []
+    sizes: list[int] = []
     rows, cols = mask.shape
     for r0 in range(rows):
         for c0 in range(cols):

@@ -18,7 +18,7 @@ def parse_breaks(
     is allowed (k breakpoints -> k+1 classes).
     """
     if not text or not text.strip():
-        return default
+        return tuple(default)
     tokens = [t.strip() for t in text.split(",")]
     vals = []
     for tok in tokens:
@@ -27,7 +27,7 @@ def parse_breaks(
         except ValueError as exc:
             raise ValueError(f"Non-numeric breakpoint: '{tok}'") from exc
     if not vals:
-        return default
+        return tuple(default)
     for i in range(len(vals) - 1):
         if vals[i] >= vals[i + 1]:
             raise ValueError(f"Breakpoints must be strictly ascending, got: '{text}'")

@@ -102,8 +102,11 @@ def read_gtfs(path: str) -> dict[str, Any]:
             "GTFS zip has neither calendar.txt nor calendar_dates.txt - cannot resolve service days"
         )
 
-    stop_ids, stop_names, lat, lon = [], [], [], []
-    stop_index = {}
+    stop_ids: list[str] = []
+    stop_names: list[str] = []
+    lat: list[float] = []
+    lon: list[float] = []
+    stop_index: dict[str, int] = {}
     for row in _read_csv(zf, names["stops.txt"]):
         sid = row.get("stop_id", "")
         if not sid:
@@ -143,7 +146,7 @@ def read_gtfs(path: str) -> dict[str, Any]:
             continue
         trips[tid] = (row.get("route_id", ""), row.get("service_id", ""))
 
-    raw_st = {}
+    raw_st: dict[str, list[tuple[int, int, int, int]]] = {}
     for row in _read_csv(zf, names["stop_times.txt"]):
         tid = row.get("trip_id", "")
         sid = row.get("stop_id", "")
@@ -361,7 +364,7 @@ def earliest_arrival(
             marked.add(int(stop))
     for _ in range(int(max_transfers) + 1):
         prev = best.copy()
-        touched = {}
+        touched: dict[int, int] = {}
         for stop in marked:
             for p_idx, pos in stop_patterns.get(stop, ()):
                 if p_idx not in touched or pos < touched[p_idx]:

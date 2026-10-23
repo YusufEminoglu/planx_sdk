@@ -412,7 +412,7 @@ def annual_irradiation(
     valid = ~np.isnan(dsm)
     has_valid = bool(valid.any())
     annual = np.zeros(dsm.shape, dtype=np.float64)
-    monthly = [] if keep_monthly else None
+    monthly: list[np.ndarray] | None = [] if keep_monthly else None
     month_mean, flat_monthly, swept = [], [], []
     n = max(1, len(months))
     for idx, m in enumerate(months):
@@ -446,7 +446,7 @@ def annual_irradiation(
         flat_monthly.append(flat_day * ndays)
         month_mean.append(float(month_kwh[valid].mean()) if has_valid else 0.0)
         swept.append(m)
-        if keep_monthly:
+        if monthly is not None:
             monthly.append(month_kwh)
     annual[~valid] = np.nan
     return {

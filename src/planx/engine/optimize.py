@@ -113,7 +113,7 @@ def p_median(
     if p <= 0 and not fixed:
         raise ValueError("p must be >= 1 when there are no fixed facilities.")
 
-    selected = []
+    selected: list[int] = []
     for _ in range(p):  # greedy construction
         best, best_obj = -1, INF
         for c in free:
@@ -325,23 +325,25 @@ def capacitated_siting(
         cap_sub = capacities[open_list]
         res = capacitated_assign(D_sub, demand_w, cap_sub, max_cost=max_cost)
 
-        assign_sub = res["assign"]
-        assign_full = np.where(assign_sub != -1, np.array(open_list)[assign_sub], -1)
+        assign_sub = np.asarray(res["assign"], dtype=np.int64)
+        cost_sub = np.asarray(res["cost"], dtype=np.float64)
+        load_sub = np.asarray(res["load"], dtype=np.float64)
+        assign_full = np.where(assign_sub != -1, np.asarray(open_list)[assign_sub], -1)
 
         served = assign_full != -1
         served_demand = float(demand_w[served].sum())
-        total_cost = float((res["cost"] * demand_w)[served].sum())
+        total_cost = float((cost_sub * demand_w)[served].sum())
 
         load_full = np.zeros(n_sites)
         util_full = np.zeros(n_sites)
-        load_full[open_list] = res["load"]
+        load_full[open_list] = load_sub
         with np.errstate(divide="ignore", invalid="ignore"):
             util_full[open_list] = np.where(
-                cap_sub > 0, res["load"] / cap_sub, np.where(res["load"] == 0, 0.0, 9999.0)
+                cap_sub > 0, load_sub / cap_sub, np.where(load_sub == 0, 0.0, 9999.0)
             )
-        return served_demand, total_cost, assign_full, res["cost"], load_full, util_full
+        return served_demand, total_cost, assign_full, cost_sub, load_full, util_full
 
-    selected = []
+    selected: list[int] = []
     # Evaluate starting point (only fixed/existing facilities)
     sd, tc, _, _, _, _ = evaluate(fixed)
     obj_history = [(sd, tc)]

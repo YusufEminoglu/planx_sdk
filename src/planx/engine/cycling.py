@@ -154,7 +154,7 @@ def low_stress_islands(
         raise ValueError("edge arrays and LTS array must share one length")
     n_nodes = int(max(edge_from.max(initial=-1), edge_to.max(initial=-1)) + 1)
     low = lts <= float(threshold)
-    adj = [[] for _ in range(n_nodes)]
+    adj: list[list[int]] = [[] for _ in range(n_nodes)]
     for i in np.where(low)[0]:
         a, b = int(edge_from[i]), int(edge_to[i])
         adj[a].append(b)
