@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.28.1] - 2026-10-27
+### Changed
+- Project URLs (Repository, Changelog) and all README and documentation-site links now point to the GitHub repository instead of GitLab.
+- README shows the Zenodo DOI badge; `CITATION.cff` and the BibTeX entry carry the DOI.
+
 ## [2.28.0] - 2026-10-26
 ### Fixed
 - **Packaging**: the build requirement now matches the PEP 639 `license = "MIT"` string
