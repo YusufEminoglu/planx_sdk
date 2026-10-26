@@ -410,7 +410,7 @@ If you use PlanX SDK in scientific research, academic publications, or urban res
   title        = {{PlanX SDK: Headless Spatial Analytics, Spatial Statistics, and Urban Resilience Engine}},
   year         = {2026},
   publisher    = {Zenodo},
-  version      = {2.28.0},
+  version      = {2.28.1},
   doi          = {10.5281/zenodo.20753169},
   url          = {https://github.com/YusufEminoglu/planx_sdk}
 }
