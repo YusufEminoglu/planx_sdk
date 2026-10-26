@@ -5,6 +5,14 @@ All notable changes to the PlanX SDK project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Fixed
+- **Packaging**: the build requirement now matches the PEP 639 `license = "MIT"` string
+  (setuptools 77+); older setuptools rejected it when building from the sdist. `license-files`
+  is declared explicitly.
+- **Typing**: resolved all remaining mypy findings in the isochrone, equity, allocation,
+  infrastructure-recovery, centrality and space-syntax engines (no behaviour change).
+
 ## [2.27.1] - 2026-10-23
 ### Changed
 - **Documentation & typing**: Added concise docstrings and complete type annotations to every public and internal function across the package.

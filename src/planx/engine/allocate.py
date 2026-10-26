@@ -175,8 +175,7 @@ def _allocate_core(
     do_swaps = len(free) <= int(swap_limit)
     for _ in range(int(max_iter)):
         improved = False
-        for p in free:
-            p = int(p)
+        for p in free.tolist():
             cur = int(assign[p])
             cur_suit = suit[p, cur] if cur >= 0 else 0.0
             cur_spatial = _spatial_sum(p, cur, assign, adj, compat)
@@ -627,8 +626,7 @@ def allocate_contiguous(
 
     for _ in range(int(max_iter)):
         improved = False
-        for p in free:
-            p = int(p)
+        for p in free.tolist():
             cur = int(assign[p])
             cur_suit = suit[p, cur] if cur >= 0 else 0.0
             cur_spatial = _spatial_sum(p, cur, assign, adj, compat)

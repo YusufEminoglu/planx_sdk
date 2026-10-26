@@ -412,7 +412,7 @@ def debris_clearance_routing(
 
     while remaining_indices:
         # Calculate distances from curr_node to all nodes
-        dists = many_to_many(indptr, adj, w_routing, n, sources=[curr_node])[0]
+        dists = many_to_many(indptr, adj, w_routing, n, sources=np.array([curr_node]))[0]
 
         best_score = -1.0
         best_rem_idx = -1

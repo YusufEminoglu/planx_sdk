@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,6 +11,7 @@ authors = [
 description = "Core spatial analytics, spatial statistics, and urban resilience engines for the PlanX ecosystem."
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 keywords = [
     "gis",

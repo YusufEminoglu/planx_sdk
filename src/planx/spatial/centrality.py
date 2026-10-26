@@ -172,7 +172,7 @@ def brandes_betweenness(
         dist[s] = 0.0
         prune_d[s] = 0.0
         sigma[s] = 1.0
-        preds = [[] for _ in range(n)]
+        preds: list[list[tuple[int, int]]] = [[] for _ in range(n)]
         order = []
         heap = [(0.0, 0.0, s)]
         visited = np.zeros(n, dtype=bool)
@@ -212,7 +212,7 @@ def brandes_betweenness(
             for u, k in preds[v]:
                 c = sigma[u] * coeff
                 delta[u] += c
-                if edge_bc is not None:
+                if edge_bc is not None and adj_edge is not None:
                     edge_bc[adj_edge[k]] += c
             if v != s:
                 node_bc[v] += delta[v]
