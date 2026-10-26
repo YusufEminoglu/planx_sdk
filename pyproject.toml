@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "planx-sdk"
-version = "2.27.1"
+version = "2.28.0"
 authors = [
     { name = "Yusuf Eminoğlu", email = "yusufeminoglu@gmail.com" }
 ]
-description = "Core spatial analytics, spatial statistics, and urban resilience engines for the PlanX ecosystem."
+description = "Urban planning analytics in Python: accessibility (2SFCA), space syntax, MCDA (AHP/TOPSIS), spatial statistics and resilience indices."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -30,8 +30,15 @@ keywords = [
     "spacemate",
     "bpr",
     "urban-informatics",
+    "urban-planning",
+    "2sfca",
+    "ahp",
+    "topsis",
+    "walkability",
+    "gtfs",
 ]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -54,7 +61,8 @@ dependencies = [
 Homepage = "https://geophilo.com/"
 Documentation = "https://geophilo.com/planx_sdk/"
 Repository = "https://gitlab.com/geospacephilo/planx_sdk"
-Issues = "https://gitlab.com/geospacephilo/planx_sdk/-/issues"
+GitHub = "https://github.com/YusufEminoglu/planx_sdk"
+Issues = "https://github.com/YusufEminoglu/planx_sdk/issues"
 Changelog = "https://gitlab.com/geospacephilo/planx_sdk/-/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]

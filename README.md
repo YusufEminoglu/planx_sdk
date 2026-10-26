@@ -10,15 +10,51 @@
 [![PyPI version](https://img.shields.io/pypi/v/planx-sdk.svg?color=06b6d4)](https://pypi.org/project/planx-sdk/)
 [![Python version support](https://img.shields.io/pypi/pyversions/planx-sdk.svg?color=3b82f6)](https://pypi.org/project/planx-sdk/)
 [![Documentation](https://img.shields.io/badge/docs-GEOPHILO-10b981.svg)](https://geophilo.com/planx_sdk/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/YusufEminoglu/planx_sdk/blob/main/LICENSE)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-D7FF64.svg)](https://docs.astral.sh/ruff/)
-[![Test Coverage](https://img.shields.io/badge/coverage-90%25%2B-brightgreen.svg)](#-tests-and-quality-assurance)
+[![Test Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](#-tests-and-quality-assurance)
 
-**High-Performance Headless Spatial Analytics, Spatial Statistics, Network Routing, and Urban Resilience Engine.**
+**Urban planning analytics in Python: accessibility (2SFCA), space syntax, MCDA (AHP/TOPSIS), spatial statistics and resilience indices.**
 
-[📖 **Open Interactive Web Manual**](https://geophilo.com/planx_sdk/) • [📦 **PyPI Package**](https://pypi.org/project/planx-sdk/) • [🐛 **Issue Tracker**](https://gitlab.com/geospacephilo/planx_sdk/-/issues)
+[📖 **Open Interactive Web Manual**](https://geophilo.com/planx_sdk/) • [📦 **PyPI Package**](https://pypi.org/project/planx-sdk/) • [💻 **GitHub**](https://github.com/YusufEminoglu/planx_sdk) • [🐛 **Issue Tracker**](https://github.com/YusufEminoglu/planx_sdk/issues)
 
 </div>
+
+## 📦 Installation
+
+```bash
+# Standard installation from PyPI
+pip install planx-sdk
+
+# With development and test suite dependencies
+pip install "planx-sdk[dev]"
+
+# With optional machine-learning forecasting backends (scikit-learn, statsmodels)
+pip install "planx-sdk[ml]"
+```
+
+## ⚡ Quickstart
+
+```python
+import numpy as np
+from planx.spatial import enhanced_2sfca
+from planx.suitability import ahp_weights, topsis_method
+
+# Accessibility: 3 neighbourhoods -> 2 clinics (distances in metres), 1500 m catchment
+dists = np.array([[350.0, 1200.0], [800.0, 450.0], [1500.0, 2000.0]])
+access = enhanced_2sfca(dists, supply=np.array([120.0, 250.0]),
+                        demand=np.array([1200.0, 3400.0, 1800.0]), cutoff=1500.0)
+print("E2SFCA:", access.round(4))                       # E2SFCA: [0.0731 0.0731 0.0188]
+
+# MCDA: AHP weights for 3 criteria, then TOPSIS ranking of 3 candidate sites
+w, cr = ahp_weights([[1, 3, 5], [1/3, 1, 2], [1/5, 1/2, 1]])
+sites = np.array([[0.8, 120.0, 3.0], [0.6, 80.0, 1.0], [0.9, 200.0, 4.0]])  # access, cost, noise
+scores, ranks = topsis_method(sites, w, benefit_criteria=np.array([True, False, False]))
+print("AHP weights:", w.round(3), "CR:", round(cr, 3))  # AHP weights: [0.648 0.23  0.122] CR: 0.003
+print("TOPSIS ranks:", ranks)                           # TOPSIS ranks: [1 3 2]
+```
+
+More worked examples (Getis-Ord Gi\*, MCLP siting, seismic Monte Carlo, Spacemate, BPR) are in [Code Examples](#-code-examples) below.
 
 ---
 
@@ -29,7 +65,7 @@
 ### Why PlanX SDK?
 
 * 🚀 **Headless & Scalable:** Run large-scale geospatial routines inside Jupyter notebooks, FastAPI/Flask backends, Docker containers, Celery workers, or AWS Lambda/Cloud Run.
-* ⚡ **Vectorized Performance:** Heavy mathematical models (e.g., Getis-Ord $G_i^*$, E2SFCA, KDTree IDW, Brandes betweenness, CSR Dijkstra) leverage fast contiguous NumPy arrays and SciPy sparse graph matrices.
+* ⚡ **Vectorized Performance:** Heavy mathematical models (e.g., Getis-Ord Gi\*, E2SFCA, KDTree IDW, Brandes betweenness, CSR Dijkstra) leverage fast contiguous NumPy arrays and SciPy sparse graph matrices.
 * 🔬 **Scientific Rigor:** Implements validated academic algorithms across spatial statistics, urban physics, Space Syntax, and multi-hazard climate adaptation.
 * 🧪 **Deterministic & Tested:** Over 500 automated unit tests ensuring high mathematical stability and precision across Python 3.9 through 3.13.
 
@@ -44,21 +80,6 @@
 | **Cloud / Serverless Support** | ❌ Requires X11 / Virtual Framebuffer | ✅ Native (FastAPI, Docker, Microservices) |
 | **Data Science Workflow** | ⚠️ Export/Import manual shapefiles | ✅ Native NumPy arrays, SciPy, Pandas |
 | **Automated Testing & CI/CD** | ⚠️ Heavy desktop GUI fixtures | ✅ Fast unit testing with `pytest` |
-
----
-
-## 📦 Installation
-
-```bash
-# Standard installation from PyPI
-pip install planx-sdk
-
-# With development and test suite dependencies
-pip install "planx-sdk[dev]"
-
-# With optional machine-learning forecasting backends (scikit-learn, statsmodels)
-pip install "planx-sdk[ml]"
-```
 
 ---
 
@@ -109,7 +130,7 @@ points; the full signatures and docstrings are available via `help()` or the
 
 ---
 
-## 💡 Quickstart & Code Examples
+## 💡 Code Examples
 
 ### 1. Spatial Accessibility & Equity (`planx.spatial`)
 Calculate **Enhanced Two-Step Floating Catchment Area (E2SFCA)** and population-weighted **Spatial Gini Inequality**:
@@ -155,7 +176,7 @@ print(f"Accessibility Gini Index: {gini:.4f}")
 ---
 
 ### 2. Spatial Autocorrelation & Hotspots (`planx.geostats`)
-Generate spatial weights and compute **Getis-Ord $G_i^*$** hotspot statistics:
+Generate spatial weights and compute **Getis-Ord Gi\*** hotspot statistics:
 
 ```python
 import numpy as np
@@ -322,10 +343,10 @@ PlanX SDK benchmarks on standard spatial datasets (Intel Core i9 / AMD Ryzen 9):
 
 | Operation | Dataset Size | Pure Python | PlanX SDK (NumPy/SciPy) | Acceleration |
 | :--- | :--- | :--- | :--- | :--- |
-| **Getis-Ord $G_i^*$ Z-Scores** | 100,000 Points | 2,450 ms | **14.2 ms** | **172x faster** |
-| **E2SFCA Accessibility Matrix** | 5,000 Origins $\times$ 500 Destinations | 4,890 ms | **21.6 ms** | **226x faster** |
+| **Getis-Ord Gi\* Z-Scores** | 100,000 Points | 2,450 ms | **14.2 ms** | **172x faster** |
+| **E2SFCA Accessibility Matrix** | 5,000 Origins × 500 Destinations | 4,890 ms | **21.6 ms** | **226x faster** |
 | **CSR Dijkstra Shortest Paths** | 50,000 Nodes, 120,000 Edges | 1,820 ms | **18.4 ms** | **98x faster** |
-| **Greedy MCLP Optimization** | 1,000 Candidates $\times$ 10,000 Demands | 3,120 ms | **29.8 ms** | **104x faster** |
+| **Greedy MCLP Optimization** | 1,000 Candidates × 10,000 Demands | 3,120 ms | **29.8 ms** | **104x faster** |
 
 ---
 
@@ -350,7 +371,7 @@ class AccessRequest(BaseModel):
 @app.post("/api/v1/accessibility/e2sfca")
 def compute_accessibility(req: AccessRequest):
     scores = enhanced_2sfca(
-        d_matrix=np.array(req.distances),
+        dists=np.array(req.distances),
         supply=np.array(req.supply),
         demand=np.array(req.demand),
         cutoff=req.cutoff
@@ -388,7 +409,7 @@ If you use PlanX SDK in scientific research, academic publications, or urban res
   title        = {{PlanX SDK: Headless Spatial Analytics, Spatial Statistics, and Urban Resilience Engine}},
   year         = {2026},
   publisher    = {PyPI - Python Package Index},
-  version      = {2.27.1},
+  version      = {2.28.0},
   url          = {https://gitlab.com/geospacephilo/planx_sdk}
 }
 ```
@@ -397,4 +418,4 @@ If you use PlanX SDK in scientific research, academic publications, or urban res
 
 ## 📜 License
 
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more details.
+Distributed under the **MIT License**. See [`LICENSE`](https://github.com/YusufEminoglu/planx_sdk/blob/main/LICENSE) for more details.

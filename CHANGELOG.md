@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [2.28.0] - 2026-10-26
 ### Fixed
 - **Packaging**: the build requirement now matches the PEP 639 `license = "MIT"` string
   (setuptools 77+); older setuptools rejected it when building from the sdist. `license-files`
@@ -35,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `scenario.from_json` accepts); they now render as `nan` / `inf`.
 - **TOD**: land-use entropy assumed shares summing to 1; percentages or areas gave a negative
   entropy clamped to 0. Shares are now normalised first.
+
+### Changed
+- PyPI metadata: a plain-language summary, search keywords that match what users look for, and a working issue tracker link (GitHub issues; the GitLab issues page returned 404).
 
 ## [2.27.1] - 2026-10-23
 ### Changed
