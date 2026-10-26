@@ -213,10 +213,10 @@ def reach_intervals(
     with any reach.
     """
     full, fa, fb = reach_fractions(dist[edge_from], dist[edge_to], edge_cost, cutoff)
-    out = {}
+    out: dict[int, list[tuple[float, float]]] = {}
     touched = np.nonzero(full | (fa > EPS) | (fb > EPS))[0]
-    for e in touched:
-        out[int(e)] = edge_intervals(bool(full[e]), float(fa[e]), float(fb[e]))
+    for e in touched.tolist():
+        out[e] = edge_intervals(bool(full[e]), float(fa[e]), float(fb[e]))
     if entries:
         extra: dict[int, list[tuple[float, float]]] = {}
         for edge_idx, t0, snap in entries:

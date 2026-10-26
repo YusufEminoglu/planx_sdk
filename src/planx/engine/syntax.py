@@ -75,6 +75,7 @@ def segment_angular_analysis(
         progress=progress,
         collect_depth=True,
     )
+    assert depth is not None  # collect_depth=True always yields depth stats
     nc = depth["node_count"]
     td = depth["total_depth"]
     md = np.where(nc > 1, td / np.maximum(nc - 1, 1), 0.0)
