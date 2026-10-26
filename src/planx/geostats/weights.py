@@ -161,6 +161,23 @@ def auto_distance_band(coords: list[tuple[float, float]] | np.ndarray) -> float:
     return float(np.max(dists[:, 1]))
 
 
+def _band_neighbors(pts: np.ndarray, d: float) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Per point, ascending neighbour indices (self excluded) with squared distance <= d**2.
+
+    A KD-tree supplies candidates within a slightly padded radius; the exact
+    ``d2 <= d * d`` test is then applied, so boundary pairs match a brute-force scan.
+    """
+    d2cut = d * d
+    tree = cKDTree(pts)
+    out = []
+    for i, candidates in enumerate(tree.query_ball_point(pts, r=d * (1.0 + 1e-9) + 1e-12)):
+        idx = np.array(sorted(j for j in candidates if j != i), dtype=np.intp)
+        d2 = np.sum((pts[i] - pts[idx]) ** 2, axis=1) if idx.size else np.zeros(0)
+        keep = d2 <= d2cut
+        out.append((idx[keep], d2[keep]))
+    return out
+
+
 def build_weights(
     coords: list[tuple[float, float]] | np.ndarray,
     mode: str = "knn",
@@ -204,26 +221,16 @@ def build_weights(
                     adj[i].append((int(idx), 1.0))
     elif mode == "inverse":
         d = distance if distance > 0 else auto_distance_band(pts)
-        d2cut = d * d
-        for i in range(n):
-            for j in range(n):
-                if i == j:
-                    continue
-                d2 = float(np.sum((pts[i] - pts[j]) ** 2))
-                if d2 <= d2cut:
-                    dd = float(np.sqrt(d2))
-                    w = 1.0 / (dd**inverse_power) if dd > 0 else 0.0
-                    if w > 0:
-                        adj[i].append((j, w))
+        for i, (idx, d2s) in enumerate(_band_neighbors(pts, d)):
+            for j, d2 in zip(idx.tolist(), d2s.tolist()):
+                dd = float(np.sqrt(d2))
+                w = 1.0 / (dd**inverse_power) if dd > 0 else 0.0
+                if w > 0:
+                    adj[i].append((j, w))
     else:
         d = distance if distance > 0 else auto_distance_band(pts)
-        d2cut = d * d
-        for i in range(n):
-            for j in range(n):
-                if i == j:
-                    continue
-                if float(np.sum((pts[i] - pts[j]) ** 2)) <= d2cut:
-                    adj[i].append((j, 1.0))
+        for i, (idx, _) in enumerate(_band_neighbors(pts, d)):
+            adj[i].extend((j, 1.0) for j in idx.tolist())
 
     if row_standardize:
         for i in range(n):

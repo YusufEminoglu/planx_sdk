@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Packaging**: the build requirement now matches the PEP 639 `license = "MIT"` string
   (setuptools 77+); older setuptools rejected it when building from the sdist. `license-files`
   is declared explicitly.
+- **Performance**: `build_weights(mode="distance_band" | "inverse")` compared every pair in a
+  Python loop (8.6 s for 1,500 points, quadratic growth). Candidates now come from a KD-tree and
+  the original squared-distance test is applied unchanged, so output is bit-identical (verified
+  against the previous implementation and a brute-force reference); the same input takes 0.03 s.
 - **Typing**: resolved all remaining mypy findings in the isochrone, equity, allocation,
   infrastructure-recovery, centrality and space-syntax engines (no behaviour change).
 
