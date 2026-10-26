@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   against the previous implementation and a brute-force reference); the same input takes 0.03 s.
 - **Typing**: resolved all remaining mypy findings in the isochrone, equity, allocation,
   infrastructure-recovery, centrality and space-syntax engines (no behaviour change).
+- **GeoStats**: Global Moran's I and Geary's C undercounted S1 for asymmetric weights
+  (k-nearest neighbours): a pair linked in one direction only contributed half its share, so the
+  randomisation variance and z-score were wrong. S1 now sums all ordered pairs (matches the dense
+  Cliff-Ord formula).
+- **GeoStats**: `calculate_general_g` randomisation variance used doubled coefficients for the
+  three- and four-index terms (an order of magnitude too large); it now matches the exact
+  permutation variance.
+- **GeoStats**: `calculate_sde` projected onto the mirrored axis, so a cloud along y = x was
+  reported at 135 deg instead of 45 deg (axis lengths swapped for any rotated cloud).
+- **GeoStats**: `calculate_ols` residual Moran's I omitted the n / S0 factor, giving values
+  outside [-1, 1] for binary (non-row-standardised) weights.
+- **GeoStats**: `mann_kendall_test` Sen slope dropped tied pairs and took the upper middle value
+  instead of the median of all pairwise slopes.
+- **Transit**: `first_service_day` could return a calendar start date removed by a
+  `calendar_dates` exception (e.g. a 1 January holiday), a day with no service.
+- **Report**: comparison/ranking tables crashed on NaN or infinite metrics (which
+  `scenario.from_json` accepts); they now render as `nan` / `inf`.
+- **TOD**: land-use entropy assumed shares summing to 1; percentages or areas gave a negative
+  entropy clamped to 0. Shares are now normalised first.
 
 ## [2.27.1] - 2026-10-23
 ### Changed
