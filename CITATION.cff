@@ -7,6 +7,7 @@ authors:
     orcid: "https://orcid.org/0009-0005-6000-2934"
 title: "planx-sdk"
 version: "2.28.0"
+doi: "10.5281/zenodo.20753169"
 date-released: "2026-10-26"
 license: "MIT"
 repository-code: "https://github.com/YusufEminoglu/planx_sdk"

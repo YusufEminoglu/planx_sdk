@@ -8,6 +8,7 @@
 
 
 [![PyPI version](https://img.shields.io/pypi/v/planx-sdk.svg?color=06b6d4)](https://pypi.org/project/planx-sdk/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20753169.svg)](https://doi.org/10.5281/zenodo.20753169)
 [![Python version support](https://img.shields.io/pypi/pyversions/planx-sdk.svg?color=3b82f6)](https://pypi.org/project/planx-sdk/)
 [![Documentation](https://img.shields.io/badge/docs-GEOPHILO-10b981.svg)](https://geophilo.com/planx_sdk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/YusufEminoglu/planx_sdk/blob/main/LICENSE)
@@ -408,8 +409,9 @@ If you use PlanX SDK in scientific research, academic publications, or urban res
   author       = {Emino{\u{g}}lu, Yusuf},
   title        = {{PlanX SDK: Headless Spatial Analytics, Spatial Statistics, and Urban Resilience Engine}},
   year         = {2026},
-  publisher    = {PyPI - Python Package Index},
+  publisher    = {Zenodo},
   version      = {2.28.0},
+  doi          = {10.5281/zenodo.20753169},
   url          = {https://gitlab.com/geospacephilo/planx_sdk}
 }
 ```
