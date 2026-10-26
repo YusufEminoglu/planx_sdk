@@ -385,3 +385,36 @@ def test_spatio_temporal_kriging():
     assert len(est) == 1
     assert len(var) == 1
     assert est[0] > 0.0
+
+
+def _brute_force_band(pts, d, inverse_power=None):
+    """Reference O(n^2) distance-band / inverse-distance adjacency."""
+    adj = [[] for _ in range(len(pts))]
+    for i in range(len(pts)):
+        for j in range(len(pts)):
+            d2 = float(np.sum((pts[i] - pts[j]) ** 2))
+            if i == j or d2 > d * d:
+                continue
+            if inverse_power is None:
+                adj[i].append((j, 1.0))
+            elif d2 > 0:
+                adj[i].append((j, 1.0 / (float(np.sqrt(d2)) ** inverse_power)))
+    return adj
+
+
+@pytest.mark.parametrize("mode", ["distance_band", "inverse"])
+def test_build_weights_band_modes_match_brute_force(mode):
+    from planx.geostats.weights import auto_distance_band, build_weights
+
+    power = 2.0 if mode == "inverse" else None
+    rng = np.random.default_rng(3)
+    scattered = rng.uniform(0.0, 50.0, (60, 2))
+    scattered[-1] = scattered[0]  # duplicate point
+    # Integer grid with distance 1.0: every rook neighbour sits exactly on the boundary.
+    grid = np.array([[x, y] for x in range(6) for y in range(6)], dtype=float)
+
+    for pts, d in ((scattered, 6.0), (scattered, 0.0), (grid, 1.0)):
+        cutoff = d if d > 0 else auto_distance_band(pts)
+        got = build_weights(pts, mode=mode, distance=d, inverse_power=power or 1.0)
+        assert got == _brute_force_band(pts, cutoff, power)
+    assert all(len(row) >= 2 for row in build_weights(grid, mode=mode, distance=1.0))
