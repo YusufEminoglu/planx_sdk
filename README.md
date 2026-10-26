@@ -412,7 +412,7 @@ If you use PlanX SDK in scientific research, academic publications, or urban res
   publisher    = {Zenodo},
   version      = {2.28.0},
   doi          = {10.5281/zenodo.20753169},
-  url          = {https://gitlab.com/geospacephilo/planx_sdk}
+  url          = {https://github.com/YusufEminoglu/planx_sdk}
 }
 ```
 
