@@ -597,6 +597,8 @@ def _fmt_metric(value: float | None) -> str:
     if value is None:
         return "-"
     v = float(value)
+    if v != v or v in (float("inf"), float("-inf")):
+        return str(v)  # NaN / Infinity survive from_json; int() would raise
     if v == int(v) and abs(v) < 1e9:
         return f"{int(v):,}"
     return f"{v:,.2f}"

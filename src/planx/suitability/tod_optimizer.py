@@ -65,8 +65,15 @@ def evaluate_tod_potential(
 
         # Land-use Shannon Entropy H = - \sum p_i ln(p_i) / ln(K)
         k = len(landuse_mix)
-        if k > 1:
-            entropy_sum = sum(p * math.log(max(1e-6, p)) for p in landuse_mix.values() if p > 0)
+        # Shares are normalised to proportions first, so areas or percentages
+        # (e.g. 50/30/20) give the same entropy as 0.5/0.3/0.2.
+        share_total = sum(float(p) for p in landuse_mix.values() if p > 0)
+        if k > 1 and share_total > 0:
+            entropy_sum = sum(
+                (p / share_total) * math.log(max(1e-6, p / share_total))
+                for p in landuse_mix.values()
+                if p > 0
+            )
             h = -entropy_sum / math.log(k)
         else:
             h = 0.0

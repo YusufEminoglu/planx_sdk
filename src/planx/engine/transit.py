@@ -229,21 +229,29 @@ def active_services(gtfs: dict[str, Any], day: str) -> set[str]:
 
 def first_service_day(gtfs: dict[str, Any]) -> str:
     """A day the feed actually runs: the earliest calendar start whose
-    weekday is served (falling back to the first added exception date)."""
+    weekday is served (falling back to the first added exception date).
+    Days removed for that service by a calendar_dates exception are
+    skipped."""
+    removed = {(sid, d) for (sid, d, ex) in gtfs["calendar_dates"] if ex == 2}
     best = None
-    for cal in gtfs["calendar"].values():
+    for sid, cal in gtfs["calendar"].items():
         start, end = cal["start"], cal["end"]
         try:
             d = _date(int(start[:4]), int(start[4:6]), int(start[6:8]))
         except (ValueError, IndexError):
             continue
-        for _ in range(7):
+        for _ in range(366):
             key = d.strftime("%Y%m%d")
-            if cal["days"][d.weekday()] and key <= end:
+            if key > end:
+                break
+            if cal["days"][d.weekday()] and (sid, key) not in removed:
                 if best is None or key < best:
                     best = key
                 break
-            d = _date.fromordinal(d.toordinal() + 1)
+            try:
+                d = _date.fromordinal(d.toordinal() + 1)
+            except ValueError:
+                break
     if best is None:
         added = sorted(d for (_, d, ex) in gtfs["calendar_dates"] if ex == 1)
         if added:

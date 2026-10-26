@@ -219,8 +219,10 @@ def calculate_sde(
     cos_t = np.cos(theta)
     sin_t = np.sin(theta)
 
-    std_x = np.sqrt(np.sum(W * (x_prime * cos_t - y_prime * sin_t) ** 2) / sum_w)
-    std_y = np.sqrt(np.sum(W * (x_prime * sin_t + y_prime * cos_t) ** 2) / sum_w)
+    # theta is measured counter-clockwise from the x axis, so the axis at
+    # theta has direction (cos, sin) and its normal (-sin, cos).
+    std_x = np.sqrt(np.sum(W * (x_prime * cos_t + y_prime * sin_t) ** 2) / sum_w)
+    std_y = np.sqrt(np.sum(W * (-x_prime * sin_t + y_prime * cos_t) ** 2) / sum_w)
 
     # Semi-major/minor axes scaling
     semi_x = num_std * std_x
@@ -572,6 +574,7 @@ def calculate_ols(
     # --- DIAGNOSTIC 3: Moran's I on Residuals ---
     id_to_idx = {fid: idx for idx, fid in enumerate(id_order)}
     spatial_lag_e = np.zeros(n)
+    s0_resid = 0.0
     for idx, fid in enumerate(id_order):
         f_neighs = neighbors.get(fid, [])
         f_weights = weights.get(fid, [])
@@ -579,10 +582,13 @@ def calculate_ols(
         for j, nid in enumerate(f_neighs):
             if nid in id_to_idx:
                 lag_sum += f_weights[j] * residuals[id_to_idx[nid]]
+                s0_resid += f_weights[j]
         spatial_lag_e[idx] = lag_sum
 
-    if ss_res > 0:
-        moran_i = np.sum(residuals * spatial_lag_e) / ss_res
+    if ss_res > 0 and s0_resid != 0:
+        # I = (n / S0) * e'We / e'e (the n / S0 factor is 1 only for
+        # row-standardised weights).
+        moran_i = (n / s0_resid) * np.sum(residuals * spatial_lag_e) / ss_res
     else:
         moran_i = 0.0
 
@@ -649,21 +655,19 @@ def calculate_global_moran(
     if S0 == 0:
         return 0.0, -1.0 / (n - 1), 0.0, 0.0, 1.0
 
-    # Second pass: compute S1
-    S1 = 0.0
-    for fid in id_order:
-        neighs = neighbors.get(fid, [])
-        w_list = weights.get(fid, [])
-        for j_fid, w_ij in zip(neighs, w_list):
+    # Second pass: compute S1 = 0.5 * sum over ALL ordered pairs of
+    # (w_ij + w_ji)^2. With asymmetric weights (e.g. k-nearest neighbours)
+    # a pair present in only one direction still contributes twice.
+    w_pairs: dict[tuple[int, int], float] = {}
+    for i, fid in enumerate(id_order):
+        for j_fid, w_ij in zip(neighbors.get(fid, []), weights.get(fid, [])):
             if j_fid in id_to_idx:
-                j = id_to_idx[j_fid]
-                w_ji = 0.0
-                j_neighs = neighbors.get(j_fid, [])
-                j_w_list = weights.get(j_fid, [])
-                if fid in j_neighs:
-                    w_ji = j_w_list[j_neighs.index(fid)]
-                S1 += (w_ij + w_ji) ** 2
-    S1 = 0.5 * S1
+                key = (i, id_to_idx[j_fid])
+                w_pairs[key] = w_pairs.get(key, 0.0) + w_ij
+    all_pairs = set(w_pairs) | {(j, i) for (i, j) in w_pairs}
+    S1 = 0.5 * sum(
+        (w_pairs.get((i, j), 0.0) + w_pairs.get((j, i), 0.0)) ** 2 for (i, j) in all_pairs
+    )
 
     # Compute S2
     S2 = np.sum((w_row_sums + w_col_sums) ** 2)
@@ -753,21 +757,19 @@ def calculate_global_geary(
     if S0 == 0:
         return 1.0, 1.0, 0.0, 0.0, 1.0
 
-    # Second pass: compute S1
-    S1 = 0.0
-    for fid in id_order:
-        neighs = neighbors.get(fid, [])
-        w_list = weights.get(fid, [])
-        for j_fid, w_ij in zip(neighs, w_list):
+    # Second pass: compute S1 = 0.5 * sum over ALL ordered pairs of
+    # (w_ij + w_ji)^2. With asymmetric weights (e.g. k-nearest neighbours)
+    # a pair present in only one direction still contributes twice.
+    w_pairs: dict[tuple[int, int], float] = {}
+    for i, fid in enumerate(id_order):
+        for j_fid, w_ij in zip(neighbors.get(fid, []), weights.get(fid, [])):
             if j_fid in id_to_idx:
-                j = id_to_idx[j_fid]
-                w_ji = 0.0
-                j_neighs = neighbors.get(j_fid, [])
-                j_w_list = weights.get(j_fid, [])
-                if fid in j_neighs:
-                    w_ji = j_w_list[j_neighs.index(fid)]
-                S1 += (w_ij + w_ji) ** 2
-    S1 = 0.5 * S1
+                key = (i, id_to_idx[j_fid])
+                w_pairs[key] = w_pairs.get(key, 0.0) + w_ij
+    all_pairs = set(w_pairs) | {(j, i) for (i, j) in w_pairs}
+    S1 = 0.5 * sum(
+        (w_pairs.get((i, j), 0.0) + w_pairs.get((j, i), 0.0)) ** 2 for (i, j) in all_pairs
+    )
 
     # Compute S2
     S2 = np.sum((w_row_sums + w_col_sums) ** 2)
@@ -1337,13 +1339,12 @@ def calculate_general_g(
         - 6.0 * x_sum4
     )
 
+    # E[(sum_ij w_ij x_i x_j)^2] under random permutation, split by how
+    # many indices the two pairs (i, j), (k, l) share: two (A1 + A2), one
+    # (A3 + 2 A4 - 2 A1 - 2 A2) or none (the remaining S0^2 weight).
     term1 = (A1 + A2) * S_22 / (n * (n - 1))
-    term2 = (2.0 * A3 + 4.0 * A4 - 4.0 * A1 - 4.0 * A2) * S_211 / (n * (n - 1) * (n - 2))
-    term3 = (
-        (A5 - 2.0 * A3 - 4.0 * A4 + 3.0 * A1 + 3.0 * A2)
-        * S_1111
-        / (n * (n - 1) * (n - 2) * (n - 3))
-    )
+    term2 = (A3 + 2.0 * A4 - 2.0 * A1 - 2.0 * A2) * S_211 / (n * (n - 1) * (n - 2))
+    term3 = (A5 - A3 - 2.0 * A4 + A1 + A2) * S_1111 / (n * (n - 1) * (n - 2) * (n - 3))
 
     E_A2 = term1 + term2 + term3
     E_G2 = E_A2 / (denominator**2)
@@ -5006,13 +5007,13 @@ def mann_kendall_test(series: list[float]) -> tuple[float, float, float]:
 
     p_value = 2.0 * (1.0 - stats.norm.cdf(abs(z)))
 
+    # Sen (1968): the median of ALL pairwise slopes, tied pairs (slope 0)
+    # included; an even count averages the two middle slopes.
     slopes = []
     for i in range(n - 1):
         for j in range(i + 1, n):
-            if series[j] != series[i]:
-                slopes.append((series[j] - series[i]) / (j - i))
-    slopes.sort()
-    sen_slope = slopes[len(slopes) // 2] if slopes else 0.0
+            slopes.append((series[j] - series[i]) / (j - i))
+    sen_slope = float(np.median(slopes)) if slopes else 0.0
     tau = s / (n * (n - 1) / 2.0) if n > 1 else 0.0
 
     return tau, float(p_value), sen_slope
