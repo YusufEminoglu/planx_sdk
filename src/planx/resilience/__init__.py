@@ -32,6 +32,12 @@ from .flood import (
     tsunami_evacuation_routing_engine,
     urban_stormwater_peak_runoff,
 )
+from .green_factor_biotope_area_ratio import (
+    BiotopeAreaReport,
+    BiotopeSurfaceElement,
+    SurfaceEcologicalType,
+    calculate_biotope_area_factor,
+)
 from .heat import (
     calculate_building_solar_radiation,
     calculate_grid_sky_view_factor,
@@ -163,4 +169,9 @@ __all__ = [
     "evaluate_seismic_building_damage_hazus",
     "SeismicDamageResult",
     "BuildingFragilityCurve",
+    # Berlin BAF & Malmö Green Factor Ecological Biotope Engine
+    "calculate_biotope_area_factor",
+    "BiotopeAreaReport",
+    "BiotopeSurfaceElement",
+    "SurfaceEcologicalType",
 ]

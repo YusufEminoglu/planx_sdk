@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.28.2] - 2026-11-07
+### Added
+- **Resilience**: Berlin Biotope Area Factor (BAF / BFF) and Malmö Green Factor (GYF) ecological surface area engine (`planx.resilience.calculate_biotope_area_factor`).
+  - Implements statutory weighting matrix across 8 surface categories (impervious pavement, semi-permeable pavers, extensive/intensive green roofs, soil-connected vegetation, canopy cover, vertical green facades, stormwater retention basins).
+  - Rational method composite runoff coefficient ($C_{comp}$) and stormwater peak attenuation estimation.
+  - Shannon-Wiener ecological biodiversity entropy index ($H'$) over weighted surface habitat distributions.
+  - Evapotranspiration microclimate cooling potential score (0–10 scale).
+  - Statutory municipal planning compliance verification with serialisable report structures (`BiotopeAreaReport`, `BiotopeSurfaceElement`).
+
+
 ## [2.28.1] - 2026-10-27
 ### Changed
 - Project URLs (Repository, Changelog) and all README and documentation-site links now point to the GitHub repository instead of GitLab.
